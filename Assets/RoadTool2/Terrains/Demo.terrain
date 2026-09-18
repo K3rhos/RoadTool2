@@ -1,0 +1,29 @@
+{
+  "Maps": {
+    "$blob": "ce194064-9620-8ad0-b99a-7d3038f75160"
+  },
+  "Resolution": 512,
+  "TerrainSize": 10000,
+  "TerrainHeight": 5000,
+  "Materials": [
+    "textures/grass/grass_cut.tmat",
+    "textures/gravel/gravel.tmat"
+  ],
+  "MaterialSettings": {
+    "HeightBlendEnabled": true,
+    "HeightBlendSharpness": 0.87,
+    "Sampler": {
+      "Filter": "Anisotropic",
+      "AddressModeU": "Wrap",
+      "AddressModeV": "Wrap",
+      "AddressModeW": "Wrap",
+      "MipLodBias": 0,
+      "MaxAnisotropy": 8,
+      "BorderColor": "0,0,0,0",
+      "Index": 1
+    }
+  },
+  "ResourceVersion": 3,
+  "__references": [],
+  "__version": 3
+}
