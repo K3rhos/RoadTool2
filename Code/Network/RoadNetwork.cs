@@ -45,14 +45,26 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 	/// </summary>
 	[Property, Hide] public int NextId { get; set; } = 1;
 
-	[Property(Title = "Material"), Group("Road")] public Material RoadMaterial { get; set { field = value; MarkDirty(); } }
-	[Property(Title = "Texture Repeat"), Group("Road"), Range(10.0f, 10000.0f)] public float TextureRepeat { get; set { field = value.Clamp(1.0f, 100000.0f); MarkDirty(); } } = 500.0f;
+	/// <summary>
+	/// The road type used by roads that have none of their own.
+	/// </summary>
+	[Property(Title = "Default Profile"), Group("Road")] public RoadProfile DefaultProfile { get; set { field = value; MarkDirty(); } }
 
 	/// <summary>
 	/// How far above the node positions the road surface sits. Nodes are placed on the ground, so without this the
 	/// surface would z-fight with flat terrain.
 	/// </summary>
 	[Property(Title = "Surface Offset"), Group("Road"), Range(0.0f, 50.0f)] public float SurfaceOffset { get; set { field = value; MarkDirty(); } } = 1.0f;
+
+
+
+	/// <summary>
+	/// The road type a segment is built as: its own, else the network's default, else plain asphalt.
+	/// </summary>
+	public RoadProfile ProfileOf(RoadSegment _Segment)
+	{
+		return _Segment?.Profile ?? DefaultProfile ?? RoadProfile.Fallback;
+	}
 
 	[Property(Title = "Sample Spacing"), Group("Generation"), Range(10.0f, 200.0f)] public float SampleSpacing { get; set { field = value.Clamp(5.0f, 1000.0f); MarkDirty(); } } = 80.0f;
 	[Property(Title = "Chunk Length"), Group("Generation"), Range(200.0f, 10000.0f)] public float ChunkLength { get; set { field = value.Clamp(100.0f, 100000.0f); MarkDirty(); } } = 3000.0f;
@@ -139,7 +151,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 	/// Joins two nodes with a road. Returns null when the join makes no sense (same node, unknown node, or a road
 	/// already runs between them).
 	/// </summary>
-	public RoadSegment AddSegment(int _StartNodeId, int _EndNodeId, float _Width)
+	public RoadSegment AddSegment(int _StartNodeId, int _EndNodeId, float _Width, RoadProfile _Profile = null)
 	{
 		if (_StartNodeId == _EndNodeId)
 			return null;
@@ -161,6 +173,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			StartNodeId = _StartNodeId,
 			EndNodeId = _EndNodeId,
 			Width = _Width,
+			Profile = _Profile,
 			StartTangent = StraightHandle(start.Position, end.Position),
 			EndTangent = StraightHandle(end.Position, start.Position)
 		};
@@ -216,6 +229,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			StartNodeId = node.Id,
 			EndNodeId = endNodeId,
 			Width = segment.Width,
+			Profile = segment.Profile,
 			StartTangent = second.P1 - second.P0,
 			EndTangent = second.P2 - second.P3
 		});

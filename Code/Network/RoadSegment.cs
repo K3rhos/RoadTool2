@@ -3,8 +3,9 @@ using Sandbox;
 namespace RedSnail.RoadTool2;
 
 /// <summary>
-/// A road between two nodes: a cubic Bezier whose handles hang off the nodes, plus the profile the road is built
-/// with. Every segment owns its own profile, which is what lets a road change type from one node to the next.
+/// A road between two nodes: a cubic Bezier whose handles hang off the nodes, plus the road type it is built as.
+/// Every segment carries its own profile and width, which is what lets a road change type from one node to the
+/// next.
 /// </summary>
 public sealed class RoadSegment
 {
@@ -25,6 +26,11 @@ public sealed class RoadSegment
 	public Vector3 EndTangent { get; set; }
 
 	[Range(50.0f, 2000.0f)] public float Width { get; set; } = 500.0f;
+
+	/// <summary>
+	/// The road type: surface material and borders. Null falls back to the network's default profile.
+	/// </summary>
+	public RoadProfile Profile { get; set; }
 
 
 

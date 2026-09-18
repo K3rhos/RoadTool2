@@ -11,26 +11,26 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 3;
+	private const int GeneratorVersion = 5;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
 	/// </summary>
 	private const float MinChunkLength = 1.0f;
 
-	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, long Signature);
+	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, long Signature);
 
 	private readonly record struct PendingGroup(long Signature, int Remaining);
 
 	/// <summary>
-	/// One piece to (re)build: a chunk of a segment, or, when <see cref="NodeId"/> is set, a junction.
+	/// One piece to (re)build: a chunk of a segment, or, when <see cref="NodeId"/> is set, a piece of a junction.
 	/// </summary>
-	private readonly record struct RebuildJob(int SegmentId, int NodeId, long GroupSignature, ChunkPlan Plan, RoadCurveTable Table, float Width, RoadJunctionLayout Junction);
+	private readonly record struct RebuildJob(int SegmentId, int NodeId, RoadChunkKind Kind, long GroupSignature, ChunkPlan Plan, RoadCurveTable Table, float Width, RoadProfile Profile, RoadJunctionLayout Junction);
 
 	private bool m_IsDirty;
 	private readonly Queue<RebuildJob> m_Jobs = new();
 	private readonly Dictionary<int, PendingGroup> m_PendingSegments = new();
-	private readonly Dictionary<int, PendingGroup> m_PendingJunctions = new();
+	private readonly Dictionary<(int NodeId, RoadChunkKind Kind), PendingGroup> m_PendingJunctions = new();
 
 	/// <summary>
 	/// Junction layouts keyed by node, each with a hash of what it was computed from. Finding corners on curved
@@ -108,16 +108,16 @@ public sealed partial class RoadNetwork
 
 
 
-	private RoadChunk FindChunk(int _SegmentId, int _ChunkIndex)
+	private RoadChunk FindChunk(int _SegmentId, int _ChunkIndex, RoadChunkKind _Kind)
 	{
-		return GetChunks().FirstOrDefault(chunk => !chunk.IsJunction && chunk.SegmentId == _SegmentId && chunk.ChunkIndex == _ChunkIndex);
+		return GetChunks().FirstOrDefault(chunk => !chunk.IsJunction && chunk.SegmentId == _SegmentId && chunk.ChunkIndex == _ChunkIndex && chunk.Kind == _Kind);
 	}
 
 
 
-	private RoadChunk FindJunctionChunk(int _NodeId)
+	private RoadChunk FindJunctionChunk(int _NodeId, RoadChunkKind _Kind)
 	{
-		return GetChunks().FirstOrDefault(chunk => chunk.IsJunction && chunk.NodeId == _NodeId);
+		return GetChunks().FirstOrDefault(chunk => chunk.IsJunction && chunk.NodeId == _NodeId && chunk.Kind == _Kind);
 	}
 
 
@@ -132,17 +132,17 @@ public sealed partial class RoadNetwork
 		PruneCurveTables();
 
 		var segmentChunks = new Dictionary<int, List<RoadChunk>>();
-		var junctionChunks = new Dictionary<int, RoadChunk>();
+		var junctionChunks = new Dictionary<(int NodeId, RoadChunkKind Kind), RoadChunk>();
 
 		foreach (var chunk in GetChunks())
 		{
 			if (chunk.IsJunction)
 			{
 				// Two pieces for one junction can only be leftovers; keep one, the reconcile sorts out whether it is current.
-				if (junctionChunks.TryGetValue(chunk.NodeId, out var duplicate))
+				if (junctionChunks.TryGetValue((chunk.NodeId, chunk.Kind), out var duplicate))
 					duplicate.GameObject.Destroy();
 
-				junctionChunks[chunk.NodeId] = chunk;
+				junctionChunks[(chunk.NodeId, chunk.Kind)] = chunk;
 				continue;
 			}
 
@@ -167,9 +167,11 @@ public sealed partial class RoadNetwork
 
 			liveSegments.Add(segment.Id);
 
+			var profile = ProfileOf(segment);
 			float trimStart = layouts.GetValueOrDefault(segment.StartNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f;
 			float trimEnd = layouts.GetValueOrDefault(segment.EndNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f;
-			var plans = PlanChunks(table, trimStart, trimEnd, ComputeSegmentSignature(segment, table.Curve));
+			var caps = ComputeBorderCaps(segment, layouts);
+			var plans = PlanChunks(table, trimStart, trimEnd, profile, caps, ComputeSurfaceSignature(segment, table.Curve, profile));
 			long groupSignature = CombineSignatures(plans);
 
 			segmentChunks.TryGetValue(segment.Id, out var existing);
@@ -181,21 +183,19 @@ public sealed partial class RoadNetwork
 			if (m_PendingSegments.TryGetValue(segment.Id, out var pending) && pending.Signature == groupSignature)
 				continue;
 
-			EnqueueSegment(segment, table, plans, groupSignature, existing);
+			EnqueueSegment(segment, table, profile, plans, groupSignature, existing);
 		}
 
 		foreach (var (nodeId, layout) in layouts)
 		{
-			long signature = ComputeJunctionSignature(layout);
+			ReconcileJunctionPiece(nodeId, layout, RoadChunkKind.Surface, ComputeJunctionSurfaceSignature(layout), junctionChunks);
 
-			if (junctionChunks.TryGetValue(nodeId, out var existing) && (existing.Locked || existing.Signature == signature))
-				continue;
+			bool anyBorder = layout.Arms.Any(arm => ProfileOf(arm.Segment).HasBorder);
 
-			if (m_PendingJunctions.TryGetValue(nodeId, out var pending) && pending.Signature == signature)
-				continue;
-
-			m_Jobs.Enqueue(new RebuildJob(-1, nodeId, signature, default, null, 0.0f, layout));
-			m_PendingJunctions[nodeId] = new PendingGroup(signature, 1);
+			if (anyBorder)
+				ReconcileJunctionPiece(nodeId, layout, RoadChunkKind.Border, ComputeJunctionBorderSignature(layout), junctionChunks);
+			else if (junctionChunks.TryGetValue((nodeId, RoadChunkKind.Border), out var border))
+				border.GameObject.Destroy();
 		}
 
 		// Whatever no longer belongs to anything in the graph goes, locked or not.
@@ -210,14 +210,30 @@ public sealed partial class RoadNetwork
 			m_PendingSegments.Remove(segmentId);
 		}
 
-		foreach (var (nodeId, chunk) in junctionChunks)
+		foreach (var (key, chunk) in junctionChunks)
 		{
-			if (layouts.ContainsKey(nodeId))
+			if (layouts.ContainsKey(key.NodeId))
 				continue;
 
 			chunk.GameObject.Destroy();
-			m_PendingJunctions.Remove(nodeId);
+			m_PendingJunctions.Remove(key);
 		}
+	}
+
+
+
+	private void ReconcileJunctionPiece(int _NodeId, RoadJunctionLayout _Layout, RoadChunkKind _Kind, long _Signature, Dictionary<(int NodeId, RoadChunkKind Kind), RoadChunk> _Existing)
+	{
+		var key = (_NodeId, _Kind);
+
+		if (_Existing.TryGetValue(key, out var existing) && (existing.Locked || existing.Signature == _Signature))
+			return;
+
+		if (m_PendingJunctions.TryGetValue(key, out var pending) && pending.Signature == _Signature)
+			return;
+
+		m_Jobs.Enqueue(new RebuildJob(-1, _NodeId, _Kind, _Signature, default, null, 0.0f, null, _Layout));
+		m_PendingJunctions[key] = new PendingGroup(_Signature, 1);
 	}
 
 
@@ -291,33 +307,132 @@ public sealed partial class RoadNetwork
 
 
 	/// <summary>
-	/// Splits a segment into chunks at fixed distances from its start, clipped by the junction trims at each end.
-	/// Anchoring the boundaries to the segment rather than to the trimmed length means a junction change at one
-	/// end only touches the chunk next to it.
+	/// Which ends of a segment's borders nothing continues: a road end, a side of a junction with no corner on it,
+	/// or a pass-through node where the road changes type or width.
 	/// </summary>
-	private List<ChunkPlan> PlanChunks(RoadCurveTable _Table, float _TrimStart, float _TrimEnd, long _BaseSignature)
+	private BorderCaps ComputeBorderCaps(RoadSegment _Segment, Dictionary<int, RoadJunctionLayout> _Layouts)
+	{
+		var caps = BorderCaps.None;
+
+		if (IsBorderOpen(_Segment, _Segment.StartNodeId, true, _Layouts, out bool startLeft, out bool startRight))
+		{
+			caps |= startLeft ? BorderCaps.StartLeft : BorderCaps.None;
+			caps |= startRight ? BorderCaps.StartRight : BorderCaps.None;
+		}
+
+		if (IsBorderOpen(_Segment, _Segment.EndNodeId, false, _Layouts, out bool endLeft, out bool endRight))
+		{
+			caps |= endLeft ? BorderCaps.EndLeft : BorderCaps.None;
+			caps |= endRight ? BorderCaps.EndRight : BorderCaps.None;
+		}
+
+		return caps;
+	}
+
+
+
+	private bool IsBorderOpen(RoadSegment _Segment, int _NodeId, bool _AtStart, Dictionary<int, RoadJunctionLayout> _Layouts, out bool _Left, out bool _Right)
+	{
+		int degree = GetDegree(_NodeId);
+
+		if (degree <= 1)
+		{
+			_Left = true;
+			_Right = true;
+			return true;
+		}
+
+		if (_Layouts.TryGetValue(_NodeId, out var layout))
+		{
+			// A corner path starting on this arm continues its left border (looking out of the node); one ending on
+			// it continues its right. Looking out of the node along a segment that ends there swaps the sides.
+			bool armLeftContinued = layout.CornerPaths.Any(path => path.ArmA.Segment == _Segment);
+			bool armRightContinued = layout.CornerPaths.Any(path => path.ArmB.Segment == _Segment);
+
+			_Left = !(_AtStart ? armLeftContinued : armRightContinued);
+			_Right = !(_AtStart ? armRightContinued : armLeftContinued);
+			return _Left || _Right;
+		}
+
+		if (degree == 2)
+		{
+			var other = GetSegmentsAt(_NodeId).FirstOrDefault(candidate => candidate != _Segment);
+			bool continuous = other is not null && ReferenceEquals(ProfileOf(other), ProfileOf(_Segment)) && other.Width == _Segment.Width;
+
+			_Left = !continuous;
+			_Right = !continuous;
+			return !continuous;
+		}
+
+		_Left = true;
+		_Right = true;
+		return true;
+	}
+
+
+
+	/// <summary>
+	/// Splits a segment into chunks at fixed distances from its start, clipped by the junction trims at each end,
+	/// with a border chunk over each stretch when the road type has borders. Anchoring the boundaries to the
+	/// segment rather than to the trimmed length means a junction change at one end only touches the chunk next
+	/// to it.
+	/// </summary>
+	private List<ChunkPlan> PlanChunks(RoadCurveTable _Table, float _TrimStart, float _TrimEnd, RoadProfile _Profile, BorderCaps _Caps, long _SurfaceSignature)
 	{
 		float length = _Table.Length;
 		int count = Math.Max(1, (int)MathF.Ceiling(length / ChunkLength));
 		float usableEnd = length - _TrimEnd;
-		var plans = new List<ChunkPlan>(count);
+		var ranges = new List<(int Index, float Start, float End)>(count);
 
 		for (int i = 0; i < count; i++)
 		{
 			float start = MathF.Max(length * i / count, _TrimStart);
 			float end = MathF.Min(length * (i + 1) / count, usableEnd);
 
-			if (end - start < MinChunkLength)
-				continue;
+			if (end - start >= MinChunkLength)
+				ranges.Add((i, start, end));
+		}
+
+		var plans = new List<ChunkPlan>(ranges.Count * 2);
+		var borderHash = StableHash.Create();
+		borderHash.Add(_SurfaceSignature);
+		_Profile.AddBorderToHash(ref borderHash);
+		long borderSignature = borderHash.Value;
+
+		for (int r = 0; r < ranges.Count; r++)
+		{
+			var (index, start, end) = ranges[r];
 
 			var hash = StableHash.Create();
-			hash.Add(_BaseSignature);
-			hash.Add(i);
+			hash.Add(_SurfaceSignature);
+			hash.Add(index);
 			hash.Add(count);
 			hash.Add(start);
 			hash.Add(end);
 
-			plans.Add(new ChunkPlan(i, count, start, end, hash.Value));
+			plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Surface, BorderCaps.None, hash.Value));
+
+			if (!_Profile.HasBorder)
+				continue;
+
+			// Only the outermost stretches have open ends to close.
+			var caps = BorderCaps.None;
+
+			if (r == 0)
+				caps |= _Caps & (BorderCaps.StartLeft | BorderCaps.StartRight);
+
+			if (r == ranges.Count - 1)
+				caps |= _Caps & (BorderCaps.EndLeft | BorderCaps.EndRight);
+
+			hash = StableHash.Create();
+			hash.Add(borderSignature);
+			hash.Add(index);
+			hash.Add(count);
+			hash.Add(start);
+			hash.Add(end);
+			hash.Add((int)caps);
+
+			plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Border, caps, hash.Value));
 		}
 
 		return plans;
@@ -347,7 +462,7 @@ public sealed partial class RoadNetwork
 
 		foreach (var plan in _Plans)
 		{
-			var chunk = _Existing.FirstOrDefault(candidate => candidate.ChunkIndex == plan.Index);
+			var chunk = _Existing.FirstOrDefault(candidate => candidate.ChunkIndex == plan.Index && candidate.Kind == plan.Kind);
 
 			if (chunk is null)
 				return false;
@@ -362,7 +477,7 @@ public sealed partial class RoadNetwork
 
 
 
-	private long ComputeSegmentSignature(RoadSegment _Segment, in RoadCurve _Curve)
+	private long ComputeSurfaceSignature(RoadSegment _Segment, in RoadCurve _Curve, RoadProfile _Profile)
 	{
 		var hash = StableHash.Create();
 
@@ -374,9 +489,8 @@ public sealed partial class RoadNetwork
 		hash.Add(_Segment.Width);
 		hash.Add(SampleSpacing);
 		hash.Add(ChunkLength);
-		hash.Add(TextureRepeat);
 		hash.Add(SurfaceOffset);
-		hash.Add(RoadMaterial?.ResourcePath);
+		_Profile.AddSurfaceToHash(ref hash);
 
 		return hash.Value;
 	}
@@ -415,33 +529,72 @@ public sealed partial class RoadNetwork
 
 
 
-	private long ComputeJunctionSignature(RoadJunctionLayout _Layout)
+	private static void AddPolygonToHash(RoadJunctionLayout _Layout, ref StableHash _Hash)
+	{
+		_Hash.Add(GeneratorVersion);
+		_Hash.Add(_Layout.Centre);
+		_Hash.Add(_Layout.Polygon.Count);
+
+		foreach (var vertex in _Layout.Polygon)
+			_Hash.Add(vertex);
+	}
+
+
+
+	private long ComputeJunctionSurfaceSignature(RoadJunctionLayout _Layout)
 	{
 		var hash = StableHash.Create();
 
-		hash.Add(GeneratorVersion);
-		hash.Add(_Layout.Centre);
-		hash.Add(_Layout.Polygon.Count);
-
-		foreach (var vertex in _Layout.Polygon)
-			hash.Add(vertex);
-
-		hash.Add(TextureRepeat);
-		hash.Add(RoadMaterial?.ResourcePath);
+		AddPolygonToHash(_Layout, ref hash);
+		JunctionSurfaceProfile(_Layout).AddSurfaceToHash(ref hash);
 
 		return hash.Value;
 	}
 
 
 
-	private void EnqueueSegment(RoadSegment _Segment, RoadCurveTable _Table, List<ChunkPlan> _Plans, long _GroupSignature, List<RoadChunk> _Existing)
+	private long ComputeJunctionBorderSignature(RoadJunctionLayout _Layout)
 	{
-		// Chunks with no plan (swallowed by a junction, or past a shorter road's end) have no job coming to replace them.
+		var hash = StableHash.Create();
+
+		AddPolygonToHash(_Layout, ref hash);
+
+		foreach (var arm in _Layout.Arms)
+		{
+			var profile = ProfileOf(arm.Segment);
+
+			hash.Add(arm.Segment.Id);
+			hash.Add(arm.AtStart ? 1 : 0);
+			profile.AddSurfaceToHash(ref hash);
+			profile.AddBorderToHash(ref hash);
+		}
+
+		return hash.Value;
+	}
+
+
+
+	/// <summary>
+	/// A junction's surface takes after its main road: the widest arm.
+	/// </summary>
+	private RoadProfile JunctionSurfaceProfile(RoadJunctionLayout _Layout)
+	{
+		var main = _Layout.Arms.OrderByDescending(arm => arm.Width).ThenBy(arm => arm.Segment.Id).First();
+
+		return ProfileOf(main.Segment);
+	}
+
+
+
+	private void EnqueueSegment(RoadSegment _Segment, RoadCurveTable _Table, RoadProfile _Profile, List<ChunkPlan> _Plans, long _GroupSignature, List<RoadChunk> _Existing)
+	{
+		// Chunks with no plan (swallowed by a junction, past a shorter road's end, or a border the road no longer
+		// has) have no job coming to replace them.
 		if (_Existing is not null)
 		{
 			foreach (var chunk in _Existing)
 			{
-				if (!chunk.Locked && _Plans.All(plan => plan.Index != chunk.ChunkIndex))
+				if (!chunk.Locked && _Plans.All(plan => plan.Index != chunk.ChunkIndex || plan.Kind != chunk.Kind))
 					chunk.GameObject.Destroy();
 			}
 		}
@@ -453,7 +606,7 @@ public sealed partial class RoadNetwork
 		}
 
 		foreach (var plan in _Plans)
-			m_Jobs.Enqueue(new RebuildJob(_Segment.Id, -1, _GroupSignature, plan, _Table, _Segment.Width, null));
+			m_Jobs.Enqueue(new RebuildJob(_Segment.Id, -1, plan.Kind, _GroupSignature, plan, _Table, _Segment.Width, _Profile, null));
 
 		m_PendingSegments[_Segment.Id] = new PendingGroup(_GroupSignature, _Plans.Count);
 	}
@@ -470,14 +623,16 @@ public sealed partial class RoadNetwork
 
 			if (job.NodeId >= 0)
 			{
+				var key = (job.NodeId, job.Kind);
+
 				// Superseded by a newer layout of the same junction, or the junction is gone.
-				if (!m_PendingJunctions.TryGetValue(job.NodeId, out var pending) || pending.Signature != job.GroupSignature)
+				if (!m_PendingJunctions.TryGetValue(key, out var pending) || pending.Signature != job.GroupSignature)
 					continue;
 
-				BuildJunction(job);
+				BuildJunctionPiece(job);
 				budget--;
 
-				m_PendingJunctions.Remove(job.NodeId);
+				m_PendingJunctions.Remove(key);
 				continue;
 			}
 
@@ -504,14 +659,26 @@ public sealed partial class RoadNetwork
 	private bool BuildChunk(in RebuildJob _Job)
 	{
 		var plan = _Job.Plan;
-		var existing = FindChunk(_Job.SegmentId, plan.Index);
+		var existing = FindChunk(_Job.SegmentId, plan.Index, plan.Kind);
 
 		if (existing is not null && (existing.Locked || existing.Signature == plan.Signature))
 			return false;
 
-		var mesh = RoadSurfaceBuilder.Build(_Job.Table, plan.Start, plan.End, _Job.Width, SampleSpacing, TextureRepeat, SurfaceOffset, SurfaceMaterial);
+		PolygonMesh mesh;
+		string name;
 
-		CreateChunkObject($"Road {_Job.SegmentId} [{plan.Index + 1}/{plan.Count}]", _Job.SegmentId, -1, plan.Index, plan.Count, plan.Signature, mesh);
+		if (plan.Kind == RoadChunkKind.Border)
+		{
+			mesh = RoadBorderBuilder.BuildSegment(_Job.Table, plan.Start, plan.End, _Job.Width, _Job.Profile, SampleSpacing, SurfaceOffset, plan.Caps);
+			name = $"Road {_Job.SegmentId} border [{plan.Index + 1}/{plan.Count}]";
+		}
+		else
+		{
+			mesh = RoadSurfaceBuilder.Build(_Job.Table, plan.Start, plan.End, _Job.Width, SampleSpacing, _Job.Profile.RoadTextureRepeat, SurfaceOffset, _Job.Profile.ResolvedRoadMaterial);
+			name = $"Road {_Job.SegmentId} [{plan.Index + 1}/{plan.Count}]";
+		}
+
+		CreateChunkObject(name, _Job.SegmentId, -1, plan.Kind, plan.Index, plan.Count, plan.Signature, mesh);
 
 		// The new piece is in place before the old one goes, so the road never flickers.
 		existing?.GameObject.Destroy();
@@ -521,27 +688,37 @@ public sealed partial class RoadNetwork
 
 
 
-	private void BuildJunction(in RebuildJob _Job)
+	private void BuildJunctionPiece(in RebuildJob _Job)
 	{
-		var existing = FindJunctionChunk(_Job.NodeId);
+		var existing = FindJunctionChunk(_Job.NodeId, _Job.Kind);
 
 		if (existing is not null && existing.Locked)
 			return;
 
-		var mesh = RoadJunctionBuilder.Build(_Job.Junction, TextureRepeat, SurfaceMaterial);
+		PolygonMesh mesh;
+		string name;
 
-		CreateChunkObject($"Junction {_Job.NodeId}", -1, _Job.NodeId, 0, 1, _Job.GroupSignature, mesh);
+		if (_Job.Kind == RoadChunkKind.Border)
+		{
+			mesh = RoadBorderBuilder.BuildJunction(_Job.Junction, ProfileOf);
+			name = $"Junction {_Job.NodeId} border";
+		}
+		else
+		{
+			var profile = JunctionSurfaceProfile(_Job.Junction);
+
+			mesh = RoadJunctionBuilder.Build(_Job.Junction, profile.RoadTextureRepeat, profile.ResolvedRoadMaterial);
+			name = $"Junction {_Job.NodeId}";
+		}
+
+		CreateChunkObject(name, -1, _Job.NodeId, _Job.Kind, 0, 1, _Job.GroupSignature, mesh);
 
 		existing?.GameObject.Destroy();
 	}
 
 
 
-	private Material SurfaceMaterial => RoadMaterial ?? Material.Load("roadtool2/materials/asphalt.vmat");
-
-
-
-	private void CreateChunkObject(string _Name, int _SegmentId, int _NodeId, int _Index, int _Count, long _Signature, PolygonMesh _Mesh)
+	private void CreateChunkObject(string _Name, int _SegmentId, int _NodeId, RoadChunkKind _Kind, int _Index, int _Count, long _Signature, PolygonMesh _Mesh)
 	{
 		var child = new GameObject(GameObject, true, _Name);
 		child.Tags.Add(ChunkTag);
@@ -549,6 +726,7 @@ public sealed partial class RoadNetwork
 		var chunk = child.AddComponent<RoadChunk>();
 		chunk.SegmentId = _SegmentId;
 		chunk.NodeId = _NodeId;
+		chunk.Kind = _Kind;
 		chunk.ChunkIndex = _Index;
 		chunk.ChunkCount = _Count;
 		chunk.Signature = _Signature;

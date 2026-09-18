@@ -102,9 +102,35 @@ internal sealed class RoadJunctionLayout
 		public float TangentParamA;
 		public float TangentParamB;
 
+		/// <summary>
+		/// Unit direction from the sharp corner point towards the fillet centre, and the sine of half the angle
+		/// between the two edges there: together they place where lines offset from the two edges meet.
+		/// </summary>
+		public Vector2 Bisector;
+		public float HalfAngleSin;
+
 		public float EndA => HasFillet ? TangentParamA : ParamA;
 
 		public float EndB => HasFillet ? TangentParamB : ParamB;
+	}
+
+	/// <summary>
+	/// How a border folds round a fillet whose centre lies on the border's side (the inside corner of a junction).
+	/// Offsetting the arc towards its centre by more than the radius would fold the surface over itself; past the
+	/// radius the outline is the square block corner instead: the point where lines offset from the two road
+	/// edges by that much cross.
+	/// </summary>
+	public sealed class CornerFold
+	{
+		public Vector2 Apex;
+		public Vector2 Bisector;
+		public float HalfAngleSin;
+		public float Radius;
+
+		public Vector2 MitrePoint(float _Offset)
+		{
+			return Apex + Bisector * (_Offset / HalfAngleSin);
+		}
 	}
 
 	private readonly struct Hit
@@ -140,6 +166,38 @@ internal sealed class RoadJunctionLayout
 	private const float SampleStep = 30.0f;
 	private const float ArcStepDegrees = 15.0f;
 
+	/// <summary>
+	/// The stretch of outline between two neighbouring arms: from arm A's row along its left edge to the corner,
+	/// round the corner, and out along arm B's right edge to B's row. Borders follow these; the half up to
+	/// <see cref="MidIndex"/> belongs to arm A, the rest to arm B.
+	/// </summary>
+	public sealed class CornerPath
+	{
+		public Arm ArmA;
+		public Arm ArmB;
+		public List<Vector3> Points = new();
+		public int MidIndex;
+
+		/// <summary>
+		/// Range of points on the fillet arc proper (between the two tangent points); -1 when the corner is sharp.
+		/// </summary>
+		public int ArcFirst = -1;
+		public int ArcLast = -1;
+
+		/// <summary>
+		/// Set when the fillet centre lies on the border's side, so borders wider than the radius need the block
+		/// corner treatment along the arc.
+		/// </summary>
+		public CornerFold Fold;
+
+		/// <summary>
+		/// Away-from-road directions at the two rows, exactly as the arm chunks compute them, so the border pieces
+		/// meet without a crack.
+		/// </summary>
+		public Vector3 StartOutward;
+		public Vector3 EndOutward;
+	}
+
 	public RoadNode Node { get; }
 
 	public List<Arm> Arms { get; } = new();
@@ -148,6 +206,8 @@ internal sealed class RoadJunctionLayout
 	/// The filled area, in lifted local space, counter-clockwise seen from above. Empty until <see cref="BuildPolygon"/>.
 	/// </summary>
 	public List<Vector3> Polygon { get; } = new();
+
+	public List<CornerPath> CornerPaths { get; } = new();
 
 	public Vector3 Centre { get; private set; }
 
@@ -369,6 +429,8 @@ internal sealed class RoadJunctionLayout
 		_Corner.TangentB = tangentB;
 		_Corner.TangentParamA = paramA;
 		_Corner.TangentParamB = paramB;
+		_Corner.Bisector = bisector;
+		_Corner.HalfAngleSin = MathF.Max(0.01f, MathF.Sin(angle.DegreeToRadian() * 0.5f));
 	}
 
 
@@ -482,41 +544,31 @@ internal sealed class RoadJunctionLayout
 	public void BuildPolygon()
 	{
 		Polygon.Clear();
+		CornerPaths.Clear();
 		Centre = Node.Position + Vector3.Up * m_Lift;
 
 		for (int i = 0; i < Arms.Count; i++)
 		{
 			var arm = Arms[i];
-			float halfWidth = arm.Width * 0.5f;
 
-			RoadSurfaceBuilder.CrossSection(arm.Table, arm.CurveDistance(arm.Trim), halfWidth, m_Lift, out Vector3 curveLeft, out Vector3 curveRight);
-
-			AddVertex(arm.AtStart ? curveRight : curveLeft);
-			AddVertex(arm.AtStart ? curveLeft : curveRight);
+			RowPoints(arm, out Vector3 rowRight, out Vector3 rowLeft, out _);
+			AddVertex(Polygon, rowRight);
 
 			var corner = m_Corners.Find(candidate => candidate.ArmA == i);
 
-			// No corner: a road running straight through, the next arm's edge carries on from this one.
+			// No corner: nothing joins this side to the next arm, the outline just cuts across to its row.
 			if (corner is null)
+			{
+				AddVertex(Polygon, rowLeft);
 				continue;
-
-			var next = Arms[corner.ArmB];
-
-			// Down this arm's left edge from its row to the corner...
-			for (int k = arm.SampleCount - 1; k >= 0; k--)
-			{
-				if (arm.Distances[k] < arm.Trim && arm.Distances[k] > corner.EndA)
-					AddVertex(arm.EdgePoint(k, halfWidth));
 			}
 
-			AddCorner(corner);
+			var path = BuildCornerPath(corner, arm, Arms[corner.ArmB]);
+			CornerPaths.Add(path);
 
-			// ...and out along the next arm's right edge to its row.
-			for (int k = 0; k < next.SampleCount; k++)
-			{
-				if (next.Distances[k] > corner.EndB && next.Distances[k] < next.Trim)
-					AddVertex(next.EdgePoint(k, -next.Width * 0.5f));
-			}
+			// The path ends on the next arm's row, which the next arm adds itself.
+			for (int k = 0; k < path.Points.Count - 1; k++)
+				AddVertex(Polygon, path.Points[k]);
 		}
 
 		if (Polygon.Count > 1 && Flat(Polygon[^1]).Distance(Flat(Polygon[0])) < 0.5f)
@@ -525,15 +577,90 @@ internal sealed class RoadJunctionLayout
 
 
 
-	private void AddCorner(Corner _Corner)
+	/// <summary>
+	/// The row where an arm's mesh starts, as seen looking out of the node, plus the arm's left direction there.
+	/// </summary>
+	private void RowPoints(Arm _Arm, out Vector3 _Right, out Vector3 _Left, out Vector3 _LeftDirection)
 	{
-		if (!_Corner.HasFillet)
+		RoadSurfaceBuilder.CrossSection(_Arm.Table, _Arm.CurveDistance(_Arm.Trim), _Arm.Width * 0.5f, m_Lift, out Vector3 curveLeft, out Vector3 curveRight);
+
+		_Left = _Arm.AtStart ? curveLeft : curveRight;
+		_Right = _Arm.AtStart ? curveRight : curveLeft;
+		_LeftDirection = (_Left - _Right).Normal;
+	}
+
+
+
+	private CornerPath BuildCornerPath(Corner _Corner, Arm _A, Arm _B)
+	{
+		var path = new CornerPath { ArmA = _A, ArmB = _B };
+		var points = path.Points;
+
+		RowPoints(_A, out _, out Vector3 rowLeftA, out Vector3 leftDirectionA);
+		RowPoints(_B, out Vector3 rowRightB, out _, out Vector3 leftDirectionB);
+
+		path.StartOutward = leftDirectionA;
+		path.EndOutward = -leftDirectionB;
+
+		AddVertex(points, rowLeftA);
+
+		// Down A's left edge from its row to the corner...
+		for (int k = _A.SampleCount - 1; k >= 0; k--)
 		{
-			AddVertex(_Corner.Point);
-			return;
+			if (_A.Distances[k] < _A.Trim && _A.Distances[k] > _Corner.EndA)
+				AddVertex(points, _A.EdgePoint(k, _A.Width * 0.5f));
 		}
 
-		AddVertex(_Corner.TangentA);
+		path.MidIndex = AddCorner(points, _Corner, out path.ArcFirst, out path.ArcLast);
+
+		// ...and out along B's right edge to its row.
+		for (int k = 0; k < _B.SampleCount; k++)
+		{
+			if (_B.Distances[k] > _Corner.EndB && _B.Distances[k] < _B.Trim)
+				AddVertex(points, _B.EdgePoint(k, -_B.Width * 0.5f));
+		}
+
+		AddVertex(points, rowRightB);
+
+		// The border runs on the right of the outline. When that is the side the fillet centre is on, the
+		// border wraps the inside of the corner and can fold; note what it needs to square the corner off.
+		if (_Corner.HasFillet && path.ArcFirst >= 0 && path.MidIndex > 0 && path.MidIndex < points.Count - 1)
+		{
+			Vector3 mid = points[path.MidIndex];
+			Vector3 direction = points[path.MidIndex + 1] - points[path.MidIndex - 1];
+			var outward = new Vector2(direction.y, -direction.x);
+			var toCentre = _Corner.Centre - new Vector2(mid.x, mid.y);
+
+			if (Vector2.Dot(outward, toCentre) > 0.0f)
+			{
+				path.Fold = new CornerFold
+				{
+					Apex = new Vector2(_Corner.Point.x, _Corner.Point.y),
+					Bisector = _Corner.Bisector,
+					HalfAngleSin = _Corner.HalfAngleSin,
+					Radius = _Corner.Radius
+				};
+			}
+		}
+
+		return path;
+	}
+
+
+
+	/// <summary>
+	/// Adds the corner itself, or its fillet arc, and returns the index of its middle: where one arm's border
+	/// hands over to the other's.
+	/// </summary>
+	private static int AddCorner(List<Vector3> _Points, Corner _Corner, out int _ArcFirst, out int _ArcLast)
+	{
+		_ArcFirst = -1;
+		_ArcLast = -1;
+
+		if (!_Corner.HasFillet)
+			return AddVertex(_Points, _Corner.Point);
+
+		AddVertex(_Points, _Corner.TangentA);
 
 		float angle0 = MathF.Atan2(_Corner.TangentA.y - _Corner.Centre.y, _Corner.TangentA.x - _Corner.Centre.x);
 		float angle1 = MathF.Atan2(_Corner.TangentB.y - _Corner.Centre.y, _Corner.TangentB.x - _Corner.Centre.x);
@@ -545,29 +672,46 @@ internal sealed class RoadJunctionLayout
 		else if (delta < -MathF.PI)
 			delta += MathF.PI * 2.0f;
 
+		// An even number of steps puts a point exactly halfway round.
 		int steps = Math.Max(2, (int)MathF.Ceiling(MathF.Abs(delta) / ArcStepDegrees.DegreeToRadian()));
+		steps += steps % 2;
+		int midIndex = -1;
 
 		for (int k = 1; k < steps; k++)
 		{
 			float fraction = (float)k / steps;
 			float angle = angle0 + delta * fraction;
 			var point = _Corner.Centre + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * _Corner.Radius;
+			int index = AddVertex(_Points, new Vector3(point.x, point.y, MathX.Lerp(_Corner.TangentA.z, _Corner.TangentB.z, fraction)));
 
-			AddVertex(new Vector3(point.x, point.y, MathX.Lerp(_Corner.TangentA.z, _Corner.TangentB.z, fraction)));
+			if (_ArcFirst < 0)
+				_ArcFirst = index;
+
+			_ArcLast = index;
+
+			if (k == steps / 2)
+				midIndex = index;
 		}
 
-		AddVertex(_Corner.TangentB);
+		AddVertex(_Points, _Corner.TangentB);
+
+		return midIndex >= 0 ? midIndex : _Points.Count - 1;
 	}
 
 
 
-	private void AddVertex(Vector3 _Vertex)
+	/// <summary>
+	/// Appends a vertex unless it sits on the previous one (a corner exactly on the row it trimmed would make a
+	/// degenerate triangle), and returns the index it ended up at.
+	/// </summary>
+	private static int AddVertex(List<Vector3> _Points, Vector3 _Vertex)
 	{
-		// Consecutive duplicates (a corner sitting exactly on the row it trimmed) would make degenerate triangles.
-		if (Polygon.Count > 0 && Flat(Polygon[^1]).Distance(Flat(_Vertex)) < 0.5f)
-			return;
+		if (_Points.Count > 0 && Flat(_Points[^1]).Distance(Flat(_Vertex)) < 0.5f)
+			return _Points.Count - 1;
 
-		Polygon.Add(_Vertex);
+		_Points.Add(_Vertex);
+
+		return _Points.Count - 1;
 	}
 
 

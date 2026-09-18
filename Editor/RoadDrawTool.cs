@@ -42,6 +42,12 @@ public class RoadDrawTool : EditorTool
 	}
 
 	[Property, Title("Width"), Range(50.0f, 2000.0f)] public float Width { get; set; } = 500.0f;
+
+	/// <summary>
+	/// The road type new roads get. Empty uses the network's default profile.
+	/// </summary>
+	[Property, Title("Profile")] public RoadProfile Profile { get; set; }
+
 	[Property, Title("Snap Radius"), Range(0.0f, 500.0f)] public float SnapRadius { get; set; } = 150.0f;
 
 	/// <summary>
@@ -195,7 +201,7 @@ public class RoadDrawTool : EditorTool
 				return;
 
 			if (IsDrawing && node.Id != m_LastNodeId)
-				network.AddSegment(m_LastNodeId, node.Id, Width);
+				network.AddSegment(m_LastNodeId, node.Id, Width, Profile);
 
 			// A corner node is a node whose handles all point straight at its neighbours.
 			if (isNew && SharpCorners)
@@ -308,6 +314,7 @@ file class RoadDrawToolWidget : ToolSidebarWidget
 		var serialized = _Tool.GetSerialized();
 		var group = AddGroup("Road");
 
+		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadDrawTool.Profile))));
 		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadDrawTool.Width))));
 		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadDrawTool.SnapRadius))));
 		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadDrawTool.SharpCorners))));

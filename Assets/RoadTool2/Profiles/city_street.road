@@ -1,0 +1,12 @@
+{
+  "RoadMaterial": "roadtool2/materials/asphalt.vmat",
+  "RoadTextureRepeat": 500,
+  "Border": "Sidewalk",
+  "BorderMaterial": "roadtool2/materials/sidewalk.vmat",
+  "BorderTextureRepeat": 200,
+  "BorderWidth": 150,
+  "CurbHeight": 5,
+  "CurbBevel": 0,
+  "__references": [],
+  "__version": 0
+}

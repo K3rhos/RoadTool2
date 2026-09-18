@@ -1,0 +1,21 @@
+{
+  "RoadMaterial": "roadtool2/materials/asphalt.vmat",
+  "RoadTextureRepeat": 500,
+  "Border": "CountrySide",
+  "BorderMaterial": "roadtool2/materials/gravel.vmat",
+  "BorderTextureRepeat": 200,
+  "BorderWidth": 50,
+  "CurbHeight": 5,
+  "CurbBevel": 0,
+  "Drop": 5,
+  "VergeWidth": 100,
+  "VergeDepth": 10,
+  "SlopeSegments": 3,
+  "Chaos": 20,
+  "ChaosScale": 0.05,
+  "HasBorder": true,
+  "ResolvedRoadMaterial": "roadtool2/materials/asphalt.vmat",
+  "ResolvedBorderMaterial": "roadtool2/materials/gravel.vmat",
+  "__references": [],
+  "__version": 0
+}

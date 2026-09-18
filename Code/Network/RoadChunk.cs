@@ -2,10 +2,23 @@ using Sandbox;
 
 namespace RedSnail.RoadTool2;
 
+public enum RoadChunkKind
+{
+	/// <summary>
+	/// The road surface itself.
+	/// </summary>
+	Surface,
+
+	/// <summary>
+	/// What runs along the road's sides: sidewalks, verges.
+	/// </summary>
+	Border
+}
+
 /// <summary>
 /// Marks a generated mesh child of a <see cref="RoadNetwork"/> and remembers what it covers: a stretch of a segment,
-/// or the junction at a node. The network uses it to replace exactly the pieces that went stale and leave the rest
-/// alone.
+/// or the junction at a node, and whether it is the surface or the border of it. The network uses it to replace
+/// exactly the pieces that went stale and leave the rest alone.
 /// </summary>
 [Icon("view_week")]
 public sealed class RoadChunk : Component
@@ -19,6 +32,8 @@ public sealed class RoadChunk : Component
 	/// The node this chunk is the junction of, or -1 for a road stretch.
 	/// </summary>
 	[Property, ReadOnly] public int NodeId { get; set; } = -1;
+
+	[Property, ReadOnly] public RoadChunkKind Kind { get; set; } = RoadChunkKind.Surface;
 
 	[Property, ReadOnly] public int ChunkIndex { get; set; }
 

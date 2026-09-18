@@ -1,0 +1,7 @@
+{
+  "RoadMaterial": "roadtool2/materials/asphalt.vmat",
+  "RoadTextureRepeat": 500,
+  "Border": "None",
+  "__references": [],
+  "__version": 0
+}

@@ -565,6 +565,7 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 		serialized.OnPropertyFinishEdit += _ => EndEdit();
 		serialized.OnPropertyChanged += _ => m_Tool.OnSegmentEdited();
 
+		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadSegment.Profile))));
 		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadSegment.Width))));
 
 		float length = _Network.GetCurveTable(_Segment)?.Length ?? 0.0f;
