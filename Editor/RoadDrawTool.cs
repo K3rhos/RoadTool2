@@ -53,6 +53,14 @@ public class RoadDrawTool : EditorTool
 	[Property, Title("Snap Radius"), Range(0.0f, 500.0f)] public float SnapRadius { get; set; } = 150.0f;
 
 	/// <summary>
+	/// Lanes new roads get: two-way with the odd lane running the way the road is drawn, or one-way that way.
+	/// The Lanes tool changes them afterwards.
+	/// </summary>
+	[Property, Title("Lanes"), Range(RoadSegment.MinLanes, RoadSegment.MaxLanes)] public int Lanes { get; set { field = value.Clamp(RoadSegment.MinLanes, RoadSegment.MaxLanes); } } = 2;
+
+	[Property, Title("One Way")] public bool OneWay { get; set; } = false;
+
+	/// <summary>
 	/// Sharp corners give straight roads meeting at an angle (grid streets); off, the road flows smoothly through
 	/// every node placed.
 	/// </summary>
@@ -572,7 +580,7 @@ public class RoadDrawTool : EditorTool
 					network.SetAutoTangents(node.Id, false, false);
 				}
 
-				network.AddSegment(m_LastNodeId, node.Id, Width, Profile);
+				network.AddSegment(m_LastNodeId, node.Id, Width, Profile, Lanes, OneWay ? Lanes : RoadSegment.DefaultForwardLanes(Lanes));
 			}
 
 			// A corner node is a node whose handles all point straight at its neighbours.
@@ -731,6 +739,8 @@ file class RoadDrawToolWidget : ToolSidebarWidget
 
 		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadDrawTool.Profile)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadDrawTool.Width)));
+		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadDrawTool.Lanes)));
+		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadDrawTool.OneWay)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadDrawTool.SnapRadius)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadDrawTool.SharpCorners)));
 

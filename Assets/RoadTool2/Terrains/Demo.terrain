@@ -1,10 +1,10 @@
 {
   "Maps": {
-    "$blob": "ce194064-9620-8ad0-b99a-7d3038f75160"
+    "$blob": "c845d030-ac7b-8625-b075-fa901357d450"
   },
-  "Resolution": 512,
-  "TerrainSize": 10000,
-  "TerrainHeight": 5000,
+  "Resolution": 1024,
+  "TerrainSize": 100000,
+  "TerrainHeight": 10000,
   "Materials": [
     "textures/grass/grass_cut.tmat",
     "textures/gravel/gravel.tmat"

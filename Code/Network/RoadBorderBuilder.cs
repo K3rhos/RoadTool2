@@ -114,7 +114,8 @@ internal static class RoadBorderBuilder
 	/// <summary>
 	/// One surface of the profile, between two of its nodes. U runs across the profile: fixed per node, or
 	/// accumulated along the cross-section from <see cref="AccumulateFrom"/> when the shape varies (verges).
-	/// Planar faces take a top-down projection instead, like the road they extend.
+	/// Planar faces take a top-down projection instead, like the road they extend. A blendable face is the one a
+	/// neighbouring country road's gravel spills onto (the pavement), painted with blend weights where it does.
 	/// </summary>
 	private readonly struct Face
 	{
@@ -126,8 +127,9 @@ internal static class RoadBorderBuilder
 		public readonly int AccumulateFrom;
 		public readonly float U0;
 		public readonly float U1;
+		public readonly bool Blendable;
 
-		public Face(int _NodeA, int _NodeB, Material _Material, float _Repeat, bool _Planar = false, int _AccumulateFrom = -1, float _U0 = 0.0f, float _U1 = 1.0f)
+		public Face(int _NodeA, int _NodeB, Material _Material, float _Repeat, bool _Planar = false, int _AccumulateFrom = -1, float _U0 = 0.0f, float _U1 = 1.0f, bool _Blendable = false)
 		{
 			NodeA = _NodeA;
 			NodeB = _NodeB;
@@ -137,6 +139,7 @@ internal static class RoadBorderBuilder
 			AccumulateFrom = _AccumulateFrom;
 			U0 = _U0;
 			U1 = _U1;
+			Blendable = _Blendable;
 		}
 	}
 
@@ -144,18 +147,32 @@ internal static class RoadBorderBuilder
 	private const float BandShoulder = 0.0f;
 	private const float BandOuter = 1000.0f;
 	private const float BandRoll = 2000.0f;
+	private const float BandSpill = 3000.0f;
 
 	/// <summary>
 	/// Two corners of a face closer than this are one point: the face is a triangle.
 	/// </summary>
 	private const float JoinDistance = 1.0f;
 
+	/// <summary>
+	/// How much of the spilled gravel reaches the kerb side of the pavement, relative to its outer edge: the verge
+	/// it comes from lies beyond the neighbour's shoulder, so it creeps in from the outside.
+	/// </summary>
+	private const float SpillInnerFactor = 0.2f;
+
+	/// <summary>
+	/// How far the gravel's front wanders back and forth along the road, as a fraction of the spill length, and
+	/// the size of the noise it wanders by (about a wavelength per hundred units).
+	/// </summary>
+	private const float SpillWobble = 0.35f;
+	private const float SpillNoiseScale = 0.01f;
+
 
 
 	/// <summary>
 	/// Both borders of a stretch of road, rows at the same distances as the road surface.
 	/// </summary>
-	public static PolygonMesh BuildSegment(RoadCurveTable _Table, float _StartDistance, float _EndDistance, float _Width, RoadProfile _Profile, float _Spacing, float _Lift, BorderCaps _Caps, in SegmentBorderBlends _Blends, BorderDebug _Debug = null)
+	public static PolygonMesh BuildSegment(RoadCurveTable _Table, float _StartDistance, float _EndDistance, float _Width, RoadProfile _Profile, float _Spacing, float _Lift, BorderCaps _Caps, in SegmentBorderBlends _Blends, in RoadBorderTaper _Taper, BorderDebug _Debug = null)
 	{
 		var mesh = new PolygonMesh();
 
@@ -169,6 +186,7 @@ internal static class RoadBorderBuilder
 		_Debug?.Note($"SEGMENT start={_StartDistance:0.###} end={_EndDistance:0.###} length={_Table.Length:0.###} width={_Width} lift={_Lift} spacing={_Spacing} caps={_Caps} profile={_Profile.ResourceName} border={_Profile.Border} borderWidth={_Profile.BorderWidth} curb={_Profile.CurbHeight} bevel={_Profile.CurbBevel}");
 		_Debug?.Note($"BLEND left {Describe(_Blends.Left)}");
 		_Debug?.Note($"BLEND right {Describe(_Blends.Right)}");
+		_Debug?.Note($"TAPER start={_Taper.StartLength:0.###}/{_Taper.StartWidth:0.###} end={_Taper.EndLength:0.###}/{_Taper.EndWidth:0.###}");
 
 		for (int i = 0; i <= steps; i++)
 		{
@@ -181,10 +199,32 @@ internal static class RoadBorderBuilder
 			right.Add(new PathPoint(rightPos, rightDirection, distance, _Blends.Right.DeltaAt(distance)));
 		}
 
-		Sweep(mesh, _Profile, left, _Caps.HasFlag(BorderCaps.StartLeft), _Caps.HasFlag(BorderCaps.EndLeft), _Debug, BorderDebug.ArmColor, "arm L");
-		Sweep(mesh, _Profile, right, _Caps.HasFlag(BorderCaps.StartRight), _Caps.HasFlag(BorderCaps.EndRight), _Debug, BorderDebug.ArmColor, "arm R");
+		var shape = new ProfileShape(_Profile, _Taper, _Table.Length);
+
+		Sweep(mesh, shape, left, _Caps.HasFlag(BorderCaps.StartLeft), _Caps.HasFlag(BorderCaps.EndLeft), _Debug, BorderDebug.ArmColor, "arm L");
+		Sweep(mesh, shape, right, _Caps.HasFlag(BorderCaps.StartRight), _Caps.HasFlag(BorderCaps.EndRight), _Debug, BorderDebug.ArmColor, "arm R");
 
 		return mesh;
+	}
+
+
+
+	/// <summary>
+	/// A profile as swept along one segment: the profile itself, plus the taper at the segment's ends and the
+	/// segment's length the taper is measured against.
+	/// </summary>
+	public readonly struct ProfileShape
+	{
+		public readonly RoadProfile Profile;
+		public readonly RoadBorderTaper Taper;
+		public readonly float Length;
+
+		public ProfileShape(RoadProfile _Profile, in RoadBorderTaper _Taper, float _Length)
+		{
+			Profile = _Profile;
+			Taper = _Taper;
+			Length = _Length;
+		}
 	}
 
 
@@ -195,7 +235,7 @@ internal static class RoadBorderBuilder
 	/// halves are closed off against each other. The arms' segment blends are what their chunks were built with,
 	/// so the straight stretch of each half continues the arm's border exactly.
 	/// </summary>
-	public static PolygonMesh BuildJunction(RoadJunctionLayout _Layout, Func<RoadSegment, RoadProfile> _ProfileOf, Func<RoadSegment, SegmentBorderBlends> _BlendsOf, BorderDebug _Debug = null)
+	public static PolygonMesh BuildJunction(RoadJunctionLayout _Layout, Func<RoadSegment, RoadProfile> _ProfileOf, Func<RoadSegment, SegmentBorderBlends> _BlendsOf, Func<RoadSegment, RoadBorderTaper> _TaperOf, BorderDebug _Debug = null)
 	{
 		var mesh = new PolygonMesh();
 
@@ -213,12 +253,14 @@ internal static class RoadBorderBuilder
 			var profileA = _ProfileOf(path.ArmA.Segment);
 			var profileB = _ProfileOf(path.ArmB.Segment);
 			bool differ = !SameProfile(profileA, profileB);
+			var shapeA = new ProfileShape(profileA, _TaperOf(path.ArmA.Segment), path.ArmA.Length);
+			var shapeB = new ProfileShape(profileB, _TaperOf(path.ArmB.Segment), path.ArmB.Length);
 
 			if (profileA.HasBorder)
-				Sweep(mesh, profileA, HalfPath(path, true, _BlendsOf(path.ArmA.Segment)), false, differ || !profileB.HasBorder, _Debug, BorderDebug.FirstHalfColor, $"J{_Layout.Node.Id} A{path.ArmA.Segment.Id}");
+				Sweep(mesh, shapeA, HalfPath(path, true, _BlendsOf(path.ArmA.Segment)), false, differ || !profileB.HasBorder, _Debug, BorderDebug.FirstHalfColor, $"J{_Layout.Node.Id} A{path.ArmA.Segment.Id}");
 
 			if (profileB.HasBorder)
-				Sweep(mesh, profileB, HalfPath(path, false, _BlendsOf(path.ArmB.Segment)), differ || !profileA.HasBorder, false, _Debug, BorderDebug.SecondHalfColor, $"J{_Layout.Node.Id} B{path.ArmB.Segment.Id}");
+				Sweep(mesh, shapeB, HalfPath(path, false, _BlendsOf(path.ArmB.Segment)), differ || !profileA.HasBorder, false, _Debug, BorderDebug.SecondHalfColor, $"J{_Layout.Node.Id} B{path.ArmB.Segment.Id}");
 		}
 
 		return mesh;
@@ -320,9 +362,11 @@ internal static class RoadBorderBuilder
 	/// Sweeps the profile's cross-section along the path, one row of vertices per point, and closes the open ends.
 	/// Every face is emitted as two triangles: a verge that rolls with noise is nowhere near planar.
 	/// </summary>
-	public static void Sweep(PolygonMesh _Mesh, RoadProfile _Profile, IReadOnlyList<PathPoint> _Path, bool _CapStart, bool _CapEnd, BorderDebug _Debug = null, Color _DebugColor = default, string _DebugName = null)
+	public static void Sweep(PolygonMesh _Mesh, in ProfileShape _Shape, IReadOnlyList<PathPoint> _Path, bool _CapStart, bool _CapEnd, BorderDebug _Debug = null, Color _DebugColor = default, string _DebugName = null)
 	{
-		if (!_Profile.HasBorder)
+		var profile = _Shape.Profile;
+
+		if (!profile.HasBorder)
 			return;
 
 		var path = Compact(_Path);
@@ -330,13 +374,19 @@ internal static class RoadBorderBuilder
 		if (path.Count < 2)
 			return;
 
-		var faces = BuildFaces(_Profile);
-		int nodeCount = NodeCount(_Profile);
+		var faces = BuildFaces(profile);
+		int nodeCount = NodeCount(profile);
 
 		var shapes = new Vector2[path.Count][];
 		var positions = new Vector3[path.Count][];
 		var across = new float[path.Count][];
 		var handles = new HalfEdgeMesh.VertexHandle[path.Count][];
+		var reliefs = new float[path.Count];
+		var spills = new float[path.Count];
+
+		// Gravel spilling over from a country road on the other side of a node is painted onto the pavement as
+		// vertex blend weights, which need a material that mixes gravel in by them.
+		var blendMaterial = profile.Border == RoadBorderStyle.Sidewalk ? profile.BlendMaterial : null;
 
 		// One winding for the whole run, from which side of its path the border lies on. Deciding it per quad from
 		// the quad's own normal goes wrong on thin or folded quads, and a quad wound against its neighbours makes
@@ -350,14 +400,18 @@ internal static class RoadBorderBuilder
 			var shape = new Vector2[nodeCount];
 			var rows = new Vector3[nodeCount];
 
-			EvaluateProfile(_Profile, path[i], shape);
+			reliefs[i] = EvaluateProfile(_Shape, path[i], shape, out spills[i]);
 
 			for (int k = 0; k < nodeCount; k++)
-				rows[k] = NodePosition(path[i], shape[k], _Profile.BorderWidth);
+				rows[k] = NodePosition(path[i], shape[k], profile.BorderWidth);
 
 			shapes[i] = shape;
 			positions[i] = rows;
 		}
+
+		// A border tapered to nothing at its end has no face to close.
+		_CapStart &= reliefs[0] > 0.01f;
+		_CapEnd &= reliefs[^1] > 0.01f;
 
 		var stalls = RemoveFolds(path, positions, nodeCount);
 
@@ -411,7 +465,7 @@ internal static class RoadBorderBuilder
 				for (int k = 0; k < nodeCount; k++)
 					nodes.Append(' ').Append(BorderDebug.Format(rows[k])).Append(point.IsFolded(shapes[i][k].x) ? "F" : "").Append(stalls[i][k] >= 0 ? $"S{stalls[i][k]}" : "");
 
-				_Debug.Note($"R {i} pos={BorderDebug.Format(point.Position)} out={BorderDebug.Format(point.Outward)} along={point.Along:0.###} lift={point.Lift:0.###} arc={(point.IsArc ? 1 : 0)} fold={(point.Fold is not null ? 1 : 0)} |{nodes}");
+				_Debug.Note($"R {i} pos={BorderDebug.Format(point.Position)} out={BorderDebug.Format(point.Outward)} along={point.Along:0.###} lift={point.Lift:0.###} arc={(point.IsArc ? 1 : 0)} fold={(point.Fold is not null ? 1 : 0)} relief={reliefs[i]:0.###} spill={spills[i]:0.###} |{nodes}");
 			}
 		}
 
@@ -448,6 +502,23 @@ internal static class RoadBorderBuilder
 				Vector2 uv2 = FaceUv(face, path[i + 1], positions[i + 1][b], across[i + 1], b);
 				Vector2 uv3 = FaceUv(face, path[i + 1], positions[i + 1][a], across[i + 1], a);
 
+				var material = face.Material;
+				Color32[] blends = null;
+
+				// Only the faces the gravel reaches take the blend material; the rest of the pavement stays on the
+				// plain one, and a weight of nothing on their shared row makes the change invisible.
+				if (face.Blendable && blendMaterial is not null && (spills[i] > 0.0f || spills[i + 1] > 0.0f))
+				{
+					material = blendMaterial;
+					blends = new[]
+					{
+						SpillBlend(spills[i], SpillInnerFactor),
+						SpillBlend(spills[i], 1.0f),
+						SpillBlend(spills[i + 1], 1.0f),
+						SpillBlend(spills[i + 1], SpillInnerFactor)
+					};
+				}
+
 				if (outerJoined)
 				{
 					// The folded row's vertex is the exact centre; keep that one.
@@ -455,25 +526,27 @@ internal static class RoadBorderBuilder
 					var outer = keepNext ? handles[i + 1][b] : handles[i][b];
 					Vector2 uvOuter = keepNext ? uv2 : uv1;
 
-					AddTriangle(_Mesh, face.Material, flip, handles[i][a], outer, handles[i + 1][a], uv0, uvOuter, uv3);
+					AddTriangle(_Mesh, material, flip, handles[i][a], outer, handles[i + 1][a], uv0, uvOuter, uv3,
+						blends is null ? null : new[] { blends[0], keepNext ? blends[2] : blends[1], blends[3] });
 				}
 				else if (innerJoined)
 				{
-					AddTriangle(_Mesh, face.Material, flip, handles[i][a], handles[i][b], handles[i + 1][b], uv0, uv1, uv2);
+					AddTriangle(_Mesh, material, flip, handles[i][a], handles[i][b], handles[i + 1][b], uv0, uv1, uv2,
+						blends is null ? null : new[] { blends[0], blends[1], blends[2] });
 				}
 				else
 				{
-					AddQuad(_Mesh, face.Material, flip,
+					AddQuad(_Mesh, material, flip,
 						handles[i][a], handles[i][b], handles[i + 1][b], handles[i + 1][a],
-						uv0, uv1, uv2, uv3);
+						uv0, uv1, uv2, uv3, blends);
 				}
 			}
 		}
 
 		AddCornerPatches(_Mesh, faces, path, shapes, positions, across, _Debug);
 
-		var capMaterial = _Profile.Border == RoadBorderStyle.CountrySide ? _Profile.ResolvedRoadMaterial : _Profile.ResolvedBorderMaterial;
-		float capRepeat = _Profile.Border == RoadBorderStyle.CountrySide ? _Profile.RoadTextureRepeat : _Profile.BorderTextureRepeat;
+		var capMaterial = profile.Border == RoadBorderStyle.CountrySide ? profile.ResolvedRoadMaterial : profile.ResolvedBorderMaterial;
+		float capRepeat = profile.Border == RoadBorderStyle.CountrySide ? profile.RoadTextureRepeat : profile.BorderTextureRepeat;
 
 		if (_CapStart)
 			AddCap(_Mesh, capMaterial, capRepeat, handles[0], positions[0], shapes[0], path[0].Position - path[1].Position);
@@ -530,7 +603,7 @@ internal static class RoadBorderBuilder
 				return new[]
 				{
 					new Face(0, 1, material, repeat, _U0: bevelU, _U1: 0.0f),
-					new Face(1, 2, material, repeat, _U0: 0.0f, _U1: 1.0f),
+					new Face(1, 2, material, repeat, _U0: 0.0f, _U1: 1.0f, _Blendable: true),
 					new Face(2, 3, material, repeat, _U0: 1.0f - heightU, _U1: 1.0f)
 				};
 			}
@@ -566,23 +639,37 @@ internal static class RoadBorderBuilder
 	/// <summary>
 	/// The cross-section at a point as (distance from the road edge, height above the road surface) per node.
 	/// Country side borders read noise at the point's position, so the wander is continuous across chunk and
-	/// junction seams and differs between the two sides of the road.
+	/// junction seams and differs between the two sides of the road. Near a tapered end the relief (kerb height,
+	/// drop, verge depth, roll) is scaled down and the width run towards the neighbour's, so the border comes
+	/// down to a flat strip of the neighbour's width at the node. Returns the relief in force at the point, and
+	/// how much of a neighbouring country road's gravel has spilled this far (1 at the node, 0 beyond the taper).
 	/// </summary>
-	private static void EvaluateProfile(RoadProfile _Profile, in PathPoint _Point, Vector2[] _Shape)
+	private static float EvaluateProfile(in ProfileShape _Shape, in PathPoint _Point, Vector2[] _Nodes, out float _Spill)
 	{
-		switch (_Profile.Border)
+		var profile = _Shape.Profile;
+		float relief = _Shape.Taper.ReliefAt(_Point.Along, _Shape.Length, out float towards, out float targetWidth, out bool spill);
+		bool tapering = towards > 0.0f;
+
+		_Spill = spill ? SpillAt(towards, _Point.Position) : 0.0f;
+
+		switch (profile.Border)
 		{
 			case RoadBorderStyle.Sidewalk:
-				_Shape[0] = new Vector2(0.0f, 0.0f);
-				_Shape[1] = new Vector2(_Profile.CurbBevel, _Profile.CurbHeight);
-				_Shape[2] = new Vector2(_Profile.BorderWidth, _Profile.CurbHeight);
-				_Shape[3] = new Vector2(_Profile.BorderWidth, 0.0f);
+			{
+				float width = tapering ? MathX.Lerp(profile.BorderWidth, targetWidth, towards) : profile.BorderWidth;
+				float height = profile.CurbHeight * relief;
+
+				_Nodes[0] = new Vector2(0.0f, 0.0f);
+				_Nodes[1] = new Vector2(MathF.Min(profile.CurbBevel * relief, width), height);
+				_Nodes[2] = new Vector2(width, height);
+				_Nodes[3] = new Vector2(width, 0.0f);
 				break;
+			}
 
 			case RoadBorderStyle.CountrySide:
 			{
-				float scale = _Profile.ChaosScale;
-				float amplitude = _Profile.Chaos;
+				float scale = profile.ChaosScale;
+				float amplitude = profile.Chaos * relief;
 				float x = _Point.Position.x * scale;
 				float y = _Point.Position.y * scale;
 
@@ -591,26 +678,65 @@ internal static class RoadBorderBuilder
 				float meanderOuter = (Noise.Perlin(x + BandOuter, y) - 0.5f) * 2.0f * amplitude;
 
 				// Floor the widths so a strong inward wander can never fold two nodes onto each other.
-				float shoulder = MathF.Max(1.0f, _Profile.BorderWidth + meanderShoulder);
-				float span = MathF.Max(1.0f, _Profile.VergeWidth + meanderOuter);
+				float shoulder = MathF.Max(1.0f, profile.BorderWidth + meanderShoulder);
+				float span = MathF.Max(1.0f, profile.VergeWidth + meanderOuter);
 
-				_Shape[0] = new Vector2(0.0f, 0.0f);
-				_Shape[1] = new Vector2(shoulder, 0.0f);
-				_Shape[2] = new Vector2(shoulder, -_Profile.Drop);
-
-				for (int k = 1; k <= _Profile.SlopeSegments; k++)
+				// Towards a different road type the whole strip runs to that type's width, keeping its proportions.
+				if (tapering)
 				{
-					float fraction = (float)k / _Profile.SlopeSegments;
+					float total = shoulder + span;
+					float ratio = MathX.Lerp(total, targetWidth, towards) / total;
+
+					shoulder = MathF.Max(0.5f, shoulder * ratio);
+					span = MathF.Max(0.5f, span * ratio);
+				}
+
+				_Nodes[0] = new Vector2(0.0f, 0.0f);
+				_Nodes[1] = new Vector2(shoulder, 0.0f);
+				_Nodes[2] = new Vector2(shoulder, -profile.Drop * relief);
+
+				for (int k = 1; k <= profile.SlopeSegments; k++)
+				{
+					float fraction = (float)k / profile.SlopeSegments;
 
 					// The roll varies along the road and across the slope, so the verge undulates in 3D.
-					float roll = (Noise.Fbm(3, x, y, BandRoll + fraction * _Profile.VergeWidth * scale) - 0.5f) * 2.0f * amplitude;
+					float roll = (Noise.Fbm(3, x, y, BandRoll + fraction * profile.VergeWidth * scale) - 0.5f) * 2.0f * amplitude;
 
-					_Shape[2 + k] = new Vector2(shoulder + fraction * span, -_Profile.Drop - fraction * _Profile.VergeDepth + roll);
+					_Nodes[2 + k] = new Vector2(shoulder + fraction * span, (-profile.Drop - fraction * profile.VergeDepth) * relief + roll);
 				}
 
 				break;
 			}
 		}
+
+		return relief;
+	}
+
+
+
+	/// <summary>
+	/// How much gravel has spilled to a point a fraction of the way into a taper (1 at the node): the fraction
+	/// itself, with its front pushed back and forth by noise read at the point, most in the middle of the run so
+	/// the node stays fully covered and the far end clean.
+	/// </summary>
+	private static float SpillAt(float _Towards, Vector3 _Position)
+	{
+		float wobble = (Noise.Perlin(_Position.x * SpillNoiseScale + BandSpill, _Position.y * SpillNoiseScale) - 0.5f) * 2.0f * SpillWobble;
+
+		return Math.Clamp(_Towards + wobble * 4.0f * _Towards * (1.0f - _Towards), 0.0f, 1.0f);
+	}
+
+
+
+	/// <summary>
+	/// A spill amount as the vertex blend a blendable material reads: its red channel is how much of the second
+	/// layer (the gravel) shows.
+	/// </summary>
+	private static Color32 SpillBlend(float _Spill, float _Factor)
+	{
+		byte weight = (byte)Math.Clamp(MathF.Round(_Spill * _Factor * 255.0f), 0.0f, 255.0f);
+
+		return new Color32(weight, 0, 0, 255);
 	}
 
 
@@ -907,14 +1033,30 @@ internal static class RoadBorderBuilder
 	/// <summary>
 	/// One triangle in the run's winding: the corners in the same order a quad's would be.
 	/// </summary>
+	/// <summary>
+	/// A triangle in the run's winding, with blend weights per corner (in the given, unflipped order) when the
+	/// face is painted.
+	/// </summary>
 	private static void AddTriangle(PolygonMesh _Mesh, Material _Material, bool _Flip,
 		HalfEdgeMesh.VertexHandle _HA, HalfEdgeMesh.VertexHandle _HB, HalfEdgeMesh.VertexHandle _HC,
-		Vector2 _UvA, Vector2 _UvB, Vector2 _UvC)
+		Vector2 _UvA, Vector2 _UvB, Vector2 _UvC, Color32[] _Blends = null)
 	{
+		HalfEdgeMesh.FaceHandle face;
+
 		if (!_Flip)
-			MeshUtility.AddTexturedTriangle(_Mesh, _Material, _HA, _HB, _HC, _UvA, _UvB, _UvC);
+		{
+			face = MeshUtility.AddTexturedTriangle(_Mesh, _Material, _HA, _HB, _HC, _UvA, _UvB, _UvC);
+
+			if (_Blends is not null)
+				MeshUtility.SetFaceBlends(_Mesh, face, _Blends);
+		}
 		else
-			MeshUtility.AddTexturedTriangle(_Mesh, _Material, _HA, _HC, _HB, _UvA, _UvC, _UvB);
+		{
+			face = MeshUtility.AddTexturedTriangle(_Mesh, _Material, _HA, _HC, _HB, _UvA, _UvC, _UvB);
+
+			if (_Blends is not null)
+				MeshUtility.SetFaceBlends(_Mesh, face, new[] { _Blends[0], _Blends[2], _Blends[1] });
+		}
 	}
 
 
@@ -924,18 +1066,10 @@ internal static class RoadBorderBuilder
 	/// </summary>
 	private static void AddQuad(PolygonMesh _Mesh, Material _Material, bool _Flip,
 		HalfEdgeMesh.VertexHandle _HA, HalfEdgeMesh.VertexHandle _HB, HalfEdgeMesh.VertexHandle _HC, HalfEdgeMesh.VertexHandle _HD,
-		Vector2 _UvA, Vector2 _UvB, Vector2 _UvC, Vector2 _UvD)
+		Vector2 _UvA, Vector2 _UvB, Vector2 _UvC, Vector2 _UvD, Color32[] _Blends = null)
 	{
-		if (!_Flip)
-		{
-			MeshUtility.AddTexturedTriangle(_Mesh, _Material, _HA, _HB, _HC, _UvA, _UvB, _UvC);
-			MeshUtility.AddTexturedTriangle(_Mesh, _Material, _HA, _HC, _HD, _UvA, _UvC, _UvD);
-		}
-		else
-		{
-			MeshUtility.AddTexturedTriangle(_Mesh, _Material, _HA, _HC, _HB, _UvA, _UvC, _UvB);
-			MeshUtility.AddTexturedTriangle(_Mesh, _Material, _HA, _HD, _HC, _UvA, _UvD, _UvC);
-		}
+		AddTriangle(_Mesh, _Material, _Flip, _HA, _HB, _HC, _UvA, _UvB, _UvC, _Blends is null ? null : new[] { _Blends[0], _Blends[1], _Blends[2] });
+		AddTriangle(_Mesh, _Material, _Flip, _HA, _HC, _HD, _UvA, _UvC, _UvD, _Blends is null ? null : new[] { _Blends[0], _Blends[2], _Blends[3] });
 	}
 
 

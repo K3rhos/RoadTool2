@@ -12,7 +12,12 @@ public enum RoadChunkKind
 	/// <summary>
 	/// What runs along the road's sides: sidewalks, verges.
 	/// </summary>
-	Border
+	Border,
+
+	/// <summary>
+	/// The painted lines on the surface: lane lines, centre line, edge lines.
+	/// </summary>
+	Marking
 }
 
 /// <summary>

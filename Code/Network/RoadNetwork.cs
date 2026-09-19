@@ -163,7 +163,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 	/// Joins two nodes with a road. Returns null when the join makes no sense (same node, unknown node, or a road
 	/// already runs between them).
 	/// </summary>
-	public RoadSegment AddSegment(int _StartNodeId, int _EndNodeId, float _Width, RoadProfile _Profile = null)
+	public RoadSegment AddSegment(int _StartNodeId, int _EndNodeId, float _Width, RoadProfile _Profile = null, int _LaneCount = 2, int _ForwardLanes = 1)
 	{
 		if (_StartNodeId == _EndNodeId)
 			return null;
@@ -186,6 +186,8 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			EndNodeId = _EndNodeId,
 			Width = _Width,
 			Profile = _Profile,
+			LaneCount = _LaneCount,
+			ForwardLanes = _ForwardLanes,
 			StartTangent = StraightHandle(start.Position, end.Position),
 			EndTangent = StraightHandle(end.Position, start.Position)
 		};
@@ -230,8 +232,10 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 		Nodes.Add(node);
 
 		int endNodeId = segment.EndNodeId;
+		bool crossingAtEnd = segment.CrossingAtEnd;
 
 		segment.EndNodeId = node.Id;
+		segment.CrossingAtEnd = true;
 		segment.StartTangent = first.P1 - first.P0;
 		segment.EndTangent = first.P2 - first.P3;
 
@@ -242,6 +246,9 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			EndNodeId = endNodeId,
 			Width = segment.Width,
 			Profile = segment.Profile,
+			LaneCount = segment.LaneCount,
+			ForwardLanes = segment.ForwardLanes,
+			CrossingAtEnd = crossingAtEnd,
 			StartTangent = second.P1 - second.P0,
 			EndTangent = second.P2 - second.P3
 		});
@@ -358,6 +365,24 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 
 
 	/// <summary>
+	/// Sets a road's lanes: how many, and how many of them run start to end. Only the road's painted lines are
+	/// rebuilt.
+	/// </summary>
+	public void SetLanes(int _SegmentId, int _LaneCount, int _ForwardLanes)
+	{
+		var segment = FindSegment(_SegmentId);
+
+		if (segment is null)
+			return;
+
+		segment.LaneCount = _LaneCount;
+		segment.ForwardLanes = _ForwardLanes.Clamp(0, segment.LaneCount);
+		MarkDirty();
+	}
+
+
+
+	/// <summary>
 	/// Removes a road. A node left with nothing attached goes with it, the others get their smoothing refreshed.
 	/// </summary>
 	public bool RemoveSegment(int _SegmentId)
@@ -433,6 +458,9 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 		float total = firstLength + secondLength;
 		var main = secondLength > firstLength ? second : first;
 
+		// The merged road runs startId to endId; a road that ran the other way has its lane directions mirrored.
+		bool mainSameWay = main == first ? first.StartNodeId == startId : second.StartNodeId == _NodeId;
+
 		var merged = new RoadSegment
 		{
 			Id = NextId++,
@@ -440,6 +468,10 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			EndNodeId = endId,
 			Width = main.Width,
 			Profile = main.Profile,
+			LaneCount = main.LaneCount,
+			ForwardLanes = mainSameWay ? main.ForwardLanes : main.LaneCount - main.ForwardLanes,
+			CrossingAtStart = first.CrossingAt(startId),
+			CrossingAtEnd = second.CrossingAt(endId),
 			StartTangent = GetHandle(first, startId) * (firstLength > 0.0f ? total / firstLength : 1.0f),
 			EndTangent = GetHandle(second, endId) * (secondLength > 0.0f ? total / secondLength : 1.0f)
 		};

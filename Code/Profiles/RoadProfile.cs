@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Sandbox;
 
 namespace RedSnail.RoadTool2;
@@ -21,6 +22,51 @@ public enum RoadBorderStyle
 	/// A shoulder of road material that drops onto an uneven verge falling away into the terrain.
 	/// </summary>
 	CountrySide
+}
+
+/// <summary>
+/// How one kind of painted line looks. Which lines a road gets follows from its lanes (a lane line between lanes
+/// running the same way, a centre line where the directions change, edge lines along the sides); the profile
+/// only says what each kind looks like.
+/// </summary>
+public sealed class RoadLineStyle
+{
+	public bool Enabled { get; set; } = true;
+
+	/// <summary>
+	/// Paint material. Empty uses the tool's white (or yellow, for the centre line).
+	/// </summary>
+	public Material Material { get; set; }
+
+	[Range(1.0f, 50.0f)] public float Width { get; set { field = value.Clamp(0.1f, 1000.0f); } } = 8.0f;
+
+	/// <summary>
+	/// Painted length of each dash. 0 paints a solid line.
+	/// </summary>
+	[Range(0.0f, 2000.0f)] public float DashLength { get; set { field = value.Clamp(0.0f, 100000.0f); } } = 0.0f;
+
+	[Range(0.0f, 2000.0f)] public float GapLength { get; set { field = value.Clamp(0.0f, 100000.0f); } } = 0.0f;
+
+	/// <summary>
+	/// Two lines this far apart (centre to centre) instead of one. 0 paints a single line.
+	/// </summary>
+	[Range(0.0f, 100.0f)] public float DoubleSpacing { get; set { field = value.Clamp(0.0f, 1000.0f); } } = 0.0f;
+
+	[Hide, JsonIgnore] public bool IsDashed => DashLength > 0.0f && GapLength > 0.0f;
+
+	[Hide, JsonIgnore] public bool IsDouble => DoubleSpacing > 0.0f;
+
+
+
+	public void AddToHash(ref StableHash _Hash)
+	{
+		_Hash.Add(Enabled ? 1 : 0);
+		_Hash.Add(Material?.ResourcePath);
+		_Hash.Add(Width);
+		_Hash.Add(DashLength);
+		_Hash.Add(GapLength);
+		_Hash.Add(DoubleSpacing);
+	}
 }
 
 /// <summary>
@@ -79,14 +125,114 @@ public sealed class RoadProfile : GameResource
 	/// </summary>
 	[Group("Country Side"), ShowIf(nameof(Border), RoadBorderStyle.CountrySide), Range(0.001f, 0.2f)] public float ChaosScale { get; set { field = value.Clamp(0.0001f, 10.0f); } } = 0.02f;
 
-	public bool HasBorder => Border != RoadBorderStyle.None;
+	/// <summary>
+	/// Where this road type meets another at a pass-through node, its border tapers into the other's over this
+	/// length: a kerb sinks to the road, a verge flattens out, the widths meet, so the change of road type is a
+	/// slope rather than a step.
+	/// </summary>
+	[Group("Border"), HideIf(nameof(Border), RoadBorderStyle.None), Range(0.0f, 2000.0f)] public float TransitionLength { get; set { field = value.Clamp(0.0f, 100000.0f); } } = 300.0f;
+
+	/// <summary>
+	/// The material a sidewalk's pavement takes over the transition into a country road, so the verge's gravel
+	/// can be seen creeping onto it: a "blendable" material whose first layer is the pavement and whose second is
+	/// the gravel, mixed per vertex (solid gravel at the node, pavement again by the end of the transition, with a
+	/// ragged edge between). Empty keeps the pavement plain up to the node.
+	/// </summary>
+	[Group("Sidewalk"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk)] public Material BlendMaterial { get; set; }
+
+	/// <summary>
+	/// Between two lanes running the same way.
+	/// </summary>
+	[Group("Markings")] public RoadLineStyle LaneLine { get; set; } = new() { DashLength = 200.0f, GapLength = 300.0f };
+
+	/// <summary>
+	/// Between the two directions of a two-way road.
+	/// </summary>
+	[Group("Markings")] public RoadLineStyle CentreLine { get; set; } = new();
+
+	/// <summary>
+	/// Along both sides of the road.
+	/// </summary>
+	[Group("Markings")] public RoadLineStyle EdgeLine { get; set; } = new() { Enabled = false, Width = 6.0f };
+
+	/// <summary>
+	/// How far in from the road's edge the edge line sits (to its outer side). A wide margin makes a cycle lane
+	/// or a hard shoulder.
+	/// </summary>
+	[Group("Markings"), Range(-100.0f, 100.0f)] public float EdgeLineMargin { get; set { field = value.Clamp(-1000.0f, 1000.0f); } } = -10.0f;
+
+	/// <summary>
+	/// Pedestrian crossings across every arm of a junction, just outside the junction, as decals projected onto
+	/// the road. Roads can still turn theirs off end by end.
+	/// </summary>
+	[Group("Crossings")] public bool Crossings { get; set; } = false;
+
+	/// <summary>
+	/// The decal a crossing is drawn with. Empty uses the tool's zebra stripes.
+	/// </summary>
+	[Group("Crossings"), ShowIf(nameof(Crossings), true)] public DecalDefinition CrossingDecal { get; set; }
+
+	/// <summary>
+	/// How far along the road the crossing reaches.
+	/// </summary>
+	[Group("Crossings"), ShowIf(nameof(Crossings), true), Range(20.0f, 500.0f)] public float CrossingDepth { get; set { field = value.Clamp(1.0f, 10000.0f); } } = 120.0f;
+
+	/// <summary>
+	/// Gap between the crossing and the road's edges on each side.
+	/// </summary>
+	[Group("Crossings"), ShowIf(nameof(Crossings), true), Range(0.0f, 100.0f)] public float CrossingInset { get; set { field = value.Clamp(0.0f, 10000.0f); } } = 10.0f;
+
+	/// <summary>
+	/// Gap the painted lines keep from a crossing.
+	/// </summary>
+	[Group("Crossings"), ShowIf(nameof(Crossings), true), Range(0.0f, 300.0f)] public float CrossingClearance { get; set { field = value.Clamp(0.0f, 10000.0f); } } = 40.0f;
+
+	[Hide, JsonIgnore] public bool HasBorder => Border != RoadBorderStyle.None;
+
+	[Hide, JsonIgnore] public DecalDefinition ResolvedCrossingDecal => CrossingDecal ?? ResourceLibrary.Get<DecalDefinition>("roadtool2/decals/crossing.decal");
+
+
+
+	/// <summary>
+	/// Folds the values the crossings are built from into a hash.
+	/// </summary>
+	public void AddCrossingsToHash(ref StableHash _Hash)
+	{
+		_Hash.Add(Crossings ? 1 : 0);
+		_Hash.Add(CrossingDecal?.ResourcePath);
+		_Hash.Add(CrossingDepth);
+		_Hash.Add(CrossingInset);
+		_Hash.Add(CrossingClearance);
+	}
 
 	/// <summary>
 	/// The material lists use "road" for surfaces that extend the road and "border" for the rest.
 	/// </summary>
-	public Material ResolvedRoadMaterial => RoadMaterial ?? Material.Load("roadtool2/materials/asphalt.vmat");
+	[Hide, JsonIgnore] public Material ResolvedRoadMaterial => RoadMaterial ?? Material.Load("roadtool2/materials/asphalt.vmat");
 
-	public Material ResolvedBorderMaterial => BorderMaterial ?? Material.Load("roadtool2/materials/sidewalk.vmat");
+	[Hide, JsonIgnore] public Material ResolvedBorderMaterial => BorderMaterial ?? Material.Load("roadtool2/materials/sidewalk.vmat");
+
+	[Hide, JsonIgnore] public Material ResolvedLaneLineMaterial => LaneLine?.Material ?? Material.Load("roadtool2/materials/linewhite.vmat");
+
+	[Hide, JsonIgnore] public Material ResolvedCentreLineMaterial => CentreLine?.Material ?? Material.Load("roadtool2/materials/lineyellow.vmat");
+
+	[Hide, JsonIgnore] public Material ResolvedEdgeLineMaterial => EdgeLine?.Material ?? Material.Load("roadtool2/materials/linewhite.vmat");
+
+
+
+	/// <summary>
+	/// Folds the values the painted lines are built from into a hash.
+	/// </summary>
+	public void AddMarkingsToHash(ref StableHash _Hash)
+	{
+		foreach (var style in new[] { LaneLine, CentreLine, EdgeLine })
+		{
+			_Hash.Add(style is null ? 0 : 1);
+			style?.AddToHash(ref _Hash);
+		}
+
+		_Hash.Add(EdgeLineMargin);
+	}
 
 
 
@@ -119,7 +265,22 @@ public sealed class RoadProfile : GameResource
 		_Hash.Add(SlopeSegments);
 		_Hash.Add(Chaos);
 		_Hash.Add(ChaosScale);
+		_Hash.Add(TransitionLength);
+		_Hash.Add(BlendMaterial?.ResourcePath);
 	}
+
+
+
+	/// <summary>
+	/// The width of this road type's border when flattened to the road: what a neighbouring road type's border
+	/// tapers to where the two meet.
+	/// </summary>
+	[Hide, JsonIgnore] public float FlatBorderWidth => Border switch
+	{
+		RoadBorderStyle.Sidewalk => BorderWidth,
+		RoadBorderStyle.CountrySide => BorderWidth + VergeWidth,
+		_ => 0.0f
+	};
 
 
 
