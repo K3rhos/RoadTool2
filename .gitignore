@@ -23,3 +23,6 @@ code/Properties/*
 *.sln
 
 *idea
+
+# Road Tool 2 border debug records
+debug/

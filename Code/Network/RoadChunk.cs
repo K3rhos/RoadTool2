@@ -62,5 +62,38 @@ public sealed class RoadChunk : Component
 	/// </summary>
 	[Property, Hide] public long Signature { get; set; }
 
+	/// <summary>
+	/// The rows a border piece was built from, when the network's debug overlay is on. Not saved.
+	/// </summary>
+	public BorderDebug Debug { get; set; }
+
 	public bool IsJunction => NodeId >= 0;
+
+
+
+	protected override void DrawGizmos()
+	{
+		if (Debug is null)
+			return;
+
+		var network = GameObject?.Parent?.Components.Get<RoadNetwork>();
+
+		if (network is null || !network.DebugBorders)
+			return;
+
+		Gizmo.Draw.IgnoreDepth = true;
+		Gizmo.Draw.LineThickness = 2.0f;
+
+		foreach (var line in Debug.Lines)
+		{
+			Gizmo.Draw.Color = line.Color;
+			Gizmo.Draw.Line(line.From, line.To);
+		}
+
+		foreach (var marker in Debug.Markers)
+		{
+			Gizmo.Draw.Color = marker.Color;
+			Gizmo.Draw.SolidSphere(marker.Position, 2.0f);
+		}
+	}
 }

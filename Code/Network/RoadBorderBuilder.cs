@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Sandbox;
 using Sandbox.Utility;
 
@@ -35,17 +36,78 @@ internal static class RoadBorderBuilder
 		public readonly float Along;
 
 		/// <summary>
-		/// Set on points of a fillet arc that the border wraps the inside of: profile nodes further out than the
-		/// fillet radius land on the block corner instead of folding through the centre.
+		/// How far the outer part of the profile is lifted above the road edge here (the kerb stays on the road,
+		/// the outer edge takes all of it). Along a road it runs linearly from one end's corner height difference
+		/// to the other's; on a corner's arc (<see cref="IsArc"/>) it is whatever brings the row to the corner's
+		/// one height, and nodes further out than the fillet radius collapse onto the centre.
 		/// </summary>
+		public readonly float Lift;
 		public readonly RoadJunctionLayout.CornerFold Fold;
+		public readonly bool IsArc;
 
-		public PathPoint(Vector3 _Position, Vector3 _Outward, float _Along, RoadJunctionLayout.CornerFold _Fold = null)
+		public PathPoint(Vector3 _Position, Vector3 _Outward, float _Along, float _Lift = 0.0f, RoadJunctionLayout.CornerFold _Fold = null, bool _IsArc = false)
 		{
 			Position = _Position;
 			Outward = _Outward;
 			Along = _Along;
+			Lift = _Lift;
 			Fold = _Fold;
+			IsArc = _IsArc;
+		}
+
+		/// <summary>
+		/// True when a node at this offset sits on the corner's centre rather than at its own offset.
+		/// </summary>
+		public bool IsFolded(float _Offset)
+		{
+			return IsArc && Fold is not null && _Offset >= Fold.Radius;
+		}
+	}
+
+	/// <summary>
+	/// The height the outer edge of one side's border is lifted along a segment: the corner height difference at
+	/// each end (0 where the end has no corner on that side), interpolated linearly between the two tangent
+	/// points. Arm chunks and the junction runs evaluate this same line, so the seam between them is exact and
+	/// nothing depends on how long the road is.
+	/// </summary>
+	public readonly record struct SideBlend(bool Active, float StartDistance, float StartDelta, float EndDistance, float EndDelta)
+	{
+		public float DeltaAt(float _Distance)
+		{
+			if (!Active)
+				return 0.0f;
+
+			float span = EndDistance - StartDistance;
+
+			if (span <= 0.001f)
+				return StartDelta;
+
+			return MathX.Lerp(StartDelta, EndDelta, Math.Clamp((_Distance - StartDistance) / span, 0.0f, 1.0f));
+		}
+
+		public void AddToHash(ref StableHash _Hash)
+		{
+			_Hash.Add(Active ? 1 : 0);
+
+			if (!Active)
+				return;
+
+			_Hash.Add(StartDistance);
+			_Hash.Add(StartDelta);
+			_Hash.Add(EndDistance);
+			_Hash.Add(EndDelta);
+		}
+	}
+
+	/// <summary>
+	/// The border lifts of a segment's two sides.
+	/// </summary>
+	public readonly record struct SegmentBorderBlends(SideBlend Left, SideBlend Right)
+	{
+		public void AddToHash(ref StableHash _Hash)
+		{
+			Left.AddToHash(ref _Hash);
+			Right.AddToHash(ref _Hash);
 		}
 	}
 
@@ -83,12 +145,17 @@ internal static class RoadBorderBuilder
 	private const float BandOuter = 1000.0f;
 	private const float BandRoll = 2000.0f;
 
+	/// <summary>
+	/// Two corners of a face closer than this are one point: the face is a triangle.
+	/// </summary>
+	private const float JoinDistance = 1.0f;
+
 
 
 	/// <summary>
 	/// Both borders of a stretch of road, rows at the same distances as the road surface.
 	/// </summary>
-	public static PolygonMesh BuildSegment(RoadCurveTable _Table, float _StartDistance, float _EndDistance, float _Width, RoadProfile _Profile, float _Spacing, float _Lift, BorderCaps _Caps)
+	public static PolygonMesh BuildSegment(RoadCurveTable _Table, float _StartDistance, float _EndDistance, float _Width, RoadProfile _Profile, float _Spacing, float _Lift, BorderCaps _Caps, in SegmentBorderBlends _Blends, BorderDebug _Debug = null)
 	{
 		var mesh = new PolygonMesh();
 
@@ -99,6 +166,10 @@ internal static class RoadBorderBuilder
 		var left = new List<PathPoint>(steps + 1);
 		var right = new List<PathPoint>(steps + 1);
 
+		_Debug?.Note($"SEGMENT start={_StartDistance:0.###} end={_EndDistance:0.###} length={_Table.Length:0.###} width={_Width} lift={_Lift} spacing={_Spacing} caps={_Caps} profile={_Profile.ResourceName} border={_Profile.Border} borderWidth={_Profile.BorderWidth} curb={_Profile.CurbHeight} bevel={_Profile.CurbBevel}");
+		_Debug?.Note($"BLEND left {Describe(_Blends.Left)}");
+		_Debug?.Note($"BLEND right {Describe(_Blends.Right)}");
+
 		for (int i = 0; i <= steps; i++)
 		{
 			float distance = i == steps ? _EndDistance : _StartDistance + length * i / steps;
@@ -106,12 +177,12 @@ internal static class RoadBorderBuilder
 
 			RoadSurfaceBuilder.CrossSection(_Table, distance, halfWidth, _Lift, out Vector3 leftPos, out Vector3 rightPos);
 
-			left.Add(new PathPoint(leftPos, -rightDirection, distance));
-			right.Add(new PathPoint(rightPos, rightDirection, distance));
+			left.Add(new PathPoint(leftPos, -rightDirection, distance, _Blends.Left.DeltaAt(distance)));
+			right.Add(new PathPoint(rightPos, rightDirection, distance, _Blends.Right.DeltaAt(distance)));
 		}
 
-		Sweep(mesh, _Profile, left, _Caps.HasFlag(BorderCaps.StartLeft), _Caps.HasFlag(BorderCaps.EndLeft));
-		Sweep(mesh, _Profile, right, _Caps.HasFlag(BorderCaps.StartRight), _Caps.HasFlag(BorderCaps.EndRight));
+		Sweep(mesh, _Profile, left, _Caps.HasFlag(BorderCaps.StartLeft), _Caps.HasFlag(BorderCaps.EndLeft), _Debug, BorderDebug.ArmColor, "arm L");
+		Sweep(mesh, _Profile, right, _Caps.HasFlag(BorderCaps.StartRight), _Caps.HasFlag(BorderCaps.EndRight), _Debug, BorderDebug.ArmColor, "arm R");
 
 		return mesh;
 	}
@@ -121,23 +192,33 @@ internal static class RoadBorderBuilder
 	/// <summary>
 	/// The borders round a junction: each corner path is swept in two halves, one in each neighbouring arm's
 	/// profile, so a road's border carries on round the corner in its own style. Where the two styles differ the
-	/// halves are closed off against each other.
+	/// halves are closed off against each other. The arms' segment blends are what their chunks were built with,
+	/// so the straight stretch of each half continues the arm's border exactly.
 	/// </summary>
-	public static PolygonMesh BuildJunction(RoadJunctionLayout _Layout, Func<RoadSegment, RoadProfile> _ProfileOf)
+	public static PolygonMesh BuildJunction(RoadJunctionLayout _Layout, Func<RoadSegment, RoadProfile> _ProfileOf, Func<RoadSegment, SegmentBorderBlends> _BlendsOf, BorderDebug _Debug = null)
 	{
 		var mesh = new PolygonMesh();
+
+		if (_Debug is not null)
+		{
+			_Debug.Note($"JUNCTION node={_Layout.Node.Id} position={BorderDebug.Format(_Layout.Node.Position)} radius={_Layout.Radius} centre={BorderDebug.Format(_Layout.Centre)}");
+			_Layout.Describe(_Debug);
+
+			foreach (var arm in _Layout.Arms)
+				_Debug.Note($"BLEND arm={arm.Segment.Id} left {Describe(_BlendsOf(arm.Segment).Left)} right {Describe(_BlendsOf(arm.Segment).Right)}");
+		}
 
 		foreach (var path in _Layout.CornerPaths)
 		{
 			var profileA = _ProfileOf(path.ArmA.Segment);
 			var profileB = _ProfileOf(path.ArmB.Segment);
-			bool differ = !ReferenceEquals(profileA, profileB);
+			bool differ = !SameProfile(profileA, profileB);
 
 			if (profileA.HasBorder)
-				Sweep(mesh, profileA, HalfPath(path, true), false, differ || !profileB.HasBorder);
+				Sweep(mesh, profileA, HalfPath(path, true, _BlendsOf(path.ArmA.Segment)), false, differ || !profileB.HasBorder, _Debug, BorderDebug.FirstHalfColor, $"J{_Layout.Node.Id} A{path.ArmA.Segment.Id}");
 
 			if (profileB.HasBorder)
-				Sweep(mesh, profileB, HalfPath(path, false), differ || !profileA.HasBorder, false);
+				Sweep(mesh, profileB, HalfPath(path, false, _BlendsOf(path.ArmB.Segment)), differ || !profileA.HasBorder, false, _Debug, BorderDebug.SecondHalfColor, $"J{_Layout.Node.Id} B{path.ArmB.Segment.Id}");
 		}
 
 		return mesh;
@@ -145,12 +226,37 @@ internal static class RoadBorderBuilder
 
 
 
+	private static string Describe(in SideBlend _Blend)
+	{
+		return _Blend.Active
+			? $"active from={_Blend.StartDistance:0.###} delta={_Blend.StartDelta:0.###} to={_Blend.EndDistance:0.###} delta={_Blend.EndDelta:0.###}"
+			: "inactive";
+	}
+
+
+
 	/// <summary>
-	/// One half of a corner path as a border run. Away-from-road directions are taken from the outline (the
-	/// interior is on its left), except at the rows, which reuse the arm's own frame so the arm chunk's border
-	/// meets this one exactly. The along coordinate carries the arm's curve distance on round the corner.
+	/// The same road type, whether or not the two references are the same loaded instance of the asset.
 	/// </summary>
-	private static List<PathPoint> HalfPath(RoadJunctionLayout.CornerPath _Path, bool _FirstHalf)
+	public static bool SameProfile(RoadProfile _A, RoadProfile _B)
+	{
+		if (ReferenceEquals(_A, _B))
+			return true;
+
+		if (_A is null || _B is null)
+			return false;
+
+		return !string.IsNullOrEmpty(_A.ResourcePath) && _A.ResourcePath == _B.ResourcePath;
+	}
+
+
+
+	/// <summary>
+	/// One half of a corner path as a border run. Away-from-road directions come with the path points (the frame
+	/// of the arm or the arc they are on), so the arm chunk's border meets this one exactly at the row. The along
+	/// coordinate carries the arm's curve distance on round the corner.
+	/// </summary>
+	private static List<PathPoint> HalfPath(RoadJunctionLayout.CornerPath _Path, bool _FirstHalf, in SegmentBorderBlends _Blends)
 	{
 		var points = _Path.Points;
 		int first = _FirstHalf ? 0 : _Path.MidIndex;
@@ -161,6 +267,11 @@ internal static class RoadBorderBuilder
 
 		if (count < 2)
 			return result;
+
+		// The first half runs on its arm's left (looking out of the node), the second on its arm's right; which
+		// side of the segment that is depends on which way the segment runs.
+		bool segmentLeft = _FirstHalf == arm.AtStart;
+		var side = segmentLeft ? _Blends.Left : _Blends.Right;
 
 		// Walking towards the node runs against an arm that starts there, and with one that ends there.
 		float sign = _FirstHalf ? (arm.AtStart ? -1.0f : 1.0f) : (arm.AtStart ? 1.0f : -1.0f);
@@ -184,25 +295,20 @@ internal static class RoadBorderBuilder
 		for (int k = 0; k < count; k++)
 		{
 			int index = first + k;
-			Vector3 outward;
+			Vector3 outward = _Path.Outwards[index];
 
-			if (index == 0)
-			{
-				outward = _Path.StartOutward;
-			}
-			else if (index == points.Count - 1)
-			{
-				outward = _Path.EndOutward;
-			}
-			else
+			// A sharp corner point has no frame of its own: take the right of the way through it.
+			if (outward.IsNearZeroLength && index > 0 && index < points.Count - 1)
 			{
 				Vector3 direction = points[index + 1] - points[index - 1];
 				outward = new Vector3(direction.y, -direction.x, 0.0f).Normal;
 			}
 
-			var fold = index >= _Path.ArcFirst && index <= _Path.ArcLast ? _Path.Fold : null;
+			var fold = _Path.Fold;
+			bool onArc = fold is not null && index >= _Path.ArcFirst && index <= _Path.ArcLast;
 
-			result.Add(new PathPoint(points[index], outward, along[k], fold));
+			// Straight stretches take the segment's lift line, exactly like the arm chunk's rows do.
+			result.Add(new PathPoint(points[index], outward, along[k], side.DeltaAt(along[k]), fold, onArc));
 		}
 
 		return result;
@@ -214,7 +320,7 @@ internal static class RoadBorderBuilder
 	/// Sweeps the profile's cross-section along the path, one row of vertices per point, and closes the open ends.
 	/// Every face is emitted as two triangles: a verge that rolls with noise is nowhere near planar.
 	/// </summary>
-	public static void Sweep(PolygonMesh _Mesh, RoadProfile _Profile, IReadOnlyList<PathPoint> _Path, bool _CapStart, bool _CapEnd)
+	public static void Sweep(PolygonMesh _Mesh, RoadProfile _Profile, IReadOnlyList<PathPoint> _Path, bool _CapStart, bool _CapEnd, BorderDebug _Debug = null, Color _DebugColor = default, string _DebugName = null)
 	{
 		if (!_Profile.HasBorder)
 			return;
@@ -232,33 +338,88 @@ internal static class RoadBorderBuilder
 		var across = new float[path.Count][];
 		var handles = new HalfEdgeMesh.VertexHandle[path.Count][];
 
-		for (int i = 0; i < path.Count; i++)
-		{
-			var point = path[i];
-			var shape = new Vector2[nodeCount];
-			var rows = new Vector3[nodeCount];
-			var distances = new float[nodeCount];
-
-			EvaluateProfile(_Profile, point, shape);
-
-			for (int k = 0; k < nodeCount; k++)
-			{
-				rows[k] = NodePosition(point, shape[k]);
-
-				if (k > 0)
-					distances[k] = distances[k - 1] + Vector3.DistanceBetween(rows[k - 1], rows[k]);
-			}
-
-			shapes[i] = shape;
-			positions[i] = rows;
-			across[i] = distances;
-			handles[i] = _Mesh.AddVertices(rows);
-		}
-
 		// One winding for the whole run, from which side of its path the border lies on. Deciding it per quad from
 		// the quad's own normal goes wrong on thin or folded quads, and a quad wound against its neighbours makes
 		// the mesh builder drop whichever face comes second: a hole.
 		bool flip = Vector3.Dot(Vector3.Cross(path[^1].Position - path[0].Position, path[0].Outward), Vector3.Up) > 0.0f;
+
+		_Debug?.Note($"RUN name=\"{_DebugName}\" rows={path.Count} (given {_Path.Count}) capStart={(_CapStart ? 1 : 0)} capEnd={(_CapEnd ? 1 : 0)} flip={(flip ? 1 : 0)}");
+
+		for (int i = 0; i < path.Count; i++)
+		{
+			var shape = new Vector2[nodeCount];
+			var rows = new Vector3[nodeCount];
+
+			EvaluateProfile(_Profile, path[i], shape);
+
+			for (int k = 0; k < nodeCount; k++)
+				rows[k] = NodePosition(path[i], shape[k], _Profile.BorderWidth);
+
+			shapes[i] = shape;
+			positions[i] = rows;
+		}
+
+		var stalls = RemoveFolds(path, positions, nodeCount);
+
+		for (int i = 0; i < path.Count; i++)
+		{
+			var rows = positions[i];
+			var distances = new float[nodeCount];
+
+			for (int k = 1; k < nodeCount; k++)
+				distances[k] = distances[k - 1] + Vector3.DistanceBetween(rows[k - 1], rows[k]);
+
+			across[i] = distances;
+			handles[i] = new HalfEdgeMesh.VertexHandle[nodeCount];
+
+			for (int k = 0; k < nodeCount; k++)
+			{
+				if (stalls[i][k] < 0)
+					handles[i][k] = _Mesh.AddVertices(rows[k])[0];
+			}
+		}
+
+		// A stalled node shares the vertex it stalled on, so the faces round it come out as triangles instead of
+		// zero-area quads. Backward stalls point at later rows, hence the second pass.
+		for (int i = 0; i < path.Count; i++)
+		{
+			for (int k = 0; k < nodeCount; k++)
+			{
+				int source = i;
+
+				while (stalls[source][k] >= 0)
+					source = stalls[source][k];
+
+				handles[i][k] = handles[source][k];
+			}
+		}
+
+		if (_Debug is not null)
+		{
+			for (int i = 0; i < path.Count; i++)
+			{
+				var point = path[i];
+				var rows = positions[i];
+
+				_Debug.Line(rows[0], rows[nodeCount - 1], _DebugColor);
+
+				if (i == 0 || i == path.Count - 1)
+					_Debug.Marker(rows[nodeCount - 1], _DebugColor);
+
+				var nodes = new StringBuilder();
+
+				for (int k = 0; k < nodeCount; k++)
+					nodes.Append(' ').Append(BorderDebug.Format(rows[k])).Append(point.IsFolded(shapes[i][k].x) ? "F" : "").Append(stalls[i][k] >= 0 ? $"S{stalls[i][k]}" : "");
+
+				_Debug.Note($"R {i} pos={BorderDebug.Format(point.Position)} out={BorderDebug.Format(point.Outward)} along={point.Along:0.###} lift={point.Lift:0.###} arc={(point.IsArc ? 1 : 0)} fold={(point.Fold is not null ? 1 : 0)} |{nodes}");
+			}
+		}
+
+		if (_Debug is not null && _CapStart)
+			_Debug.Line(positions[0][0], positions[0][nodeCount - 1], BorderDebug.CapColor);
+
+		if (_Debug is not null && _CapEnd)
+			_Debug.Line(positions[^1][0], positions[^1][nodeCount - 1], BorderDebug.CapColor);
 
 		for (int i = 0; i < path.Count - 1; i++)
 		{
@@ -267,16 +428,49 @@ internal static class RoadBorderBuilder
 				int a = face.NodeA;
 				int b = face.NodeB;
 
+				// A face whose nodes have both collapsed onto the corner centre has nothing left between them;
+				// its stretch across the corner is the block corner patch instead.
+				if (IsFoldedFace(path[i], shapes[i], a, b) || IsFoldedFace(path[i + 1], shapes[i + 1], a, b))
+					continue;
+
+				// Corners of the two rows that sit on one point (the row before a corner's arc reaches the centre
+				// the arc rows fold onto; every arc row's outer node is the centre) make the face a triangle. Cut
+				// as a quad it would also give a needle-thin sliver with a random normal, which shows through from
+				// below and z-fights from above.
+				bool outerJoined = positions[i][b].Distance(positions[i + 1][b]) < JoinDistance;
+				bool innerJoined = positions[i][a].Distance(positions[i + 1][a]) < JoinDistance;
+
+				if (outerJoined && innerJoined)
+					continue;
+
 				Vector2 uv0 = FaceUv(face, path[i], positions[i][a], across[i], a);
 				Vector2 uv1 = FaceUv(face, path[i], positions[i][b], across[i], b);
 				Vector2 uv2 = FaceUv(face, path[i + 1], positions[i + 1][b], across[i + 1], b);
 				Vector2 uv3 = FaceUv(face, path[i + 1], positions[i + 1][a], across[i + 1], a);
 
-				AddQuad(_Mesh, face.Material, flip,
-					handles[i][a], handles[i][b], handles[i + 1][b], handles[i + 1][a],
-					uv0, uv1, uv2, uv3);
+				if (outerJoined)
+				{
+					// The folded row's vertex is the exact centre; keep that one.
+					bool keepNext = path[i + 1].IsFolded(shapes[i + 1][b].x) || !path[i].IsFolded(shapes[i][b].x);
+					var outer = keepNext ? handles[i + 1][b] : handles[i][b];
+					Vector2 uvOuter = keepNext ? uv2 : uv1;
+
+					AddTriangle(_Mesh, face.Material, flip, handles[i][a], outer, handles[i + 1][a], uv0, uvOuter, uv3);
+				}
+				else if (innerJoined)
+				{
+					AddTriangle(_Mesh, face.Material, flip, handles[i][a], handles[i][b], handles[i + 1][b], uv0, uv1, uv2);
+				}
+				else
+				{
+					AddQuad(_Mesh, face.Material, flip,
+						handles[i][a], handles[i][b], handles[i + 1][b], handles[i + 1][a],
+						uv0, uv1, uv2, uv3);
+				}
 			}
 		}
+
+		AddCornerPatches(_Mesh, faces, path, shapes, positions, across, _Debug);
 
 		var capMaterial = _Profile.Border == RoadBorderStyle.CountrySide ? _Profile.ResolvedRoadMaterial : _Profile.ResolvedBorderMaterial;
 		float capRepeat = _Profile.Border == RoadBorderStyle.CountrySide ? _Profile.RoadTextureRepeat : _Profile.BorderTextureRepeat;
@@ -436,20 +630,291 @@ internal static class RoadBorderBuilder
 
 
 	/// <summary>
-	/// Where a profile node lands for a path point. Along a fillet the border wraps the inside of, a node further
-	/// out than the radius would pass through the centre and come back folded; it goes to the block corner for
-	/// its offset instead, so the outline turns square once the border is wider than the fillet.
+	/// On the inside of a bend tighter than the road is wide plus the border, the border's outer edge runs
+	/// backwards: a row's outer node lands behind the previous row's and the face between them folds over itself.
+	/// The offset curve has a loop there, and the fix is the one for offset curves: cut the loop out. A node whose
+	/// face would fold instead stays on the previous row's node (it shares that vertex), so the outer edge runs
+	/// straight from the last good node to the next one. The first and last rows are never moved: they are the
+	/// rows a run shares with its neighbouring piece, and the seam stays exact; a fold against the last row is
+	/// taken out by stalling the rows before it onto it instead. Arc rows are left to the corner fold. Returns,
+	/// per row and node, the row whose node it stalled onto (-1 when it kept its own).
 	/// </summary>
-	private static Vector3 NodePosition(in PathPoint _Point, Vector2 _Node)
+	private static int[][] RemoveFolds(List<PathPoint> _Path, Vector3[][] _Positions, int _NodeCount)
 	{
-		if (_Point.Fold is { } fold && _Node.x >= fold.Radius)
-		{
-			Vector2 mitre = fold.MitrePoint(_Node.x);
+		int count = _Path.Count;
+		var stalls = new int[count][];
 
-			return new Vector3(mitre.x, mitre.y, _Point.Position.z + _Node.y);
+		for (int i = 0; i < count; i++)
+		{
+			stalls[i] = new int[_NodeCount];
+			Array.Fill(stalls[i], -1);
 		}
 
-		return _Point.Position + _Point.Outward * _Node.x + Vector3.Up * _Node.y;
+		if (count < 3)
+			return stalls;
+
+		for (int k = 1; k < _NodeCount; k++)
+		{
+			// Forward: each row against the last row that kept its own node.
+			for (int i = 1; i < count - 1; i++)
+			{
+				if (_Path[i].IsArc || _Path[i - 1].IsArc)
+					continue;
+
+				if (FaceIsSimple(_Positions[i - 1][0], _Positions[i][0], _Positions[i][k], _Positions[i - 1][k]))
+					continue;
+
+				_Positions[i][k] = _Positions[i - 1][k];
+				stalls[i][k] = i - 1;
+			}
+
+			// Backward: the last row cannot move, so rows folding against it move onto it.
+			for (int i = count - 2; i >= 1; i--)
+			{
+				if (_Path[i].IsArc || _Path[i + 1].IsArc)
+					continue;
+
+				if (FaceIsSimple(_Positions[i][0], _Positions[i + 1][0], _Positions[i + 1][k], _Positions[i][k]))
+					break;
+
+				_Positions[i][k] = _Positions[i + 1][k];
+				stalls[i][k] = i + 1;
+			}
+		}
+
+		return stalls;
+	}
+
+
+
+	/// <summary>
+	/// True when the face with these corners (kerb, next kerb, next node, node) does not cross itself in plan.
+	/// </summary>
+	private static bool FaceIsSimple(Vector3 _A, Vector3 _B, Vector3 _C, Vector3 _D)
+	{
+		return !SegmentsCross(Flat(_A), Flat(_B), Flat(_C), Flat(_D)) && !SegmentsCross(Flat(_B), Flat(_C), Flat(_D), Flat(_A));
+	}
+
+
+
+	/// <summary>
+	/// Proper crossing of the segments p-q and r-s; touching at an end does not count.
+	/// </summary>
+	private static bool SegmentsCross(Vector2 _P, Vector2 _Q, Vector2 _R, Vector2 _S)
+	{
+		Vector2 pq = _Q - _P;
+		Vector2 rs = _S - _R;
+		float denominator = pq.x * rs.y - pq.y * rs.x;
+
+		if (MathF.Abs(denominator) < 0.000001f)
+			return false;
+
+		Vector2 pr = _R - _P;
+		float t = (pr.x * rs.y - pr.y * rs.x) / denominator;
+		float u = (pr.x * pq.y - pr.y * pq.x) / denominator;
+
+		return t > 0.001f && t < 0.999f && u > 0.001f && u < 0.999f;
+	}
+
+
+
+	/// <summary>
+	/// Where a profile node lands for a path point. The lift is taken in full by the outer edge of the border and
+	/// not at all by the kerb, with the nodes in between sharing it by their offset, so a lifted row tilts across
+	/// its width. On a corner's arc the lift is whatever brings the row to the corner's one height, and a node
+	/// further out than the fillet radius would pass through the centre and come back folded, so it stops at the
+	/// centre instead: the rows of the arc make a pie, and the block corner beyond the centre is patched in
+	/// separately.
+	/// </summary>
+	private static Vector3 NodePosition(in PathPoint _Point, Vector2 _Node, float _BorderWidth)
+	{
+		if (_Point.IsFolded(_Node.x))
+			return new Vector3(_Point.Fold.Centre.x, _Point.Fold.Centre.y, _Point.Fold.ApexHeight + _Node.y);
+
+		float weight = MathF.Min(_Node.x / MathF.Max(_BorderWidth, 1.0f), 1.0f);
+		float lift = _Point.IsArc && _Point.Fold is { } fold ? fold.ApexHeight - _Point.Position.z : _Point.Lift;
+		Vector3 flat = _Point.Position + _Point.Outward * _Node.x;
+
+		return new Vector3(flat.x, flat.y, _Point.Position.z + weight * lift + _Node.y);
+	}
+
+
+
+	private static bool IsFoldedFace(in PathPoint _Point, Vector2[] _Shape, int _NodeA, int _NodeB)
+	{
+		return _Point.IsFolded(_Shape[_NodeA].x) && _Point.IsFolded(_Shape[_NodeB].x);
+	}
+
+
+
+	/// <summary>
+	/// The block corner: what lies beyond the corner centre, out to where the two straight outer edges of the
+	/// border meet. For a face whose outer node collapsed onto the centre it is the triangle from the centre to
+	/// that node on the last full row and to the mitre point; for a face whose nodes both collapsed it is the
+	/// strip between their two mitre points. Both halves of a corner contribute their triangle, together making
+	/// the square. Fresh vertices: these faces share no edges with the sweep.
+	/// </summary>
+	private static void AddCornerPatches(PolygonMesh _Mesh, Face[] _Faces, List<PathPoint> _Path, Vector2[][] _Shapes, Vector3[][] _Positions, float[][] _Across, BorderDebug _Debug)
+	{
+		int arcStart = -1;
+		int arcEnd = -1;
+
+		for (int i = 0; i < _Path.Count; i++)
+		{
+			if (!_Path[i].IsArc)
+				continue;
+
+			if (arcStart < 0)
+				arcStart = i;
+
+			arcEnd = i;
+		}
+
+		if (arcStart < 0 || _Path[arcStart].Fold is not { } fold)
+			return;
+
+		// The last full row before the arc (first half of a corner) or the first after it (second half).
+		int t = arcStart > 0 ? arcStart - 1 : (arcEnd < _Path.Count - 1 ? arcEnd + 1 : -1);
+
+		if (t < 0)
+			return;
+
+		var row = _Path[t];
+		var shape = _Shapes[t];
+		var bisector = new Vector3(fold.Bisector.x, fold.Bisector.y, 0.0f);
+
+		// Which way the along-the-road coordinate runs towards the corner, for the faces that keep it.
+		float towardsCorner = MathF.Sign(_Path[arcStart].Along - row.Along);
+
+		_Debug?.Note($"PATCHES arcStart={arcStart} arcEnd={arcEnd} row={t} apex={BorderDebug.Format(fold.Apex)} centre={BorderDebug.Format(fold.Centre)} bisector={BorderDebug.Format(fold.Bisector)} halfSin={fold.HalfAngleSin:0.####} radius={fold.Radius:0.###} apexHeight={fold.ApexHeight:0.###}");
+
+		foreach (var face in _Faces)
+		{
+			int a = face.NodeA;
+			int b = face.NodeB;
+
+			// Nothing collapsed: the sweep covered this face all the way round.
+			if (shape[b].x < fold.Radius)
+				continue;
+
+			_Debug?.Note($"PATCH face={a}-{b} offsetA={shape[a].x:0.###} offsetB={shape[b].x:0.###} mitreA={BorderDebug.Format(fold.MitrePoint(shape[a].x))} mitreB={BorderDebug.Format(fold.MitrePoint(shape[b].x))} rowA={BorderDebug.Format(_Positions[t][a])} rowB={BorderDebug.Format(_Positions[t][b])}");
+
+			Vector2 edge = shape[b] - shape[a];
+			Vector3 expected = bisector * -edge.y + Vector3.Up * edge.x;
+
+			// The profile's texture runs across the border and along the road; a block corner keeps the row's
+			// across coordinate and carries the along coordinate on to the mitre.
+			Vector2 mitreB = fold.MitrePoint(shape[b].x);
+			var pointB = _Positions[t][b];
+			var cornerB = new Vector3(mitreB.x, mitreB.y, fold.ApexHeight + shape[b].y);
+			Vector2 uvB = FaceUv(face, row, pointB, _Across[t], b);
+			Vector2 uvCornerB = face.Planar ? PlanarUv(cornerB, face.Repeat) : uvB + new Vector2(0.0f, towardsCorner * Flat(pointB).Distance(Flat(cornerB)) / face.Repeat);
+
+			if (shape[a].x < fold.Radius)
+			{
+				var centre = new Vector3(fold.Centre.x, fold.Centre.y, fold.ApexHeight + shape[b].y);
+
+				// A border exactly as wide as the fillet: the block corner is a point.
+				if (Flat(pointB).Distance(Flat(centre)) < 0.5f || Flat(cornerB).Distance(Flat(centre)) < 0.5f)
+					continue;
+
+				Vector2 uvCentre = face.Planar ? PlanarUv(centre, face.Repeat) : uvB;
+
+				AddPatchTriangle(_Mesh, face.Material, expected, centre, pointB, cornerB, uvCentre, uvB, uvCornerB);
+
+				if (_Debug is not null)
+				{
+					_Debug.Line(centre, pointB, BorderDebug.PatchColor);
+					_Debug.Line(pointB, cornerB, BorderDebug.PatchColor);
+					_Debug.Line(cornerB, centre, BorderDebug.PatchColor);
+				}
+
+				continue;
+			}
+
+			Vector2 mitreA = fold.MitrePoint(shape[a].x);
+			var pointA = _Positions[t][a];
+			var cornerA = new Vector3(mitreA.x, mitreA.y, fold.ApexHeight + shape[a].y);
+
+			if (Flat(pointA).Distance(Flat(cornerA)) < 0.5f && Flat(pointB).Distance(Flat(cornerB)) < 0.5f)
+				continue;
+
+			Vector2 uvA = FaceUv(face, row, pointA, _Across[t], a);
+			Vector2 uvCornerA = face.Planar ? PlanarUv(cornerA, face.Repeat) : uvA + new Vector2(0.0f, towardsCorner * Flat(pointA).Distance(Flat(cornerA)) / face.Repeat);
+
+			AddPatchQuad(_Mesh, face.Material, expected, pointA, cornerA, cornerB, pointB, uvA, uvCornerA, uvCornerB, uvB);
+
+			if (_Debug is not null)
+			{
+				_Debug.Line(pointA, cornerA, BorderDebug.PatchColor);
+				_Debug.Line(cornerA, cornerB, BorderDebug.PatchColor);
+				_Debug.Line(cornerB, pointB, BorderDebug.PatchColor);
+			}
+		}
+	}
+
+
+
+	private static void AddPatchTriangle(PolygonMesh _Mesh, Material _Material, Vector3 _Expected, Vector3 _A, Vector3 _B, Vector3 _C, Vector2 _UvA, Vector2 _UvB, Vector2 _UvC)
+	{
+		var handles = _Mesh.AddVertices(_A, _B, _C);
+
+		if (Vector3.Dot(Vector3.Cross(_B - _A, _C - _A), _Expected) >= 0.0f)
+			MeshUtility.AddTexturedTriangle(_Mesh, _Material, handles[0], handles[1], handles[2], _UvA, _UvB, _UvC);
+		else
+			MeshUtility.AddTexturedTriangle(_Mesh, _Material, handles[0], handles[2], handles[1], _UvA, _UvC, _UvB);
+	}
+
+
+
+	private static void AddPatchQuad(PolygonMesh _Mesh, Material _Material, Vector3 _Expected, Vector3 _A, Vector3 _B, Vector3 _C, Vector3 _D, Vector2 _UvA, Vector2 _UvB, Vector2 _UvC, Vector2 _UvD)
+	{
+		var handles = _Mesh.AddVertices(_A, _B, _C, _D);
+		Vector3 normal = Vector3.Cross(_B - _A, _C - _A);
+
+		if (normal.IsNearZeroLength)
+			normal = Vector3.Cross(_C - _A, _D - _A);
+
+		// One decision for both triangles: they share an edge and must agree.
+		if (Vector3.Dot(normal, _Expected) >= 0.0f)
+		{
+			MeshUtility.AddTexturedTriangle(_Mesh, _Material, handles[0], handles[1], handles[2], _UvA, _UvB, _UvC);
+			MeshUtility.AddTexturedTriangle(_Mesh, _Material, handles[0], handles[2], handles[3], _UvA, _UvC, _UvD);
+		}
+		else
+		{
+			MeshUtility.AddTexturedTriangle(_Mesh, _Material, handles[0], handles[2], handles[1], _UvA, _UvC, _UvB);
+			MeshUtility.AddTexturedTriangle(_Mesh, _Material, handles[0], handles[3], handles[2], _UvA, _UvD, _UvC);
+		}
+	}
+
+
+
+	private static Vector2 PlanarUv(Vector3 _Position, float _Repeat)
+	{
+		return new Vector2(_Position.x, _Position.y) / _Repeat;
+	}
+
+
+
+	private static Vector2 Flat(Vector3 _Vector)
+	{
+		return new Vector2(_Vector.x, _Vector.y);
+	}
+
+
+
+	/// <summary>
+	/// One triangle in the run's winding: the corners in the same order a quad's would be.
+	/// </summary>
+	private static void AddTriangle(PolygonMesh _Mesh, Material _Material, bool _Flip,
+		HalfEdgeMesh.VertexHandle _HA, HalfEdgeMesh.VertexHandle _HB, HalfEdgeMesh.VertexHandle _HC,
+		Vector2 _UvA, Vector2 _UvB, Vector2 _UvC)
+	{
+		if (!_Flip)
+			MeshUtility.AddTexturedTriangle(_Mesh, _Material, _HA, _HB, _HC, _UvA, _UvB, _UvC);
+		else
+			MeshUtility.AddTexturedTriangle(_Mesh, _Material, _HA, _HC, _HB, _UvA, _UvC, _UvB);
 	}
 
 

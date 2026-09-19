@@ -74,6 +74,18 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 	/// </summary>
 	[Property(Title = "Chunks Per Frame"), Group("Generation"), Range(1, 32)] public int RebuildBudget { get; set; } = 4;
 
+	/// <summary>
+	/// Draws every border piece's rows over the scene: arm chunks green, junction corner halves red and cyan,
+	/// block corner patches yellow, caps magenta. The editor also writes the numbers behind every piece to
+	/// Libraries/RoadTool2/debug/borders.txt whenever a piece is rebuilt.
+	/// </summary>
+	[Property(Title = "Debug Borders"), Group("Debug")] public bool DebugBorders { get; set { field = value; MarkDirty(); } }
+
+	/// <summary>
+	/// Bumped each time a border piece is built with its debug record, so the editor knows when to write it out.
+	/// </summary>
+	public int DebugRevision { get; private set; }
+
 
 
 	public RoadNode FindNode(int _Id)
@@ -243,9 +255,11 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 
 	/// <summary>
 	/// Switches a node between automatic and hand-placed tangents. Going manual straightens every handle at the
-	/// node, which is the "sharp corner" look; going automatic hands the smoothing back to the network.
+	/// node, which is the "sharp corner" look, unless <paramref name="_Straighten"/> is off, which just freezes the
+	/// handles as they are (so a road added next keeps its straight handle there without kinking the roads already
+	/// through the node); going automatic hands the smoothing back to the network.
 	/// </summary>
-	public void SetAutoTangents(int _NodeId, bool _Auto)
+	public void SetAutoTangents(int _NodeId, bool _Auto, bool _Straighten = true)
 	{
 		var node = FindNode(_NodeId);
 
@@ -254,7 +268,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 
 		node.AutoTangents = _Auto;
 
-		if (!_Auto)
+		if (!_Auto && _Straighten)
 		{
 			foreach (var segment in GetSegmentsAt(_NodeId))
 			{
@@ -383,6 +397,63 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 		MarkDirty();
 
 		return true;
+	}
+
+
+
+	/// <summary>
+	/// Takes a pass-through node out and joins its two roads into one, so the road carries on without it. The
+	/// merged road keeps the handles the two roads had at their far ends, stretched to the full length (which
+	/// undoes a split exactly on a straight road and closely on a curved one), and the longer road's width and
+	/// type. Returns the merged road, or null when the node is not a plain pass-through (a junction, a road end,
+	/// a loop, or two roads whose far ends are already joined), in which case nothing changes.
+	/// </summary>
+	public RoadSegment DissolveNode(int _NodeId)
+	{
+		var node = FindNode(_NodeId);
+
+		if (node is null)
+			return null;
+
+		var attached = GetSegmentsAt(_NodeId).ToList();
+
+		if (attached.Count != 2)
+			return null;
+
+		var first = attached[0];
+		var second = attached[1];
+		int startId = first.OtherNodeId(_NodeId);
+		int endId = second.OtherNodeId(_NodeId);
+
+		if (startId == endId || FindSegmentBetween(startId, endId) is not null)
+			return null;
+
+		float firstLength = GetCurveTable(first)?.Length ?? 0.0f;
+		float secondLength = GetCurveTable(second)?.Length ?? 0.0f;
+		float total = firstLength + secondLength;
+		var main = secondLength > firstLength ? second : first;
+
+		var merged = new RoadSegment
+		{
+			Id = NextId++,
+			StartNodeId = startId,
+			EndNodeId = endId,
+			Width = main.Width,
+			Profile = main.Profile,
+			StartTangent = GetHandle(first, startId) * (firstLength > 0.0f ? total / firstLength : 1.0f),
+			EndTangent = GetHandle(second, endId) * (secondLength > 0.0f ? total / secondLength : 1.0f)
+		};
+
+		Segments.Remove(first);
+		Segments.Remove(second);
+		Nodes.Remove(node);
+		Segments.Add(merged);
+
+		RefreshTangentsAround(startId);
+		RefreshTangentsAround(endId);
+		MarkDirty();
+
+		return merged;
 	}
 
 

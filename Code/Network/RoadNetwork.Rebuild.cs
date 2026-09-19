@@ -11,21 +11,21 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 5;
+	private const int GeneratorVersion = 19;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
 	/// </summary>
 	private const float MinChunkLength = 1.0f;
 
-	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, long Signature);
+	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature);
 
 	private readonly record struct PendingGroup(long Signature, int Remaining);
 
 	/// <summary>
 	/// One piece to (re)build: a chunk of a segment, or, when <see cref="NodeId"/> is set, a piece of a junction.
 	/// </summary>
-	private readonly record struct RebuildJob(int SegmentId, int NodeId, RoadChunkKind Kind, long GroupSignature, ChunkPlan Plan, RoadCurveTable Table, float Width, RoadProfile Profile, RoadJunctionLayout Junction);
+	private readonly record struct RebuildJob(int SegmentId, int NodeId, RoadChunkKind Kind, long GroupSignature, ChunkPlan Plan, RoadCurveTable Table, float Width, RoadProfile Profile, RoadJunctionLayout Junction, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> ArmBlends);
 
 	private bool m_IsDirty;
 	private readonly Queue<RebuildJob> m_Jobs = new();
@@ -157,6 +157,7 @@ public sealed partial class RoadNetwork
 
 		var layouts = ComputeJunctionLayouts();
 		var liveSegments = new HashSet<int>();
+		var segmentBlends = new Dictionary<int, RoadBorderBuilder.SegmentBorderBlends>();
 
 		foreach (var segment in Segments)
 		{
@@ -171,9 +172,11 @@ public sealed partial class RoadNetwork
 			float trimStart = layouts.GetValueOrDefault(segment.StartNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f;
 			float trimEnd = layouts.GetValueOrDefault(segment.EndNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f;
 			var caps = ComputeBorderCaps(segment, layouts);
-			var plans = PlanChunks(table, trimStart, trimEnd, profile, caps, ComputeSurfaceSignature(segment, table.Curve, profile));
+			var blends = ComputeBorderBlends(segment, table, layouts);
+			var plans = PlanChunks(table, trimStart, trimEnd, profile, caps, blends, ComputeSurfaceSignature(segment, table.Curve, profile));
 			long groupSignature = CombineSignatures(plans);
 
+			segmentBlends[segment.Id] = blends;
 			segmentChunks.TryGetValue(segment.Id, out var existing);
 
 			if (IsSegmentUpToDate(existing, plans))
@@ -188,14 +191,24 @@ public sealed partial class RoadNetwork
 
 		foreach (var (nodeId, layout) in layouts)
 		{
-			ReconcileJunctionPiece(nodeId, layout, RoadChunkKind.Surface, ComputeJunctionSurfaceSignature(layout), junctionChunks);
+			ReconcileJunctionPiece(nodeId, layout, RoadChunkKind.Surface, ComputeJunctionSurfaceSignature(layout), junctionChunks, null);
 
 			bool anyBorder = layout.Arms.Any(arm => ProfileOf(arm.Segment).HasBorder);
 
 			if (anyBorder)
-				ReconcileJunctionPiece(nodeId, layout, RoadChunkKind.Border, ComputeJunctionBorderSignature(layout), junctionChunks);
+			{
+				// The junction's border runs continue the arms' chunks, so they take the same lifts those were built with.
+				var armBlends = new Dictionary<int, RoadBorderBuilder.SegmentBorderBlends>();
+
+				foreach (var arm in layout.Arms)
+					armBlends[arm.Segment.Id] = segmentBlends.GetValueOrDefault(arm.Segment.Id);
+
+				ReconcileJunctionPiece(nodeId, layout, RoadChunkKind.Border, ComputeJunctionBorderSignature(layout, armBlends), junctionChunks, armBlends);
+			}
 			else if (junctionChunks.TryGetValue((nodeId, RoadChunkKind.Border), out var border))
+			{
 				border.GameObject.Destroy();
+			}
 		}
 
 		// Whatever no longer belongs to anything in the graph goes, locked or not.
@@ -222,58 +235,68 @@ public sealed partial class RoadNetwork
 
 
 
-	private void ReconcileJunctionPiece(int _NodeId, RoadJunctionLayout _Layout, RoadChunkKind _Kind, long _Signature, Dictionary<(int NodeId, RoadChunkKind Kind), RoadChunk> _Existing)
+	private void ReconcileJunctionPiece(int _NodeId, RoadJunctionLayout _Layout, RoadChunkKind _Kind, long _Signature, Dictionary<(int NodeId, RoadChunkKind Kind), RoadChunk> _Existing, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> _ArmBlends)
 	{
 		var key = (_NodeId, _Kind);
 
-		if (_Existing.TryGetValue(key, out var existing) && (existing.Locked || existing.Signature == _Signature))
+		if (_Existing.TryGetValue(key, out var existing) && (existing.Locked || (existing.Signature == _Signature && !LacksDebugRecord(existing))))
 			return;
 
 		if (m_PendingJunctions.TryGetValue(key, out var pending) && pending.Signature == _Signature)
 			return;
 
-		m_Jobs.Enqueue(new RebuildJob(-1, _NodeId, _Kind, _Signature, default, null, 0.0f, null, _Layout));
+		m_Jobs.Enqueue(new RebuildJob(-1, _NodeId, _Kind, _Signature, default, null, 0.0f, null, _Layout, _ArmBlends));
 		m_PendingJunctions[key] = new PendingGroup(_Signature, 1);
 	}
 
 
 
 	/// <summary>
-	/// Lays out every junction, then makes sure no segment is trimmed by its two ends into nothing (two junctions
-	/// right next to each other share what little road there is), and only then builds the junction polygons.
+	/// Lays out every junction. A road too short for the fillets at both its ends gets those fillets shrunk until
+	/// their tangent points fit on it (a trim past the tangent point would send the corner geometry back over the
+	/// road); only corners that cannot fit even sharp are clamped. Then the junction polygons are built.
 	/// </summary>
 	private Dictionary<int, RoadJunctionLayout> ComputeJunctionLayouts()
 	{
-		var layouts = new Dictionary<int, RoadJunctionLayout>();
-		var liveNodes = new HashSet<int>();
+		var radii = Nodes.ToDictionary(node => node.Id, node => MathF.Max(0.0f, node.CornerRadius));
+		var layouts = BuildJunctionLayouts(radii);
+		var shrink = new Dictionary<int, float>();
 
-		foreach (var node in Nodes)
+		foreach (var segment in Segments)
 		{
-			liveNodes.Add(node.Id);
+			var table = GetCurveTable(segment);
 
-			long key = ComputeJunctionKey(node);
-			RoadJunctionLayout layout;
-
-			if (m_JunctionCache.TryGetValue(node.Id, out var cached) && cached.Key == key)
-			{
-				layout = cached.Layout;
-			}
-			else
-			{
-				layout = RoadJunctionLayout.Create(this, node, SurfaceOffset);
-				m_JunctionCache[node.Id] = (key, layout);
-			}
-
-			if (layout is null)
+			if (table is null)
 				continue;
 
-			layout.ResetTrims();
-			layouts[node.Id] = layout;
+			var startArm = layouts.GetValueOrDefault(segment.StartNodeId)?.FindArm(segment.Id);
+			var endArm = layouts.GetValueOrDefault(segment.EndNodeId)?.FindArm(segment.Id);
+			float sharp = (startArm?.SharpTrim ?? 0.0f) + (endArm?.SharpTrim ?? 0.0f);
+			float fillet = (startArm is null ? 0.0f : startArm.RawTrim - startArm.SharpTrim) + (endArm is null ? 0.0f : endArm.RawTrim - endArm.SharpTrim);
+			float available = MathF.Max(0.0f, table.Length - MinChunkLength);
+
+			if (fillet <= 0.0f || sharp + fillet <= available)
+				continue;
+
+			// The fillet's share of a trim is proportional to the radius, so this factor makes it fit exactly.
+			float factor = Math.Clamp((available - sharp) / fillet, 0.0f, 1.0f);
+
+			foreach (int nodeId in new[] { segment.StartNodeId, segment.EndNodeId })
+			{
+				if (layouts.ContainsKey(nodeId))
+					shrink[nodeId] = MathF.Min(shrink.GetValueOrDefault(nodeId, 1.0f), factor);
+			}
 		}
 
-		foreach (int nodeId in m_JunctionCache.Keys.Where(id => !liveNodes.Contains(id)).ToList())
-			m_JunctionCache.Remove(nodeId);
+		if (shrink.Count > 0)
+		{
+			foreach (var (nodeId, factor) in shrink)
+				radii[nodeId] *= factor;
 
+			layouts = BuildJunctionLayouts(radii);
+		}
+
+		// Last resort, for corners that do not fit even when sharp: share what road there is.
 		foreach (var segment in Segments)
 		{
 			var table = GetCurveTable(segment);
@@ -307,6 +330,69 @@ public sealed partial class RoadNetwork
 
 
 	/// <summary>
+	/// The corner fold on one side of a segment at one of its nodes, and whether the segment is that fold's first
+	/// arm (its left edge) or second (its right edge). Looking out of the node, a segment starting there has its
+	/// left on the arm's left; one ending there has it on the arm's right.
+	/// </summary>
+	private static RoadJunctionLayout.CornerFold FindFold(RoadSegment _Segment, int _NodeId, bool _AtStart, bool _Left, Dictionary<int, RoadJunctionLayout> _Layouts, out bool _SideA)
+	{
+		_SideA = _AtStart == _Left;
+
+		if (!_Layouts.TryGetValue(_NodeId, out var layout))
+			return null;
+
+		var path = _SideA
+			? layout.CornerPaths.FirstOrDefault(candidate => candidate.ArmA.Segment.Id == _Segment.Id)
+			: layout.CornerPaths.FirstOrDefault(candidate => candidate.ArmB.Segment.Id == _Segment.Id);
+
+		return path?.Fold;
+	}
+
+
+
+	/// <summary>
+	/// The junction layout of every node for the given fillet radii, from the cache where the inputs match.
+	/// </summary>
+	private Dictionary<int, RoadJunctionLayout> BuildJunctionLayouts(Dictionary<int, float> _Radii)
+	{
+		var layouts = new Dictionary<int, RoadJunctionLayout>();
+		var liveNodes = new HashSet<int>();
+
+		foreach (var node in Nodes)
+		{
+			liveNodes.Add(node.Id);
+
+			float radius = _Radii[node.Id];
+			long key = ComputeJunctionKey(node, radius);
+			RoadJunctionLayout layout;
+
+			// A cached layout is only as good as its references: undo and reloads swap the graph's objects.
+			if (m_JunctionCache.TryGetValue(node.Id, out var cached) && cached.Key == key && (cached.Layout is null || cached.Layout.Refresh(this)))
+			{
+				layout = cached.Layout;
+			}
+			else
+			{
+				layout = RoadJunctionLayout.Create(this, node, SurfaceOffset, radius);
+				m_JunctionCache[node.Id] = (key, layout);
+			}
+
+			if (layout is null)
+				continue;
+
+			layout.ResetTrims();
+			layouts[node.Id] = layout;
+		}
+
+		foreach (int nodeId in m_JunctionCache.Keys.Where(id => !liveNodes.Contains(id)).ToList())
+			m_JunctionCache.Remove(nodeId);
+
+		return layouts;
+	}
+
+
+
+	/// <summary>
 	/// Which ends of a segment's borders nothing continues: a road end, a side of a junction with no corner on it,
 	/// or a pass-through node where the road changes type or width.
 	/// </summary>
@@ -331,6 +417,70 @@ public sealed partial class RoadNetwork
 
 
 
+	/// <summary>
+	/// The lift lines of a segment's two borders: at each end, the corner's height difference on that side (or
+	/// nothing), run linearly along the road between the two.
+	/// </summary>
+	private RoadBorderBuilder.SegmentBorderBlends ComputeBorderBlends(RoadSegment _Segment, RoadCurveTable _Table, Dictionary<int, RoadJunctionLayout> _Layouts)
+	{
+		return new RoadBorderBuilder.SegmentBorderBlends(SideBlendFor(_Segment, _Table, true, _Layouts), SideBlendFor(_Segment, _Table, false, _Layouts));
+	}
+
+
+
+	private RoadBorderBuilder.SideBlend SideBlendFor(RoadSegment _Segment, RoadCurveTable _Table, bool _Left, Dictionary<int, RoadJunctionLayout> _Layouts)
+	{
+		bool hasStart = CornerLift(_Segment, _Segment.StartNodeId, true, _Left, _Layouts, out float startDistance, out float startDelta);
+		bool hasEnd = CornerLift(_Segment, _Segment.EndNodeId, false, _Left, _Layouts, out float endDistance, out float endDelta);
+
+		if (!hasStart && !hasEnd)
+			return default;
+
+		// An end with no corner on this side holds the border at road height from the segment's end.
+		if (!hasStart)
+		{
+			startDistance = 0.0f;
+			startDelta = 0.0f;
+		}
+
+		if (!hasEnd)
+		{
+			endDistance = _Table.Length;
+			endDelta = 0.0f;
+		}
+
+		return new RoadBorderBuilder.SideBlend(true, startDistance, startDelta, endDistance, endDelta);
+	}
+
+
+
+	/// <summary>
+	/// Where along the segment the corner's tangent point on this side is, and how much higher the corner sits
+	/// than the road edge there; false when there is no inside corner on that side at that end.
+	/// </summary>
+	private static bool CornerLift(RoadSegment _Segment, int _NodeId, bool _AtStart, bool _Left, Dictionary<int, RoadJunctionLayout> _Layouts, out float _Distance, out float _Delta)
+	{
+		_Distance = 0.0f;
+		_Delta = 0.0f;
+
+		var fold = FindFold(_Segment, _NodeId, _AtStart, _Left, _Layouts, out bool sideA);
+
+		if (fold is null || !_Layouts.TryGetValue(_NodeId, out var layout))
+			return false;
+
+		var arm = layout.FindArm(_Segment.Id);
+
+		if (arm is null)
+			return false;
+
+		_Distance = arm.CurveDistance(sideA ? fold.TangentParamA : fold.TangentParamB);
+		_Delta = fold.ApexHeight - (sideA ? fold.TangentHeightA : fold.TangentHeightB);
+
+		return true;
+	}
+
+
+
 	private bool IsBorderOpen(RoadSegment _Segment, int _NodeId, bool _AtStart, Dictionary<int, RoadJunctionLayout> _Layouts, out bool _Left, out bool _Right)
 	{
 		int degree = GetDegree(_NodeId);
@@ -346,8 +496,8 @@ public sealed partial class RoadNetwork
 		{
 			// A corner path starting on this arm continues its left border (looking out of the node); one ending on
 			// it continues its right. Looking out of the node along a segment that ends there swaps the sides.
-			bool armLeftContinued = layout.CornerPaths.Any(path => path.ArmA.Segment == _Segment);
-			bool armRightContinued = layout.CornerPaths.Any(path => path.ArmB.Segment == _Segment);
+			bool armLeftContinued = layout.CornerPaths.Any(path => path.ArmA.Segment.Id == _Segment.Id);
+			bool armRightContinued = layout.CornerPaths.Any(path => path.ArmB.Segment.Id == _Segment.Id);
 
 			_Left = !(_AtStart ? armLeftContinued : armRightContinued);
 			_Right = !(_AtStart ? armRightContinued : armLeftContinued);
@@ -356,8 +506,8 @@ public sealed partial class RoadNetwork
 
 		if (degree == 2)
 		{
-			var other = GetSegmentsAt(_NodeId).FirstOrDefault(candidate => candidate != _Segment);
-			bool continuous = other is not null && ReferenceEquals(ProfileOf(other), ProfileOf(_Segment)) && other.Width == _Segment.Width;
+			var other = GetSegmentsAt(_NodeId).FirstOrDefault(candidate => candidate.Id != _Segment.Id);
+			bool continuous = other is not null && RoadBorderBuilder.SameProfile(ProfileOf(other), ProfileOf(_Segment)) && other.Width == _Segment.Width;
 
 			_Left = !continuous;
 			_Right = !continuous;
@@ -377,7 +527,7 @@ public sealed partial class RoadNetwork
 	/// segment rather than to the trimmed length means a junction change at one end only touches the chunk next
 	/// to it.
 	/// </summary>
-	private List<ChunkPlan> PlanChunks(RoadCurveTable _Table, float _TrimStart, float _TrimEnd, RoadProfile _Profile, BorderCaps _Caps, long _SurfaceSignature)
+	private List<ChunkPlan> PlanChunks(RoadCurveTable _Table, float _TrimStart, float _TrimEnd, RoadProfile _Profile, BorderCaps _Caps, in RoadBorderBuilder.SegmentBorderBlends _Blends, long _SurfaceSignature)
 	{
 		float length = _Table.Length;
 		int count = Math.Max(1, (int)MathF.Ceiling(length / ChunkLength));
@@ -397,6 +547,8 @@ public sealed partial class RoadNetwork
 		var borderHash = StableHash.Create();
 		borderHash.Add(_SurfaceSignature);
 		_Profile.AddBorderToHash(ref borderHash);
+		_Blends.AddToHash(ref borderHash);
+		borderHash.Add(DebugBorders ? 1 : 0);
 		long borderSignature = borderHash.Value;
 
 		for (int r = 0; r < ranges.Count; r++)
@@ -410,7 +562,7 @@ public sealed partial class RoadNetwork
 			hash.Add(start);
 			hash.Add(end);
 
-			plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Surface, BorderCaps.None, hash.Value));
+			plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Surface, BorderCaps.None, default, hash.Value));
 
 			if (!_Profile.HasBorder)
 				continue;
@@ -432,7 +584,7 @@ public sealed partial class RoadNetwork
 			hash.Add(end);
 			hash.Add((int)caps);
 
-			plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Border, caps, hash.Value));
+			plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Border, caps, _Blends, hash.Value));
 		}
 
 		return plans;
@@ -453,7 +605,7 @@ public sealed partial class RoadNetwork
 
 
 
-	private static bool IsSegmentUpToDate(List<RoadChunk> _Existing, List<ChunkPlan> _Plans)
+	private bool IsSegmentUpToDate(List<RoadChunk> _Existing, List<ChunkPlan> _Plans)
 	{
 		int have = _Existing?.Count ?? 0;
 
@@ -468,11 +620,42 @@ public sealed partial class RoadNetwork
 				return false;
 
 			// A locked chunk is exempt: it is deliberately stale.
-			if (!chunk.Locked && chunk.Signature != plan.Signature)
+			if (!chunk.Locked && (chunk.Signature != plan.Signature || LacksDebugRecord(chunk)))
 				return false;
 		}
 
 		return true;
+	}
+
+
+
+	/// <summary>
+	/// While the border debug overlay is on, a border piece without its record (built before the flag went on, or
+	/// before a hot reload, which drops the records) is rebuilt to get one.
+	/// </summary>
+	private bool LacksDebugRecord(RoadChunk _Chunk)
+	{
+		return DebugBorders && _Chunk.Kind == RoadChunkKind.Border && (_Chunk.Debug is null || _Chunk.Debug.Text.Length == 0);
+	}
+
+
+
+	/// <summary>
+	/// Throws away every unlocked piece's signature so the next reconcile rebuilds all of them, junction layouts
+	/// included. Toggling the GameObject does not do this: pieces whose inputs have not changed are kept as they
+	/// are, so after a generator change this is the way to see it everywhere.
+	/// </summary>
+	[Button("Regenerate All", "refresh")]
+	public void RegenerateAll()
+	{
+		foreach (var chunk in GetChunks())
+		{
+			if (!chunk.Locked)
+				chunk.Signature = 0;
+		}
+
+		m_JunctionCache.Clear();
+		MarkDirty();
 	}
 
 
@@ -500,13 +683,13 @@ public sealed partial class RoadNetwork
 	/// <summary>
 	/// Everything a node's junction layout depends on: the node itself and the curve and width of each road at it.
 	/// </summary>
-	private long ComputeJunctionKey(RoadNode _Node)
+	private long ComputeJunctionKey(RoadNode _Node, float _Radius)
 	{
 		var hash = StableHash.Create();
 
 		hash.Add(GeneratorVersion);
 		hash.Add(_Node.Position);
-		hash.Add(_Node.CornerRadius);
+		hash.Add(_Radius);
 		hash.Add(SurfaceOffset);
 
 		foreach (var segment in GetSegmentsAt(_Node.Id).OrderBy(segment => segment.Id))
@@ -553,11 +736,12 @@ public sealed partial class RoadNetwork
 
 
 
-	private long ComputeJunctionBorderSignature(RoadJunctionLayout _Layout)
+	private long ComputeJunctionBorderSignature(RoadJunctionLayout _Layout, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> _ArmBlends)
 	{
 		var hash = StableHash.Create();
 
 		AddPolygonToHash(_Layout, ref hash);
+		hash.Add(DebugBorders ? 1 : 0);
 
 		foreach (var arm in _Layout.Arms)
 		{
@@ -567,6 +751,7 @@ public sealed partial class RoadNetwork
 			hash.Add(arm.AtStart ? 1 : 0);
 			profile.AddSurfaceToHash(ref hash);
 			profile.AddBorderToHash(ref hash);
+			_ArmBlends.GetValueOrDefault(arm.Segment.Id).AddToHash(ref hash);
 		}
 
 		return hash.Value;
@@ -606,7 +791,7 @@ public sealed partial class RoadNetwork
 		}
 
 		foreach (var plan in _Plans)
-			m_Jobs.Enqueue(new RebuildJob(_Segment.Id, -1, plan.Kind, _GroupSignature, plan, _Table, _Segment.Width, _Profile, null));
+			m_Jobs.Enqueue(new RebuildJob(_Segment.Id, -1, plan.Kind, _GroupSignature, plan, _Table, _Segment.Width, _Profile, null, null));
 
 		m_PendingSegments[_Segment.Id] = new PendingGroup(_GroupSignature, _Plans.Count);
 	}
@@ -661,15 +846,17 @@ public sealed partial class RoadNetwork
 		var plan = _Job.Plan;
 		var existing = FindChunk(_Job.SegmentId, plan.Index, plan.Kind);
 
-		if (existing is not null && (existing.Locked || existing.Signature == plan.Signature))
+		if (existing is not null && (existing.Locked || (existing.Signature == plan.Signature && !LacksDebugRecord(existing))))
 			return false;
 
 		PolygonMesh mesh;
 		string name;
+		BorderDebug debug = null;
 
 		if (plan.Kind == RoadChunkKind.Border)
 		{
-			mesh = RoadBorderBuilder.BuildSegment(_Job.Table, plan.Start, plan.End, _Job.Width, _Job.Profile, SampleSpacing, SurfaceOffset, plan.Caps);
+			debug = DebugBorders ? new BorderDebug() : null;
+			mesh = RoadBorderBuilder.BuildSegment(_Job.Table, plan.Start, plan.End, _Job.Width, _Job.Profile, SampleSpacing, SurfaceOffset, plan.Caps, plan.Blends, debug);
 			name = $"Road {_Job.SegmentId} border [{plan.Index + 1}/{plan.Count}]";
 		}
 		else
@@ -678,7 +865,7 @@ public sealed partial class RoadNetwork
 			name = $"Road {_Job.SegmentId} [{plan.Index + 1}/{plan.Count}]";
 		}
 
-		CreateChunkObject(name, _Job.SegmentId, -1, plan.Kind, plan.Index, plan.Count, plan.Signature, mesh);
+		CreateChunkObject(name, _Job.SegmentId, -1, plan.Kind, plan.Index, plan.Count, plan.Signature, mesh, debug);
 
 		// The new piece is in place before the old one goes, so the road never flickers.
 		existing?.GameObject.Destroy();
@@ -697,10 +884,14 @@ public sealed partial class RoadNetwork
 
 		PolygonMesh mesh;
 		string name;
+		BorderDebug debug = null;
 
 		if (_Job.Kind == RoadChunkKind.Border)
 		{
-			mesh = RoadBorderBuilder.BuildJunction(_Job.Junction, ProfileOf);
+			var armBlends = _Job.ArmBlends;
+
+			debug = DebugBorders ? new BorderDebug() : null;
+			mesh = RoadBorderBuilder.BuildJunction(_Job.Junction, ProfileOf, segment => armBlends is not null ? armBlends.GetValueOrDefault(segment.Id) : default, debug);
 			name = $"Junction {_Job.NodeId} border";
 		}
 		else
@@ -711,14 +902,14 @@ public sealed partial class RoadNetwork
 			name = $"Junction {_Job.NodeId}";
 		}
 
-		CreateChunkObject(name, -1, _Job.NodeId, _Job.Kind, 0, 1, _Job.GroupSignature, mesh);
+		CreateChunkObject(name, -1, _Job.NodeId, _Job.Kind, 0, 1, _Job.GroupSignature, mesh, debug);
 
 		existing?.GameObject.Destroy();
 	}
 
 
 
-	private void CreateChunkObject(string _Name, int _SegmentId, int _NodeId, RoadChunkKind _Kind, int _Index, int _Count, long _Signature, PolygonMesh _Mesh)
+	private void CreateChunkObject(string _Name, int _SegmentId, int _NodeId, RoadChunkKind _Kind, int _Index, int _Count, long _Signature, PolygonMesh _Mesh, BorderDebug _Debug)
 	{
 		var child = new GameObject(GameObject, true, _Name);
 		child.Tags.Add(ChunkTag);
@@ -730,6 +921,10 @@ public sealed partial class RoadNetwork
 		chunk.ChunkIndex = _Index;
 		chunk.ChunkCount = _Count;
 		chunk.Signature = _Signature;
+		chunk.Debug = _Debug;
+
+		if (_Debug is not null)
+			DebugRevision++;
 
 		var meshComponent = child.AddComponent<MeshComponent>();
 		meshComponent.Mesh = _Mesh;

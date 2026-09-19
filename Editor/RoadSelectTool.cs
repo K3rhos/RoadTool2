@@ -164,8 +164,15 @@ public class RoadSelectTool : EditorTool
 
 		if (SelectedNode is { } node)
 		{
-			using (SceneEditorSession.Active.UndoScope("Delete Node").WithComponentChanges(network).Push())
-				network.RemoveNode(node.Id);
+			// A node in the middle of a road is dissolved so the road carries on in one piece; anything else
+			// (a road end, a junction) takes its roads with it.
+			bool passThrough = network.GetDegree(node.Id) == 2;
+
+			using (SceneEditorSession.Active.UndoScope(passThrough ? "Dissolve Node" : "Delete Node").WithComponentChanges(network).Push())
+			{
+				if (!passThrough || network.DissolveNode(node.Id) is null)
+					network.RemoveNode(node.Id);
+			}
 		}
 		else if (SelectedSegment is { } segment)
 		{
@@ -544,9 +551,9 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 		serialized.OnPropertyFinishEdit += _ => EndEdit();
 		serialized.OnPropertyChanged += property => m_Tool.OnNodeEdited(_Node, property?.Name);
 
-		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadNode.Position))));
-		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadNode.AutoTangents))));
-		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadNode.CornerRadius))));
+		SidebarRows.AddVector(group, serialized.GetProperty(nameof(RoadNode.Position)));
+		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadNode.AutoTangents)));
+		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadNode.CornerRadius)));
 		group.Add(new Label($"Roads at this node: {_Network.GetDegree(_Node.Id)}"));
 
 		var row = group.AddRow();
@@ -565,8 +572,8 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 		serialized.OnPropertyFinishEdit += _ => EndEdit();
 		serialized.OnPropertyChanged += _ => m_Tool.OnSegmentEdited();
 
-		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadSegment.Profile))));
-		group.Add(ControlSheet.CreateRow(serialized.GetProperty(nameof(RoadSegment.Width))));
+		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadSegment.Profile)));
+		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadSegment.Width)));
 
 		float length = _Network.GetCurveTable(_Segment)?.Length ?? 0.0f;
 		group.Add(new Label($"Length: {length:0} units"));
