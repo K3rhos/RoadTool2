@@ -1,0 +1,26 @@
+{
+  "Rows": [
+    {
+      "Prefab": {
+        "_type": "gameobject",
+        "prefab": "roadtool2/prefabs/streetlight.prefab"
+      },
+      "Side": "Both",
+      "Spacing": 1200,
+      "Phase": 0.5,
+      "Anchor": "BorderEdge",
+      "Offset": -125,
+      "HeightOffset": 0,
+      "Yaw": 90,
+      "Chance": 1,
+      "RandomYaw": false,
+      "Scatter": 0,
+      "MinScale": 1,
+      "MaxScale": 1
+    }
+  ],
+  "JunctionRows": [],
+  "Seed": 0,
+  "__references": [],
+  "__version": 0
+}

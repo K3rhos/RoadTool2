@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 25;
+	private const int GeneratorVersion = 26;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -47,7 +47,7 @@ public sealed partial class RoadNetwork
 	/// border's run-out into a different road type at either end; <see cref="Bridge"/> is the whole built range
 	/// and the ends of a bridge piece; the other kinds ignore them.
 	/// </summary>
-	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature, LineRange Lines = default, RoadBorderTaper Taper = default, RoadBridgeBuilder.BridgeSpan Bridge = default);
+	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature, LineRange Lines = default, RoadBorderTaper Taper = default, RoadBridgeBuilder.BridgeSpan Bridge = default, RoadPropBuilder.PropSpan Props = default);
 
 	private readonly record struct PendingGroup(long Signature, int Remaining);
 
@@ -821,6 +821,23 @@ public sealed partial class RoadNetwork
 			bridgeSignature = bridgeHash.Value;
 		}
 
+		// Props are spread over the whole built range too, and stand on the border, so they follow its shape.
+		var props = _Segment.Props;
+		var propSpan = props is null ? default : new RoadPropBuilder.PropSpan(_TrimStart, usableEnd, GetDegree(_Segment.StartNodeId) >= 3, GetDegree(_Segment.EndNodeId) >= 3);
+		long propSignature = 0;
+
+		if (props is not null && !props.IsEmpty)
+		{
+			var propHash = StableHash.Create();
+			propHash.Add(_SurfaceSignature);
+			propHash.Add(props.ResourcePath);
+			propHash.Add(bridge is null ? 0 : 1);
+			_Profile.AddBorderToHash(ref propHash);
+			props.AddToHash(ref propHash);
+			propSpan.AddToHash(ref propHash);
+			propSignature = propHash.Value;
+		}
+
 		bool markings = RoadMarkingBuilder.HasMarkings(_Segment, _Profile);
 		var markingHash = StableHash.Create();
 		markingHash.Add(_SurfaceSignature);
@@ -866,6 +883,18 @@ public sealed partial class RoadNetwork
 				hash.Add(end);
 
 				plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Bridge, BorderCaps.None, default, hash.Value, Bridge: bridgeSpan));
+			}
+
+			if (propSignature != 0)
+			{
+				hash = StableHash.Create();
+				hash.Add(propSignature);
+				hash.Add(index);
+				hash.Add(count);
+				hash.Add(start);
+				hash.Add(end);
+
+				plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Props, BorderCaps.None, default, hash.Value, Props: propSpan));
 			}
 
 			if (!_Profile.HasBorder)
@@ -1247,7 +1276,7 @@ public sealed partial class RoadNetwork
 		PolygonMesh mesh;
 		string name;
 		BorderDebug debug = null;
-		List<RoadBridgeBuilder.Placement> placements = null;
+		var placements = new List<(GameObject Prefab, Transform Transform)>();
 
 		if (plan.Kind == RoadChunkKind.Border)
 		{
@@ -1262,9 +1291,30 @@ public sealed partial class RoadNetwork
 			if (segment?.Bridge is null)
 				return false;
 
-			placements = new List<RoadBridgeBuilder.Placement>();
-			mesh = RoadBridgeBuilder.Build(_Job.Table, plan.Start, plan.End, plan.Bridge, _Job.Width, _Job.Profile, segment.Bridge, SampleSpacing, SurfaceOffset, GroundBelow, placements);
+			var parts = new List<RoadBridgeBuilder.Placement>();
+			mesh = RoadBridgeBuilder.Build(_Job.Table, plan.Start, plan.End, plan.Bridge, _Job.Width, _Job.Profile, segment.Bridge, SampleSpacing, SurfaceOffset, GroundBelow, parts);
 			name = $"Road {_Job.SegmentId} bridge [{plan.Index + 1}/{plan.Count}]";
+
+			foreach (var part in parts)
+				placements.Add((part.Prefab, new Transform(part.Position, part.Rotation)));
+		}
+		else if (plan.Kind == RoadChunkKind.Props)
+		{
+			var segment = FindSegment(_Job.SegmentId);
+
+			if (segment?.Props is null)
+				return false;
+
+			// Nothing to mesh: the piece is only the parent of its prefabs.
+			var props = new List<RoadPropBuilder.Placement>();
+			var context = new RoadPropBuilder.Context(_Job.Table, plan.Start, plan.End, plan.Props, _Job.SegmentId, _Job.Width, _Job.Profile, segment.Bridge is not null, SurfaceOffset, GroundAround);
+
+			RoadPropBuilder.Build(context, segment.Props, props);
+			mesh = null;
+			name = $"Road {_Job.SegmentId} props [{plan.Index + 1}/{plan.Count}]";
+
+			foreach (var prop in props)
+				placements.Add((prop.Prefab, new Transform(prop.Position, prop.Rotation, prop.Scale)));
 		}
 		else if (plan.Kind == RoadChunkKind.Marking)
 		{
@@ -1296,11 +1346,8 @@ public sealed partial class RoadNetwork
 
 		var piece = CreateChunkObject(name, _Job.SegmentId, -1, plan.Kind, plan.Index, plan.Count, plan.Signature, mesh, debug);
 
-		if (placements is not null)
-		{
-			foreach (var placement in placements)
-				placement.Prefab.Clone(new Transform(placement.Position, placement.Rotation), piece);
-		}
+		foreach (var (prefab, transform) in placements)
+			prefab.Clone(transform, piece);
 
 		// The new piece is in place before the old one goes, so the road never flickers.
 		existing?.GameObject.Destroy();
@@ -1312,14 +1359,33 @@ public sealed partial class RoadNetwork
 
 	/// <summary>
 	/// The height of whatever lies under a point of the network (its own pieces excepted), in network space, for
-	/// bridge supports to land on. Null over nothing.
+	/// bridge supports to land on: the search starts just below the point, so the deck itself is never it. Null
+	/// over nothing.
 	/// </summary>
 	private float? GroundBelow(Vector3 _Local)
+	{
+		return TraceGround(_Local, -1.0f);
+	}
+
+
+
+	/// <summary>
+	/// The height of the ground at a point of the network, for props to stand on: the search starts well above
+	/// the point, so ground rising beside a road is found as well as ground falling away from it.
+	/// </summary>
+	private float? GroundAround(Vector3 _Local)
+	{
+		return TraceGround(_Local, 3000.0f);
+	}
+
+
+
+	private float? TraceGround(Vector3 _Local, float _StartAbove)
 	{
 		const float reach = 50000.0f;
 
 		var transform = WorldTransform;
-		Vector3 from = transform.PointToWorld(_Local) + Vector3.Down;
+		Vector3 from = transform.PointToWorld(_Local) + Vector3.Up * _StartAbove;
 		var trace = Scene.Trace.Ray(from, from + Vector3.Down * reach).WithoutTags(ChunkTag).Run();
 
 		if (!trace.Hit)
@@ -1391,6 +1457,10 @@ public sealed partial class RoadNetwork
 
 		if (_Debug is not null)
 			DebugRevision++;
+
+		// A piece of props has no geometry of its own; it is the parent of its prefabs.
+		if (_Mesh is null)
+			return child;
 
 		var meshComponent = child.AddComponent<MeshComponent>();
 		meshComponent.Mesh = _Mesh;

@@ -55,6 +55,11 @@ public class RoadDrawTool : EditorTool
 	/// </summary>
 	[Property, Title("Bridge")] public BridgeStyle Bridge { get; set; }
 
+	/// <summary>
+	/// What new roads get standing along them (lamp posts, trees...). The Edit tool changes it per road afterwards.
+	/// </summary>
+	[Property, Title("Props")] public RoadPropSet Props { get; set; }
+
 	[Property, Title("Snap Radius"), Range(0.0f, 500.0f)] public float SnapRadius { get; set; } = 150.0f;
 
 	/// <summary>
@@ -585,7 +590,7 @@ public class RoadDrawTool : EditorTool
 					network.SetAutoTangents(node.Id, false, false);
 				}
 
-				network.AddSegment(m_LastNodeId, node.Id, Width, Profile, Lanes, OneWay ? Lanes : RoadSegment.DefaultForwardLanes(Lanes), Bridge);
+				network.AddSegment(m_LastNodeId, node.Id, Width, Profile, Lanes, OneWay ? Lanes : RoadSegment.DefaultForwardLanes(Lanes), Bridge, Props);
 			}
 
 			// A corner node is a node whose handles all point straight at its neighbours.
@@ -744,6 +749,7 @@ file class RoadDrawToolWidget : ToolSidebarWidget
 
 		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadDrawTool.Profile)));
 		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadDrawTool.Bridge)));
+		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadDrawTool.Props)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadDrawTool.Width)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadDrawTool.Lanes)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadDrawTool.OneWay)));

@@ -39,6 +39,11 @@ public sealed class RoadSegment
 	public BridgeStyle Bridge { get; set; }
 
 	/// <summary>
+	/// What stands along this road and before its junctions (lamp posts, trees, hydrants...). Null is a bare road.
+	/// </summary>
+	public RoadPropSet Props { get; set; }
+
+	/// <summary>
 	/// How many lanes the road is divided into, side by side across its width.
 	/// </summary>
 	[Range(MinLanes, MaxLanes)] public int LaneCount { get; set { field = value.Clamp(MinLanes, MaxLanes); } } = 2;

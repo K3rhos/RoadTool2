@@ -600,6 +600,7 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 
 		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadSegment.Profile)));
 		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadSegment.Bridge)));
+		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadSegment.Props)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadSegment.Width)));
 
 		float length = _Network.GetCurveTable(_Segment)?.Length ?? 0.0f;

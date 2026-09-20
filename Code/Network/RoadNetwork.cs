@@ -163,7 +163,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 	/// Joins two nodes with a road. Returns null when the join makes no sense (same node, unknown node, or a road
 	/// already runs between them).
 	/// </summary>
-	public RoadSegment AddSegment(int _StartNodeId, int _EndNodeId, float _Width, RoadProfile _Profile = null, int _LaneCount = 2, int _ForwardLanes = 1, BridgeStyle _Bridge = null)
+	public RoadSegment AddSegment(int _StartNodeId, int _EndNodeId, float _Width, RoadProfile _Profile = null, int _LaneCount = 2, int _ForwardLanes = 1, BridgeStyle _Bridge = null, RoadPropSet _Props = null)
 	{
 		if (_StartNodeId == _EndNodeId)
 			return null;
@@ -187,6 +187,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			Width = _Width,
 			Profile = _Profile,
 			Bridge = _Bridge,
+			Props = _Props,
 			LaneCount = _LaneCount,
 			ForwardLanes = _ForwardLanes,
 			StartTangent = StraightHandle(start.Position, end.Position),
@@ -248,6 +249,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			Width = segment.Width,
 			Profile = segment.Profile,
 			Bridge = segment.Bridge,
+			Props = segment.Props,
 			LaneCount = segment.LaneCount,
 			ForwardLanes = segment.ForwardLanes,
 			CrossingAtEnd = crossingAtEnd,
@@ -471,6 +473,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			Width = main.Width,
 			Profile = main.Profile,
 			Bridge = main.Bridge,
+			Props = main.Props,
 			LaneCount = main.LaneCount,
 			ForwardLanes = mainSameWay ? main.ForwardLanes : main.LaneCount - main.ForwardLanes,
 			CrossingAtStart = first.CrossingAt(startId),

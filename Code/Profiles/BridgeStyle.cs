@@ -183,7 +183,7 @@ public sealed class BridgeStyle : GameResource
 		_Hash.Add(PostSpacing);
 		_Hash.Add(RailCount);
 		_Hash.Add(RailSize);
-		_Hash.Add(PrefabKey(SidePrefab));
+		_Hash.Add(RoadPropSet.PrefabKey(SidePrefab));
 		_Hash.Add(SideSpacing);
 		_Hash.Add((int)Supports);
 		_Hash.Add(SupportSpacing);
@@ -195,23 +195,7 @@ public sealed class BridgeStyle : GameResource
 		_Hash.Add(PillarSegments);
 		_Hash.Add(SupportSink);
 		_Hash.Add(SupportFallbackHeight);
-		_Hash.Add(PrefabKey(SupportPrefab));
-	}
-
-
-
-	/// <summary>
-	/// A prefab property holds the prefab's scene; its asset path is what tells one prefab from another.
-	/// </summary>
-	private static string PrefabKey(GameObject _Prefab)
-	{
-		if (!_Prefab.IsValid())
-			return null;
-
-		if (_Prefab is PrefabScene scene)
-			return scene.Source?.ResourcePath ?? scene.Name;
-
-		return _Prefab.PrefabInstanceSource ?? _Prefab.Name;
+		_Hash.Add(RoadPropSet.PrefabKey(SupportPrefab));
 	}
 
 

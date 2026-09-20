@@ -12,8 +12,9 @@
   "VergeDepth": 10,
   "SlopeSegments": 3,
   "Chaos": 20,
-  "ChaosScale": 0.05,
+  "ChaosScale": 0.025,
   "TransitionLength": 300,
+  "BlendMaterial": null,
   "LaneLine": {
     "Enabled": true,
     "Material": null,
@@ -38,7 +39,7 @@
     "GapLength": 0,
     "DoubleSpacing": 0
   },
-  "EdgeLineMargin": -10,
+  "EdgeLineMargin": -30,
   "Crossings": false,
   "CrossingDecal": null,
   "CrossingDepth": 120,

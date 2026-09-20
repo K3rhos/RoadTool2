@@ -22,7 +22,12 @@ public enum RoadChunkKind
 	/// <summary>
 	/// The bridge under a road: deck, sides, supports.
 	/// </summary>
-	Bridge
+	Bridge,
+
+	/// <summary>
+	/// The prefabs standing along a road and before its junctions.
+	/// </summary>
+	Props
 }
 
 /// <summary>
