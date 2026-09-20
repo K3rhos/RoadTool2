@@ -63,7 +63,7 @@ public class RoadTerrainTool : EditorTool
 
 			foreach (var segment in network.Segments)
 			{
-				if (!network.TryGetCurve(segment, out var curve))
+				if (segment.Bridge is not null || !network.TryGetCurve(segment, out var curve))
 					continue;
 
 				float reach = segment.Width + 2.0f * (RoadTerrainConformer.BorderWidth(network.ProfileOf(segment)) + Falloff);
@@ -115,6 +115,12 @@ public class RoadTerrainTool : EditorTool
 		{
 			foreach (var node in network.Nodes.ToList())
 			{
+				// A node with only bridges at it is up in the air on purpose; a bridge's end still lands.
+				var roads = network.GetSegmentsAt(node.Id).ToList();
+
+				if (roads.Count > 0 && roads.All(segment => segment.Bridge is not null))
+					continue;
+
 				Vector3 world = network.WorldTransform.PointToWorld(node.Position);
 
 				if (!TryGroundHeight(world, out float height) || MathF.Abs(height - world.z) < 0.01f)
@@ -216,6 +222,10 @@ internal static class RoadTerrainConformer
 
 		foreach (var segment in _Network.Segments)
 		{
+			// A bridge spans the terrain; the ground under it stays as it is.
+			if (segment.Bridge is not null)
+				continue;
+
 			var table = _Network.GetCurveTable(segment);
 
 			if (table is null)

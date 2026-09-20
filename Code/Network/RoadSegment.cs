@@ -33,6 +33,12 @@ public sealed class RoadSegment
 	public RoadProfile Profile { get; set; }
 
 	/// <summary>
+	/// Set, this road runs on a bridge: a deck is built under it in this style, with sides and supports. Null is a
+	/// road on the ground.
+	/// </summary>
+	public BridgeStyle Bridge { get; set; }
+
+	/// <summary>
 	/// How many lanes the road is divided into, side by side across its width.
 	/// </summary>
 	[Range(MinLanes, MaxLanes)] public int LaneCount { get; set { field = value.Clamp(MinLanes, MaxLanes); } } = 2;

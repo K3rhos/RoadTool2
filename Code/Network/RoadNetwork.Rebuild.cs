@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 22;
+	private const int GeneratorVersion = 25;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -44,9 +44,10 @@ public sealed partial class RoadNetwork
 
 	/// <summary>
 	/// One piece of a segment to build. <see cref="Lines"/> bounds the painted lines; <see cref="Taper"/> is the
-	/// border's run-out into a different road type at either end; the other kinds ignore them.
+	/// border's run-out into a different road type at either end; <see cref="Bridge"/> is the whole built range
+	/// and the ends of a bridge piece; the other kinds ignore them.
 	/// </summary>
-	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature, LineRange Lines = default, RoadBorderTaper Taper = default);
+	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature, LineRange Lines = default, RoadBorderTaper Taper = default, RoadBridgeBuilder.BridgeSpan Bridge = default);
 
 	private readonly record struct PendingGroup(long Signature, int Remaining);
 
@@ -630,6 +631,45 @@ public sealed partial class RoadNetwork
 
 
 	/// <summary>
+	/// A bridge segment's built range and ends. An end is closed off unless it is a pass-through node onto
+	/// another bridge of the same style, width and border, where the two decks meet flush; there, only one of the
+	/// two segments provides the node's railing post: the one leaving the node, or the lower id when both leave
+	/// or both arrive.
+	/// </summary>
+	private RoadBridgeBuilder.BridgeSpan ComputeBridgeSpan(RoadSegment _Segment, float _RangeStart, float _RangeEnd)
+	{
+		var startNeighbour = DeckContinuation(_Segment, _Segment.StartNodeId);
+		var endNeighbour = DeckContinuation(_Segment, _Segment.EndNodeId);
+
+		bool postStart = startNeighbour is null || startNeighbour.EndNodeId == _Segment.StartNodeId || _Segment.Id < startNeighbour.Id;
+		bool postEnd = endNeighbour is null || (endNeighbour.EndNodeId == _Segment.EndNodeId && _Segment.Id < endNeighbour.Id);
+
+		return new RoadBridgeBuilder.BridgeSpan(_RangeStart, _RangeEnd, startNeighbour is null, postStart, endNeighbour is null, postEnd);
+	}
+
+
+
+	/// <summary>
+	/// The bridge segment the deck carries straight on to at a node, or null where the deck ends.
+	/// </summary>
+	private RoadSegment DeckContinuation(RoadSegment _Segment, int _NodeId)
+	{
+		if (GetDegree(_NodeId) != 2)
+			return null;
+
+		var other = GetSegmentsAt(_NodeId).FirstOrDefault(candidate => candidate.Id != _Segment.Id);
+
+		if (other?.Bridge is null || other.Bridge.ResourcePath != _Segment.Bridge.ResourcePath || other.Width != _Segment.Width)
+			return null;
+
+		bool sameExtent = MathF.Abs(RoadBridgeBuilder.DeckExtent(ProfileOf(other), other.Bridge) - RoadBridgeBuilder.DeckExtent(ProfileOf(_Segment), _Segment.Bridge)) < 0.01f;
+
+		return sameExtent ? other : null;
+	}
+
+
+
+	/// <summary>
 	/// The lift lines of a segment's two borders: at each end, the corner's height difference on that side (or
 	/// nothing), run linearly along the road between the two.
 	/// </summary>
@@ -755,7 +795,7 @@ public sealed partial class RoadNetwork
 				ranges.Add((i, start, end));
 		}
 
-		var plans = new List<ChunkPlan>(ranges.Count * 3);
+		var plans = new List<ChunkPlan>(ranges.Count * 4);
 		var borderHash = StableHash.Create();
 		borderHash.Add(_SurfaceSignature);
 		_Profile.AddBorderToHash(ref borderHash);
@@ -763,6 +803,23 @@ public sealed partial class RoadNetwork
 		_Taper.AddToHash(ref borderHash);
 		borderHash.Add(DebugBorders ? 1 : 0);
 		long borderSignature = borderHash.Value;
+
+		// The deck follows the road and stands off its border, so it is stale when either changes; its posts and
+		// supports are spread over the whole built range, so every piece is stale when an end moves.
+		var bridge = _Segment.Bridge;
+		var bridgeSpan = bridge is null ? default : ComputeBridgeSpan(_Segment, _TrimStart, usableEnd);
+		long bridgeSignature = 0;
+
+		if (bridge is not null)
+		{
+			var bridgeHash = StableHash.Create();
+			bridgeHash.Add(_SurfaceSignature);
+			bridgeHash.Add(bridge.ResourcePath);
+			_Profile.AddBorderToHash(ref bridgeHash);
+			bridge.AddToHash(ref bridgeHash);
+			bridgeSpan.AddToHash(ref bridgeHash);
+			bridgeSignature = bridgeHash.Value;
+		}
 
 		bool markings = RoadMarkingBuilder.HasMarkings(_Segment, _Profile);
 		var markingHash = StableHash.Create();
@@ -796,6 +853,19 @@ public sealed partial class RoadNetwork
 				hash.Add(end);
 
 				plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Marking, BorderCaps.None, default, hash.Value, _Lines));
+			}
+
+			if (bridge is not null)
+			{
+				// The piece works out for itself whether it is an outermost one, from its stretch against the span.
+				hash = StableHash.Create();
+				hash.Add(bridgeSignature);
+				hash.Add(index);
+				hash.Add(count);
+				hash.Add(start);
+				hash.Add(end);
+
+				plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Bridge, BorderCaps.None, default, hash.Value, Bridge: bridgeSpan));
 			}
 
 			if (!_Profile.HasBorder)
@@ -1177,12 +1247,24 @@ public sealed partial class RoadNetwork
 		PolygonMesh mesh;
 		string name;
 		BorderDebug debug = null;
+		List<RoadBridgeBuilder.Placement> placements = null;
 
 		if (plan.Kind == RoadChunkKind.Border)
 		{
 			debug = DebugBorders ? new BorderDebug() : null;
 			mesh = RoadBorderBuilder.BuildSegment(_Job.Table, plan.Start, plan.End, _Job.Width, _Job.Profile, SampleSpacing, SurfaceOffset, plan.Caps, plan.Blends, plan.Taper, debug);
 			name = $"Road {_Job.SegmentId} border [{plan.Index + 1}/{plan.Count}]";
+		}
+		else if (plan.Kind == RoadChunkKind.Bridge)
+		{
+			var segment = FindSegment(_Job.SegmentId);
+
+			if (segment?.Bridge is null)
+				return false;
+
+			placements = new List<RoadBridgeBuilder.Placement>();
+			mesh = RoadBridgeBuilder.Build(_Job.Table, plan.Start, plan.End, plan.Bridge, _Job.Width, _Job.Profile, segment.Bridge, SampleSpacing, SurfaceOffset, GroundBelow, placements);
+			name = $"Road {_Job.SegmentId} bridge [{plan.Index + 1}/{plan.Count}]";
 		}
 		else if (plan.Kind == RoadChunkKind.Marking)
 		{
@@ -1212,12 +1294,38 @@ public sealed partial class RoadNetwork
 			name = $"Road {_Job.SegmentId} [{plan.Index + 1}/{plan.Count}]";
 		}
 
-		CreateChunkObject(name, _Job.SegmentId, -1, plan.Kind, plan.Index, plan.Count, plan.Signature, mesh, debug);
+		var piece = CreateChunkObject(name, _Job.SegmentId, -1, plan.Kind, plan.Index, plan.Count, plan.Signature, mesh, debug);
+
+		if (placements is not null)
+		{
+			foreach (var placement in placements)
+				placement.Prefab.Clone(new Transform(placement.Position, placement.Rotation), piece);
+		}
 
 		// The new piece is in place before the old one goes, so the road never flickers.
 		existing?.GameObject.Destroy();
 
 		return true;
+	}
+
+
+
+	/// <summary>
+	/// The height of whatever lies under a point of the network (its own pieces excepted), in network space, for
+	/// bridge supports to land on. Null over nothing.
+	/// </summary>
+	private float? GroundBelow(Vector3 _Local)
+	{
+		const float reach = 50000.0f;
+
+		var transform = WorldTransform;
+		Vector3 from = transform.PointToWorld(_Local) + Vector3.Down;
+		var trace = Scene.Trace.Ray(from, from + Vector3.Down * reach).WithoutTags(ChunkTag).Run();
+
+		if (!trace.Hit)
+			return null;
+
+		return transform.PointToLocal(trace.EndPosition).z;
 	}
 
 

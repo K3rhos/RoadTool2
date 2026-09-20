@@ -17,7 +17,12 @@ public enum RoadChunkKind
 	/// <summary>
 	/// The painted lines on the surface: lane lines, centre line, edge lines.
 	/// </summary>
-	Marking
+	Marking,
+
+	/// <summary>
+	/// The bridge under a road: deck, sides, supports.
+	/// </summary>
+	Bridge
 }
 
 /// <summary>

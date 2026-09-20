@@ -309,7 +309,8 @@ public class RoadSelectTool : EditorTool
 
 	/// <summary>
 	/// The standard move gizmo on the selected node. Its centre square drags along the ground (the raycast hook),
-	/// the arrows move on world axes with grid snapping.
+	/// the arrows move on world axes, or in Local space (the editor's Global/Local toggle) along and across the
+	/// road through the node, with grid snapping in whichever frame the arrows are in.
 	/// </summary>
 	private void UpdateNodeGizmo(RoadNetwork _Network, RoadNode _Node)
 	{
@@ -318,6 +319,7 @@ public class RoadSelectTool : EditorTool
 
 		var transform = _Network.WorldTransform;
 		Vector3 nodeWorld = transform.PointToWorld(_Node.Position);
+		var handleRotation = Gizmo.Settings.GlobalSpace ? Rotation.Identity : NodeFrame(_Network, _Node);
 
 		using (Gizmo.Scope("roadtool2_node_gizmo", new Transform(nodeWorld)))
 		{
@@ -325,7 +327,7 @@ public class RoadSelectTool : EditorTool
 
 			Vector3? surfaceHit = null;
 
-			bool moved = Gizmo.Control.Position("position", Vector3.Zero, out Vector3 delta, Rotation.Identity, centerRaycast: () =>
+			bool moved = Gizmo.Control.Position("position", Vector3.Zero, out Vector3 delta, handleRotation, centerRaycast: () =>
 			{
 				surfaceHit = GroundHit(_Network, nodeWorld);
 				return surfaceHit;
@@ -350,7 +352,7 @@ public class RoadSelectTool : EditorTool
 				else
 				{
 					m_MoveDelta += delta;
-					target = Gizmo.Snap(m_DragStartWorld, m_MoveDelta, Rotation.Identity);
+					target = Gizmo.Snap(m_DragStartWorld, m_MoveDelta, handleRotation);
 				}
 
 				_Network.MoveNode(_Node.Id, transform.PointToLocal(target));
@@ -359,6 +361,30 @@ public class RoadSelectTool : EditorTool
 
 		if (m_Drag == DragKind.Gizmo && !Gizmo.IsLeftMouseDown)
 			EndDrag();
+	}
+
+
+
+	/// <summary>
+	/// The node's own frame for Local space: forward is the way the road through it runs (its first road's
+	/// direction, which at a smooth pass-through node is the same from either side), so the arrows point along
+	/// and across the road. World axes when no road at the node gives a direction.
+	/// </summary>
+	private static Rotation NodeFrame(RoadNetwork _Network, RoadNode _Node)
+	{
+		var segment = _Network.GetSegmentsAt(_Node.Id).FirstOrDefault();
+
+		if (segment is null)
+			return Rotation.Identity;
+
+		// The handle points from the node into its road: at the road's end that is against the road's direction.
+		Vector3 handle = RoadNetwork.GetHandle(segment, _Node.Id);
+		Vector3 forward = _Network.WorldTransform.NormalToWorld(segment.EndNodeId == _Node.Id ? -handle : handle);
+
+		if (forward.IsNearZeroLength || MathF.Abs(forward.Normal.z) > 0.99f)
+			return Rotation.Identity;
+
+		return Rotation.LookAt(forward.Normal, Vector3.Up);
 	}
 
 
@@ -573,6 +599,7 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 		serialized.OnPropertyChanged += _ => m_Tool.OnSegmentEdited();
 
 		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadSegment.Profile)));
+		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadSegment.Bridge)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadSegment.Width)));
 
 		float length = _Network.GetCurveTable(_Segment)?.Length ?? 0.0f;

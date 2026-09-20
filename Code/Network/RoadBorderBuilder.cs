@@ -765,7 +765,7 @@ internal static class RoadBorderBuilder
 	/// taken out by stalling the rows before it onto it instead. Arc rows are left to the corner fold. Returns,
 	/// per row and node, the row whose node it stalled onto (-1 when it kept its own).
 	/// </summary>
-	private static int[][] RemoveFolds(List<PathPoint> _Path, Vector3[][] _Positions, int _NodeCount)
+	internal static int[][] RemoveFolds(List<PathPoint> _Path, Vector3[][] _Positions, int _NodeCount)
 	{
 		int count = _Path.Count;
 		var stalls = new int[count][];
