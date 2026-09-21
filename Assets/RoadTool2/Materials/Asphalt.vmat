@@ -6,8 +6,8 @@ Layer0
 
 	//---- Albedo ----
 	BaseColour "roadtool2/textures/asphalt/asphalt_diffuse.jpg"
-	g_flBlendAmount "0.200"
-	g_vBlendColour "[0.392157 0.364706 0.298039 1.000000]"
+	g_flBlendAmount "0.000"
+	g_vBlendColour "[1.000000 1.000000 1.000000 1.000000]"
 
 	//---- Ambient Occlusion ----
 	AmbientOcclusion "materials/default/default_ao.tga"
@@ -25,7 +25,7 @@ Layer0
 	g_bFollowWorldSpace "1"
 	g_bUseObjectSpace "0"
 	g_vOffset "[0.000 0.000]"
-	g_vTile "[5.000 5.000]"
+	g_vTile "[6.000 6.000]"
 
 	//---- Metalness ----
 	Metalness "materials/default/default_metal.tga"
@@ -35,6 +35,6 @@ Layer0
 	NormalMap "roadtool2/textures/asphalt/asphalt_normal.jpg"
 
 	//---- Roughness ----
-	g_flRoughnessScaleFactor "1.000"
+	g_flRoughnessScaleFactor "2.000"
 	Roughness "roadtool2/textures/asphalt/asphalt_roughness.jpg"
 }

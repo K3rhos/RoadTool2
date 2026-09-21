@@ -3,7 +3,7 @@
     {
       "Prefab": {
         "_type": "gameobject",
-        "prefab": "roadtool2/prefabs/streetlight.prefab"
+        "prefab": "thirdparty/stratoart/streetlight/prefabs/streetlight.prefab"
       },
       "Side": "Both",
       "Spacing": 1200,
@@ -11,7 +11,7 @@
       "Anchor": "BorderEdge",
       "Offset": -125,
       "HeightOffset": 0,
-      "Yaw": 90,
+      "Yaw": 180,
       "Chance": 1,
       "RandomYaw": false,
       "Scatter": 0,
@@ -19,7 +19,47 @@
       "MaxScale": 1
     }
   ],
-  "JunctionRows": [],
+  "JunctionRows": [
+    {
+      "Prefab": {
+        "_type": "gameobject",
+        "prefab": "thirdparty/raphaelescamilla/mailbox/prefabs/mailbox.prefab"
+      },
+      "Side": "Right",
+      "Distance": 150,
+      "Anchor": "BorderEdge",
+      "Offset": -120,
+      "HeightOffset": 0,
+      "Yaw": 0,
+      "Chance": 0.5
+    },
+    {
+      "Prefab": {
+        "_type": "gameobject",
+        "prefab": "thirdparty/raphaelescamilla/bluecitytrashcan/prefabs/bluecitytrashcan.prefab"
+      },
+      "Side": "Right",
+      "Distance": 190,
+      "Anchor": "BorderEdge",
+      "Offset": -120,
+      "HeightOffset": 0,
+      "Yaw": 0,
+      "Chance": 1
+    },
+    {
+      "Prefab": {
+        "_type": "gameobject",
+        "prefab": "thirdparty/roh3d/firehydrant/prefabs/firehydrant.prefab"
+      },
+      "Side": "Right",
+      "Distance": 300,
+      "Anchor": "BorderEdge",
+      "Offset": -120,
+      "HeightOffset": 0,
+      "Yaw": 0,
+      "Chance": 0.9
+    }
+  ],
   "Seed": 0,
   "__references": [],
   "__version": 0
