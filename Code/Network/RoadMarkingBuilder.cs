@@ -29,6 +29,20 @@ internal static class RoadMarkingBuilder
 	private const float ExtraLaneShare = 0.6f;
 
 	/// <summary>
+	/// Where a segment sits in the run of road its dashes are counted along: the run distance at the segment's
+	/// start, and whether the run goes against the segment (so its distance counts down from the end). Dashes are
+	/// counted from the start of the run, not the segment, so a road drawn in several segments dashes as one.
+	/// </summary>
+	public readonly record struct DashPhase(float Offset, bool Reversed)
+	{
+		public void AddToHash(ref StableHash _Hash)
+		{
+			_Hash.Add(Offset);
+			_Hash.Add(Reversed ? 1 : 0);
+		}
+	}
+
+	/// <summary>
 	/// A line to paint: at a fixed distance across the road (from the centreline, negative to the left), or, with
 	/// <see cref="Follow"/> set, following that edge (-1 left, +1 right) at <see cref="Inset"/> in from it. A fixed
 	/// line is only painted where it lies on the surface, and one with <see cref="MinExtra"/> only where that side's
@@ -80,7 +94,7 @@ internal static class RoadMarkingBuilder
 	/// <summary>
 	/// Adds the lines over one stretch of the road to the mesh. An empty or inverted stretch adds nothing.
 	/// </summary>
-	public static void Build(PolygonMesh _Mesh, RoadCurveTable _Table, float _StartDistance, float _EndDistance, RoadSegment _Segment, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset)
+	public static void Build(PolygonMesh _Mesh, RoadCurveTable _Table, float _StartDistance, float _EndDistance, RoadSegment _Segment, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset, in DashPhase _Phase)
 	{
 		if (_EndDistance - _StartDistance < 1.0f)
 			return;
@@ -92,12 +106,12 @@ internal static class RoadMarkingBuilder
 				float spacing = line.Style.DoubleSpacing * 0.5f;
 
 				// Following an edge, the pair moves in from it together; fixed, it straddles the boundary.
-				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, line with { Offset = line.Offset - spacing, Inset = line.Inset + (line.Follow < 0 ? -spacing : spacing) }, _Width, _SurfaceOffset);
-				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, line with { Offset = line.Offset + spacing, Inset = line.Inset + (line.Follow < 0 ? spacing : -spacing) }, _Width, _SurfaceOffset);
+				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, line with { Offset = line.Offset - spacing, Inset = line.Inset + (line.Follow < 0 ? -spacing : spacing) }, _Width, _SurfaceOffset, _Phase);
+				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, line with { Offset = line.Offset + spacing, Inset = line.Inset + (line.Follow < 0 ? spacing : -spacing) }, _Width, _SurfaceOffset, _Phase);
 			}
 			else
 			{
-				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, line, _Width, _SurfaceOffset);
+				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, line, _Width, _SurfaceOffset, _Phase);
 			}
 		}
 	}
@@ -165,7 +179,7 @@ internal static class RoadMarkingBuilder
 
 
 
-	private static void BuildLine(PolygonMesh _Mesh, RoadCurveTable _Table, float _StartDistance, float _EndDistance, in Line _Line, in RoadWidth _Width, float _SurfaceOffset)
+	private static void BuildLine(PolygonMesh _Mesh, RoadCurveTable _Table, float _StartDistance, float _EndDistance, in Line _Line, in RoadWidth _Width, float _SurfaceOffset, in DashPhase _Phase)
 	{
 		if (_EndDistance - _StartDistance < 0.01f)
 			return;
@@ -176,22 +190,31 @@ internal static class RoadMarkingBuilder
 			return;
 		}
 
-		// Dashes are counted from the segment's start, so the one this chunk starts inside is found by its index.
+		// Dashes are counted along the run the segment belongs to. In run distance this stretch spans
+		// [runStart, runEnd); the dashes there are found by index, and each is mapped back onto the segment.
 		float period = _Line.Style.DashLength + _Line.Style.GapLength;
-		int first = (int)MathF.Floor(_StartDistance / period);
+		float length = _Table.Length;
+		float runStart = _Phase.Reversed ? _Phase.Offset + length - _EndDistance : _Phase.Offset + _StartDistance;
+		float runEnd = _Phase.Reversed ? _Phase.Offset + length - _StartDistance : _Phase.Offset + _EndDistance;
+		int first = (int)MathF.Floor(runStart / period);
 
 		for (int index = first; ; index++)
 		{
 			float dashStart = index * period;
 
-			if (dashStart >= _EndDistance)
+			if (dashStart >= runEnd)
 				break;
 
-			float from = MathF.Max(dashStart, _StartDistance);
-			float to = MathF.Min(dashStart + _Line.Style.DashLength, _EndDistance);
+			float runFrom = MathF.Max(dashStart, runStart);
+			float runTo = MathF.Min(dashStart + _Line.Style.DashLength, runEnd);
 
-			if (to - from > 0.5f)
-				BuildStrip(_Mesh, _Table, from, to, _Line, _Width, _SurfaceOffset);
+			if (runTo - runFrom <= 0.5f)
+				continue;
+
+			float from = _Phase.Reversed ? _Phase.Offset + length - runTo : runFrom - _Phase.Offset;
+			float to = _Phase.Reversed ? _Phase.Offset + length - runFrom : runTo - _Phase.Offset;
+
+			BuildStrip(_Mesh, _Table, from, to, _Line, _Width, _SurfaceOffset);
 		}
 	}
 

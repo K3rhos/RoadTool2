@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 27;
+	private const int GeneratorVersion = 28;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -47,7 +47,7 @@ public sealed partial class RoadNetwork
 	/// border's run-out into a different road type at either end; <see cref="Bridge"/> is the whole built range
 	/// and the ends of a bridge piece; the other kinds ignore them.
 	/// </summary>
-	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature, LineRange Lines = default, SegmentBorderTapers Taper = default, RoadBridgeBuilder.BridgeSpan Bridge = default, RoadPropBuilder.PropSpan Props = default);
+	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature, LineRange Lines = default, SegmentBorderTapers Taper = default, RoadBridgeBuilder.BridgeSpan Bridge = default, RoadPropBuilder.PropSpan Props = default, RoadMarkingBuilder.DashPhase Dash = default);
 
 	private readonly record struct PendingGroup(long Signature, int Remaining);
 
@@ -188,6 +188,7 @@ public sealed partial class RoadNetwork
 		}
 
 		var layouts = ComputeJunctionLayouts();
+		var dashPhases = ComputeDashPhases();
 		var liveSegments = new HashSet<int>();
 		var segmentBlends = new Dictionary<int, RoadBorderBuilder.SegmentBorderBlends>();
 		var segmentTapers = new Dictionary<int, SegmentBorderTapers>();
@@ -210,8 +211,9 @@ public sealed partial class RoadNetwork
 			var taper = ComputeBorderTaper(segment, table);
 			var crossings = ComputeCrossings(segment, table, layouts, trimStart, trimEnd);
 			var lines = ComputeLineRange(table, profile, trimStart, trimEnd, crossings);
+			var dash = dashPhases.GetValueOrDefault(segment.Id);
 
-			var plans = PlanChunks(segment, table, trimStart, trimEnd, profile, caps, blends, taper, ComputeSurfaceSignature(segment, table.Curve, profile), lines);
+			var plans = PlanChunks(segment, table, trimStart, trimEnd, profile, caps, blends, taper, ComputeSurfaceSignature(segment, table.Curve, profile), lines, dash);
 			long groupSignature = CombineSignatures(plans);
 
 			segmentBlends[segment.Id] = blends;
@@ -311,6 +313,80 @@ public sealed partial class RoadNetwork
 
 		m_Jobs.Enqueue(new RebuildJob(-1, _NodeId, _Kind, _Signature, default, null, RoadWidth.Uniform(0.0f), null, _Layout, _ArmBlends, _ArmTapers, _ArmCrossings));
 		m_PendingJunctions[key] = new PendingGroup(_Signature, 1);
+	}
+
+
+
+	/// <summary>
+	/// Where every segment sits in its run: the stretch of road carried on through pass-through nodes until a
+	/// junction, a road end or a loop. Each run is walked once, from the lowest-numbered segment in it backwards
+	/// to its head and then forwards to its tail, in that segment's direction, so every segment of the run agrees
+	/// on where the run's distance starts and the dashes carry across the nodes.
+	/// </summary>
+	private Dictionary<int, RoadMarkingBuilder.DashPhase> ComputeDashPhases()
+	{
+		var phases = new Dictionary<int, RoadMarkingBuilder.DashPhase>();
+
+		foreach (var seed in Segments.OrderBy(segment => segment.Id))
+		{
+			if (phases.ContainsKey(seed.Id))
+				continue;
+
+			var seen = new HashSet<int> { seed.Id };
+			var run = new List<(RoadSegment Segment, bool Forward)>();
+
+			// Back to the head: a road carrying on through the node runs with the run when it ends at that node.
+			var segment = seed;
+			int nodeId = seed.StartNodeId;
+
+			while (RunContinuation(segment, nodeId) is { } previous && seen.Add(previous.Id))
+			{
+				bool forward = previous.EndNodeId == nodeId;
+
+				run.Add((previous, forward));
+				segment = previous;
+				nodeId = forward ? previous.StartNodeId : previous.EndNodeId;
+			}
+
+			run.Reverse();
+			run.Add((seed, true));
+
+			// On to the tail.
+			segment = seed;
+			nodeId = seed.EndNodeId;
+
+			while (RunContinuation(segment, nodeId) is { } next && seen.Add(next.Id))
+			{
+				bool forward = next.StartNodeId == nodeId;
+
+				run.Add((next, forward));
+				segment = next;
+				nodeId = forward ? next.EndNodeId : next.StartNodeId;
+			}
+
+			float offset = 0.0f;
+
+			foreach (var (member, forward) in run)
+			{
+				phases[member.Id] = new RoadMarkingBuilder.DashPhase(offset, !forward);
+				offset += GetCurveTable(member)?.Length ?? 0.0f;
+			}
+		}
+
+		return phases;
+	}
+
+
+
+	/// <summary>
+	/// The road a segment carries straight on into at a pass-through node, or null at anything else.
+	/// </summary>
+	private RoadSegment RunContinuation(RoadSegment _Segment, int _NodeId)
+	{
+		if (GetDegree(_NodeId) != 2)
+			return null;
+
+		return GetSegmentsAt(_NodeId).FirstOrDefault(candidate => candidate.Id != _Segment.Id);
 	}
 
 
@@ -886,7 +962,7 @@ public sealed partial class RoadNetwork
 	/// segment rather than to the trimmed length means a junction change at one end only touches the chunk next
 	/// to it.
 	/// </summary>
-	private List<ChunkPlan> PlanChunks(RoadSegment _Segment, RoadCurveTable _Table, float _TrimStart, float _TrimEnd, RoadProfile _Profile, BorderCaps _Caps, in RoadBorderBuilder.SegmentBorderBlends _Blends, in SegmentBorderTapers _Taper, long _SurfaceSignature, in LineRange _Lines)
+	private List<ChunkPlan> PlanChunks(RoadSegment _Segment, RoadCurveTable _Table, float _TrimStart, float _TrimEnd, RoadProfile _Profile, BorderCaps _Caps, in RoadBorderBuilder.SegmentBorderBlends _Blends, in SegmentBorderTapers _Taper, long _SurfaceSignature, in LineRange _Lines, in RoadMarkingBuilder.DashPhase _Dash)
 	{
 		float length = _Table.Length;
 		int count = Math.Max(1, (int)MathF.Ceiling(length / ChunkLength));
@@ -951,6 +1027,7 @@ public sealed partial class RoadNetwork
 		markingHash.Add(_Segment.LaneCount);
 		markingHash.Add(_Segment.ForwardLanes);
 		_Lines.AddToHash(ref markingHash);
+		_Dash.AddToHash(ref markingHash);
 		_Profile.AddMarkingsToHash(ref markingHash);
 		long markingSignature = markingHash.Value;
 
@@ -976,7 +1053,7 @@ public sealed partial class RoadNetwork
 				hash.Add(start);
 				hash.Add(end);
 
-				plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Marking, BorderCaps.None, default, hash.Value, _Lines));
+				plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Marking, BorderCaps.None, default, hash.Value, _Lines, Dash: _Dash));
 			}
 
 			if (bridge is not null)
@@ -1438,12 +1515,12 @@ public sealed partial class RoadNetwork
 
 			if (plan.Lines.HasGap)
 			{
-				RoadMarkingBuilder.Build(mesh, _Job.Table, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.GapStart), segment, _Job.Width, _Job.Profile, SurfaceOffset);
-				RoadMarkingBuilder.Build(mesh, _Job.Table, MathF.Max(plan.Start, plan.Lines.GapEnd), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset);
+				RoadMarkingBuilder.Build(mesh, _Job.Table, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.GapStart), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
+				RoadMarkingBuilder.Build(mesh, _Job.Table, MathF.Max(plan.Start, plan.Lines.GapEnd), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
 			}
 			else
 			{
-				RoadMarkingBuilder.Build(mesh, _Job.Table, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset);
+				RoadMarkingBuilder.Build(mesh, _Job.Table, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
 			}
 
 			name = $"Road {_Job.SegmentId} markings [{plan.Index + 1}/{plan.Count}]";
