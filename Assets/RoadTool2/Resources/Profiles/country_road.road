@@ -2,7 +2,7 @@
   "RoadMaterial": "roadtool2/materials/asphalt.vmat",
   "RoadTextureRepeat": 500,
   "Border": "CountrySide",
-  "BorderMaterial": "roadtool2/materials/gravel.vmat",
+  "BorderMaterial": "textures/grass/grass_uncut.vmat",
   "BorderTextureRepeat": 200,
   "BorderWidth": 50,
   "CurbHeight": 5,

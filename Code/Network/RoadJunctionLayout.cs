@@ -27,7 +27,10 @@ internal sealed class RoadJunctionLayout
 		/// </summary>
 		public Vector2 Direction;
 
-		public float Width;
+		/// <summary>
+		/// The road's edges along the segment; which of them is the arm's left depends on which way the segment runs.
+		/// </summary>
+		public RoadWidth Widths;
 
 		/// <summary>
 		/// The trim the corners ask for; <see cref="Trim"/> is this unless a short road had to give some back.
@@ -51,6 +54,12 @@ internal sealed class RoadJunctionLayout
 		public Vector3[] Lefts;
 
 		/// <summary>
+		/// How far out from the centre each sample's left and right edges sit (looking out of the node).
+		/// </summary>
+		public float[] LeftEdges;
+		public float[] RightEdges;
+
+		/// <summary>
 		/// Index of the sample sitting on the node.
 		/// </summary>
 		public int NodeIndex;
@@ -69,22 +78,58 @@ internal sealed class RoadJunctionLayout
 
 		/// <summary>
 		/// A point on the polyline running parallel to the arm, <paramref name="_Offset"/> to the left of its centre
-		/// (negative for the right). The road edges are the offsets at plus and minus half the width.
+		/// (negative for the right).
 		/// </summary>
 		public Vector3 EdgePoint(int _Index, float _Offset)
 		{
 			return Centres[_Index] + Lefts[_Index] * _Offset;
 		}
 
-		public Vector3[] OffsetPolyline(float _Offset)
+		/// <summary>
+		/// How far out from the centre the edge on one side (+1 left, -1 right, looking out of the node) sits at a
+		/// distance from the node; the node's own value behind it, the far end's past it.
+		/// </summary>
+		public float Edge(float _Side, float _FromNode)
+		{
+			float curveDistance = CurveDistance(Math.Clamp(_FromNode, 0.0f, Length));
+			bool left = _Side > 0.0f == AtStart;
+
+			return left ? Widths.LeftAt(curveDistance) : Widths.RightAt(curveDistance);
+		}
+
+		/// <summary>
+		/// The signed offset (left positive) of an edge line at a distance from the node.
+		/// </summary>
+		public float OffsetAt(in EdgeRef _Edge, float _FromNode)
+		{
+			return _Edge.Side * (Edge(_Edge.Side, _FromNode) + _Edge.Extra);
+		}
+
+		public float OffsetAt(in EdgeRef _Edge, int _Index)
+		{
+			return _Edge.Side * ((_Edge.Side > 0.0f ? LeftEdges[_Index] : RightEdges[_Index]) + _Edge.Extra);
+		}
+
+		public Vector3[] OffsetPolyline(in EdgeRef _Edge)
 		{
 			var points = new Vector3[SampleCount];
 
 			for (int i = 0; i < SampleCount; i++)
-				points[i] = EdgePoint(i, _Offset);
+				points[i] = EdgePoint(i, OffsetAt(_Edge, i));
 
 			return points;
 		}
+	}
+
+	/// <summary>
+	/// A line running along one of an arm's edges (+1 its left, -1 its right, looking out of the node), pushed
+	/// outward from that edge by <see cref="Extra"/> (inward when negative). Edges move in and out along a road
+	/// with extra width, so a line is named by the edge it follows rather than by a fixed offset.
+	/// </summary>
+	public readonly record struct EdgeRef(float Side, float Extra)
+	{
+		public static readonly EdgeRef Left = new(1.0f, 0.0f);
+		public static readonly EdgeRef Right = new(-1.0f, 0.0f);
 	}
 
 	/// <summary>
@@ -124,6 +169,11 @@ internal sealed class RoadJunctionLayout
 		public float SignA = 1.0f;
 		public float SignB = 1.0f;
 
+		/// <summary>
+		/// The corner is the tip between two roads diverging from one point on the node: a ramp's nose.
+		/// </summary>
+		public bool IsNose;
+
 		public float EndA => HasFillet ? TangentParamA : ParamA;
 
 		public float EndB => HasFillet ? TangentParamB : ParamB;
@@ -149,14 +199,12 @@ internal sealed class RoadJunctionLayout
 		public float Radius;
 
 		/// <summary>
-		/// The two arms and their edge offsets, so the outer corner of a border can be found on the arms' real
-		/// edges the same way the fillet centre was.
+		/// The two arms and which way each edge is pushed into the corner, so the outer corner of a border can be
+		/// found on the arms' real edges the same way the fillet centre was.
 		/// </summary>
 		public RoadJunctionLayout Layout;
 		public Arm ArmA;
 		public Arm ArmB;
-		public float HalfA;
-		public float HalfB;
 		public float SignA = 1.0f;
 		public float SignB = 1.0f;
 
@@ -191,9 +239,12 @@ internal sealed class RoadJunctionLayout
 
 			Vector2 point;
 
-			if (ArmA is not null && ArmB is not null && Intersect(ArmA, HalfA + SignA * _Offset, ArmB, -(HalfB + SignB * _Offset), out Hit hit))
+			var edgeA = new EdgeRef(1.0f, SignA * _Offset);
+			var edgeB = new EdgeRef(-1.0f, SignB * _Offset);
+
+			if (ArmA is not null && ArmB is not null && Intersect(ArmA, edgeA, ArmB, edgeB, out Hit hit))
 			{
-				Layout?.RefineCrossing(ArmA, HalfA + SignA * _Offset, ArmB, -(HalfB + SignB * _Offset), ref hit);
+				Layout?.RefineCrossing(ArmA, edgeA, ArmB, edgeB, ref hit);
 				point = Flat(hit.Point);
 			}
 			else
@@ -248,6 +299,12 @@ internal sealed class RoadJunctionLayout
 
 	private const float SampleStep = 30.0f;
 	private const float ArcStepDegrees = 15.0f;
+
+	/// <summary>
+	/// The most a nose (the tip between a ramp and the road it leaves) is rounded by: a street corner's radius
+	/// there would reach hundreds of units down both roads.
+	/// </summary>
+	private const float NoseRadius = 15.0f;
 
 	/// <summary>
 	/// How far past a sharp corner's point the arm rows sit; a little more than the path's merge distance.
@@ -379,7 +436,7 @@ internal sealed class RoadJunctionLayout
 				Table = table,
 				AtStart = atStart,
 				Direction = direction.Normal,
-				Width = segment.Width
+				Widths = new RoadWidth(segment, table.Length)
 			});
 		}
 
@@ -388,7 +445,7 @@ internal sealed class RoadJunctionLayout
 
 		layout.Arms.Sort((a, b) => MathF.Atan2(a.Direction.y, a.Direction.x).CompareTo(MathF.Atan2(b.Direction.y, b.Direction.x)));
 
-		float maxWidth = layout.Arms.Max(arm => arm.Width);
+		float maxWidth = layout.Arms.Max(arm => arm.Widths.MaxHalf * 2.0f);
 
 		foreach (var arm in layout.Arms)
 			layout.BuildSamples(arm, maxWidth);
@@ -457,7 +514,7 @@ internal sealed class RoadJunctionLayout
 		{
 			var arm = Arms[i];
 
-			_Debug.Note($"ARM {i} segment={arm.Segment.Id} atStart={(arm.AtStart ? 1 : 0)} direction={BorderDebug.Format(arm.Direction)} width={arm.Width} length={arm.Length:0.###} rawTrim={arm.RawTrim:0.###} sharpTrim={arm.SharpTrim:0.###} trim={arm.Trim:0.###} samples={arm.SampleCount} nodeIndex={arm.NodeIndex} firstDistance={arm.Distances[0]:0.###} lastDistance={arm.Distances[^1]:0.###}");
+			_Debug.Note($"ARM {i} segment={arm.Segment.Id} atStart={(arm.AtStart ? 1 : 0)} direction={BorderDebug.Format(arm.Direction)} width={arm.Widths.Base} edgesAtNode={arm.Edge(1.0f, 0.0f):0.#}/{arm.Edge(-1.0f, 0.0f):0.#} length={arm.Length:0.###} rawTrim={arm.RawTrim:0.###} sharpTrim={arm.SharpTrim:0.###} trim={arm.Trim:0.###} samples={arm.SampleCount} nodeIndex={arm.NodeIndex} firstDistance={arm.Distances[0]:0.###} lastDistance={arm.Distances[^1]:0.###}");
 		}
 
 		foreach (var corner in m_Corners)
@@ -502,11 +559,12 @@ internal sealed class RoadJunctionLayout
 		int forwardCount = Math.Max(1, (int)MathF.Ceiling(forward / SampleStep));
 		int backwardCount = Math.Max(1, (int)MathF.Ceiling(backward / SampleStep));
 		int total = backwardCount + forwardCount + 1;
-		float halfWidth = _Arm.Width * 0.5f;
 
 		_Arm.Distances = new float[total];
 		_Arm.Centres = new Vector3[total];
 		_Arm.Lefts = new Vector3[total];
+		_Arm.LeftEdges = new float[total];
+		_Arm.RightEdges = new float[total];
 		_Arm.NodeIndex = backwardCount;
 
 		for (int k = 0; k <= forwardCount; k++)
@@ -514,15 +572,11 @@ internal sealed class RoadJunctionLayout
 			float distance = k == forwardCount ? forward : forward * k / forwardCount;
 			int index = backwardCount + k;
 
-			RoadSurfaceBuilder.CrossSection(_Arm.Table, _Arm.CurveDistance(distance), halfWidth, m_Lift, out Vector3 curveLeft, out Vector3 curveRight);
-
-			// Looking out of the node, an arm that ends here runs the other way, so its sides swap.
-			Vector3 left = _Arm.AtStart ? curveLeft : curveRight;
-			Vector3 right = _Arm.AtStart ? curveRight : curveLeft;
+			ArmFrame(_Arm, distance, out _Arm.Centres[index], out _Arm.Lefts[index]);
 
 			_Arm.Distances[index] = distance;
-			_Arm.Centres[index] = (left + right) * 0.5f;
-			_Arm.Lefts[index] = (left - right).Normal;
+			_Arm.LeftEdges[index] = _Arm.Edge(1.0f, distance);
+			_Arm.RightEdges[index] = _Arm.Edge(-1.0f, distance);
 		}
 
 		// Behind the node the road does not exist; carry its frame at the node straight backwards.
@@ -536,6 +590,8 @@ internal sealed class RoadJunctionLayout
 			_Arm.Distances[index] = distance;
 			_Arm.Centres[index] = _Arm.Centres[backwardCount] + direction * distance;
 			_Arm.Lefts[index] = _Arm.Lefts[backwardCount];
+			_Arm.LeftEdges[index] = _Arm.LeftEdges[backwardCount];
+			_Arm.RightEdges[index] = _Arm.RightEdges[backwardCount];
 		}
 	}
 
@@ -554,13 +610,15 @@ internal sealed class RoadJunctionLayout
 			int j = (i + 1) % count;
 			var a = Arms[i];
 			var b = Arms[j];
-			float halfA = a.Width * 0.5f;
-			float halfB = b.Width * 0.5f;
 
-			if (!Intersect(a, halfA, b, -halfB, out Hit hit))
+			if (!Intersect(a, EdgeRef.Left, b, EdgeRef.Right, out Hit hit))
 				continue;
 
-			RefineCrossing(a, halfA, b, -halfB, ref hit);
+			// Two edges leaving one point on the node (a ramp peeling off the side of a road) diverge at a nose,
+			// which is rounded far more tightly than a street corner, if at all.
+			bool nose = hit.DistanceA < 0.5f && hit.DistanceB < 0.5f;
+
+			RefineCrossing(a, EdgeRef.Left, b, EdgeRef.Right, ref hit);
 
 			// The angle between the edges where they leave the corner, and the way into it: used by the fillet, and
 			// by borders squaring off a corner that is sharp or tighter than they are wide.
@@ -583,7 +641,8 @@ internal sealed class RoadJunctionLayout
 				HalfAngleSin = MathF.Max(0.01f, MathF.Sin(angle.DegreeToRadian() * 0.5f)),
 				Angle = angle,
 				SignA = Vector2.Dot(bisector, leftNormalA) >= 0.0f ? 1.0f : -1.0f,
-				SignB = Vector2.Dot(bisector, rightNormalB) >= 0.0f ? 1.0f : -1.0f
+				SignB = Vector2.Dot(bisector, rightNormalB) >= 0.0f ? 1.0f : -1.0f,
+				IsNose = nose && angle < 90.0f
 			};
 
 			TryFillet(corner, a, b);
@@ -609,7 +668,7 @@ internal sealed class RoadJunctionLayout
 	/// </summary>
 	private void TryFillet(Corner _Corner, Arm _A, Arm _B)
 	{
-		float radius = Radius;
+		float radius = _Corner.IsNose ? MathF.Min(Radius, NoseRadius) : Radius;
 
 		if (radius <= 0.0f)
 			return;
@@ -618,10 +677,10 @@ internal sealed class RoadJunctionLayout
 		if (_Corner.Angle < 5.0f || _Corner.Angle > 175.0f)
 			return;
 
-		float halfA = _A.Width * 0.5f;
-		float halfB = _B.Width * 0.5f;
+		var pushedA = new EdgeRef(1.0f, _Corner.SignA * radius);
+		var pushedB = new EdgeRef(-1.0f, _Corner.SignB * radius);
 
-		if (!Intersect(_A, halfA + _Corner.SignA * radius, _B, -(halfB + _Corner.SignB * radius), out Hit centre))
+		if (!Intersect(_A, pushedA, _B, pushedB, out Hit centre))
 			return;
 
 		var centre2 = new Vector2(centre.Point.x, centre.Point.y);
@@ -632,7 +691,7 @@ internal sealed class RoadJunctionLayout
 
 		// On the curves, the centre is exactly a radius from each edge at the crossing's own distances, so those
 		// are the tangent points: the row there reaches the centre exactly. Off the polylines, look for them.
-		if (RefineCrossing(_A, halfA + _Corner.SignA * radius, _B, -(halfB + _Corner.SignB * radius), ref centre))
+		if (RefineCrossing(_A, pushedA, _B, pushedB, ref centre))
 		{
 			centre2 = new Vector2(centre.Point.x, centre.Point.y);
 			paramA = centre.DistanceA;
@@ -641,13 +700,13 @@ internal sealed class RoadJunctionLayout
 			ArmFrame(_A, paramA, out Vector3 centreA, out Vector3 leftA);
 			ArmFrame(_B, paramB, out Vector3 centreB, out Vector3 leftB);
 
-			tangentA = centreA + leftA * halfA;
-			tangentB = centreB - leftB * halfB;
+			tangentA = centreA + leftA * _A.OffsetAt(EdgeRef.Left, paramA);
+			tangentB = centreB + leftB * _B.OffsetAt(EdgeRef.Right, paramB);
 		}
 		else
 		{
-			ClosestPoint(_A, halfA, centre2, out tangentA, out paramA);
-			ClosestPoint(_B, -halfB, centre2, out tangentB, out paramB);
+			ClosestPoint(_A, EdgeRef.Left, centre2, out tangentA, out paramA);
+			ClosestPoint(_B, EdgeRef.Right, centre2, out tangentB, out paramB);
 		}
 
 		_Corner.HasFillet = true;
@@ -675,14 +734,13 @@ internal sealed class RoadJunctionLayout
 		}
 
 		float onCurve = MathF.Min(_FromNode, _Arm.Length);
+		float curveDistance = _Arm.CurveDistance(onCurve);
+		Vector3 right = RoadCurve.RightOf(_Arm.Table.TangentAt(curveDistance));
 
-		RoadSurfaceBuilder.CrossSection(_Arm.Table, _Arm.CurveDistance(onCurve), _Arm.Width * 0.5f, m_Lift, out Vector3 curveLeft, out Vector3 curveRight);
-
-		Vector3 left = _Arm.AtStart ? curveLeft : curveRight;
-		Vector3 right = _Arm.AtStart ? curveRight : curveLeft;
-
-		_Centre = (left + right) * 0.5f;
-		_Left = (left - right).Normal;
+		// The centreline itself: the edges are measured out from it, each its own distance. Looking out of the
+		// node, an arm that ends here runs the other way, so its sides swap.
+		_Centre = _Arm.Table.PositionAt(curveDistance) + Vector3.Up * m_Lift;
+		_Left = _Arm.AtStart ? -right : right;
 
 		if (_FromNode > _Arm.Length)
 			_Centre += Vector3.Cross(_Left, Vector3.Up) * (_FromNode - _Arm.Length);
@@ -690,11 +748,11 @@ internal sealed class RoadJunctionLayout
 
 
 
-	private Vector2 OffsetPoint(Arm _Arm, float _FromNode, float _Offset)
+	private Vector2 OffsetPoint(Arm _Arm, float _FromNode, in EdgeRef _Edge)
 	{
 		ArmFrame(_Arm, _FromNode, out Vector3 centre, out Vector3 left);
 
-		return Flat(centre + left * _Offset);
+		return Flat(centre + left * _Arm.OffsetAt(_Edge, _FromNode));
 	}
 
 
@@ -706,7 +764,7 @@ internal sealed class RoadJunctionLayout
 	/// corner not to close. False, with the hit untouched, when it does not converge: parallel offsets, or a bend
 	/// so tight the offset curve has a cusp.
 	/// </summary>
-	private bool RefineCrossing(Arm _A, float _OffsetA, Arm _B, float _OffsetB, ref Hit _Hit)
+	private bool RefineCrossing(Arm _A, in EdgeRef _OffsetA, Arm _B, in EdgeRef _OffsetB, ref Hit _Hit)
 	{
 		const float step = 0.5f;
 		const float maxStep = 200.0f;
@@ -746,7 +804,7 @@ internal sealed class RoadJunctionLayout
 		ArmFrame(_A, distanceA, out Vector3 centreA, out Vector3 leftA);
 		ArmFrame(_B, distanceB, out Vector3 centreB, out Vector3 leftB);
 
-		Vector3 point = (centreA + leftA * _OffsetA + centreB + leftB * _OffsetB) * 0.5f;
+		Vector3 point = (centreA + leftA * _A.OffsetAt(_OffsetA, distanceA) + centreB + leftB * _B.OffsetAt(_OffsetB, distanceB)) * 0.5f;
 		Vector2 directionA = Flat(Vector3.Cross(leftA, Vector3.Up)).Normal;
 		Vector2 directionB = Flat(Vector3.Cross(leftB, Vector3.Up)).Normal;
 
@@ -762,7 +820,7 @@ internal sealed class RoadJunctionLayout
 	/// the node wins. Two edges that start on the same point are a road running straight through: they meet at the
 	/// node and nothing needs rounding.
 	/// </summary>
-	private static bool Intersect(Arm _A, float _OffsetA, Arm _B, float _OffsetB, out Hit _Hit)
+	private static bool Intersect(Arm _A, in EdgeRef _OffsetA, Arm _B, in EdgeRef _OffsetB, out Hit _Hit)
 	{
 		var polyA = _A.OffsetPolyline(_OffsetA);
 		var polyB = _B.OffsetPolyline(_OffsetB);
@@ -818,7 +876,7 @@ internal sealed class RoadJunctionLayout
 	/// <summary>
 	/// The point of an arm's offset polyline nearest to a point, and its distance from the node.
 	/// </summary>
-	private static void ClosestPoint(Arm _Arm, float _Offset, Vector2 _Target, out Vector3 _Point, out float _Distance)
+	private static void ClosestPoint(Arm _Arm, in EdgeRef _Offset, Vector2 _Target, out Vector3 _Point, out float _Distance)
 	{
 		var poly = _Arm.OffsetPolyline(_Offset);
 		float best = float.MaxValue;
@@ -924,7 +982,7 @@ internal sealed class RoadJunctionLayout
 	/// </summary>
 	private void RowPoints(Arm _Arm, out Vector3 _Right, out Vector3 _Left, out Vector3 _LeftDirection)
 	{
-		RoadSurfaceBuilder.CrossSection(_Arm.Table, _Arm.CurveDistance(_Arm.Trim), _Arm.Width * 0.5f, m_Lift, out Vector3 curveLeft, out Vector3 curveRight);
+		RoadSurfaceBuilder.CrossSection(_Arm.Table, _Arm.CurveDistance(_Arm.Trim), _Arm.Widths, m_Lift, out Vector3 curveLeft, out Vector3 curveRight);
 
 		_Left = _Arm.AtStart ? curveLeft : curveRight;
 		_Right = _Arm.AtStart ? curveRight : curveLeft;
@@ -952,7 +1010,7 @@ internal sealed class RoadJunctionLayout
 		for (int k = _A.SampleCount - 1; k >= 0; k--)
 		{
 			if (_A.Distances[k] < _A.Trim && _A.Distances[k] > _Corner.EndA)
-				path.Add(_A.EdgePoint(k, _A.Width * 0.5f), _A.Lefts[k]);
+				path.Add(_A.EdgePoint(k, _A.LeftEdges[k]), _A.Lefts[k]);
 		}
 
 		path.MidIndex = AddCorner(path, _Corner, _A, _B, out path.ArcFirst, out path.ArcLast);
@@ -961,7 +1019,7 @@ internal sealed class RoadJunctionLayout
 		for (int k = 0; k < _B.SampleCount; k++)
 		{
 			if (_B.Distances[k] > _Corner.EndB && _B.Distances[k] < _B.Trim)
-				path.Add(_B.EdgePoint(k, -_B.Width * 0.5f), -_B.Lefts[k]);
+				path.Add(_B.EdgePoint(k, -_B.RightEdges[k]), -_B.Lefts[k]);
 		}
 
 		path.Add(rowRightB, -leftDirectionB);
@@ -1000,8 +1058,6 @@ internal sealed class RoadJunctionLayout
 					Layout = this,
 					ArmA = _A,
 					ArmB = _B,
-					HalfA = _A.Width * 0.5f,
-					HalfB = _B.Width * 0.5f,
 					SignA = _Corner.SignA,
 					SignB = _Corner.SignB,
 					TangentParamA = paramA,

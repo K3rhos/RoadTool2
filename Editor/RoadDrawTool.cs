@@ -657,7 +657,7 @@ public class RoadDrawTool : EditorTool
 				Gizmo.Draw.Color = Color.Orange.WithAlpha(0.6f);
 
 				if (_Network.TryGetCurve(pick.Segment, out var roadCurve))
-					RoadGizmos.DrawRoadOutline(roadCurve, pick.Segment.Width, _Network.WorldTransform);
+					RoadGizmos.DrawRoadOutline(roadCurve, _Network.WidthOf(pick.Segment), _Network.WorldTransform);
 
 				Gizmo.Draw.Color = Color.Orange;
 				RoadGizmos.DrawNode(_Target.World, true);

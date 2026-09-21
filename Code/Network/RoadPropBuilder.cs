@@ -42,20 +42,20 @@ internal static class RoadPropBuilder
 		public readonly float End;
 		public readonly PropSpan Span;
 		public readonly int SegmentId;
-		public readonly float HalfWidth;
+		public readonly RoadWidth Width;
 		public readonly RoadProfile Profile;
 		public readonly bool IsBridge;
 		public readonly float Lift;
 		public readonly Func<Vector3, float?> GroundAt;
 
-		public Context(RoadCurveTable _Table, float _Start, float _End, in PropSpan _Span, int _SegmentId, float _Width, RoadProfile _Profile, bool _IsBridge, float _Lift, Func<Vector3, float?> _GroundAt)
+		public Context(RoadCurveTable _Table, float _Start, float _End, in PropSpan _Span, int _SegmentId, in RoadWidth _Width, RoadProfile _Profile, bool _IsBridge, float _Lift, Func<Vector3, float?> _GroundAt)
 		{
 			Table = _Table;
 			Start = _Start;
 			End = _End;
 			Span = _Span;
 			SegmentId = _SegmentId;
-			HalfWidth = _Width * 0.5f;
+			Width = _Width;
 			Profile = _Profile;
 			IsBridge = _IsBridge;
 			Lift = _Lift;
@@ -185,7 +185,7 @@ internal static class RoadPropBuilder
 		Vector3 outward = _Left ? -right : right;
 
 		float fromEdge = (_Anchor == PropAnchor.BorderEdge ? profile.FlatBorderWidth : 0.0f) + _Offset;
-		Vector3 position = centre + outward * (_Context.HalfWidth + fromEdge);
+		Vector3 position = centre + outward * ((_Left ? _Context.Width.LeftAt(_Distance) : _Context.Width.RightAt(_Distance)) + fromEdge);
 
 		position.z += HeightAt(_Context, position, fromEdge) + _HeightOffset;
 

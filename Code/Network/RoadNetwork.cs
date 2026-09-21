@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Sandbox;
@@ -27,7 +28,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			field = value ?? new List<RoadNode>();
 			MarkDirty();
 		}
-	} = new();
+	} = [];
 
 	[Property, Hide]
 	public List<RoadSegment> Segments
@@ -38,7 +39,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			field = value ?? new List<RoadSegment>();
 			MarkDirty();
 		}
-	} = new();
+	} = [];
 
 	/// <summary>
 	/// Shared counter for node and segment ids. Serialized so ids stay unique across undo and reloads.
@@ -236,8 +237,17 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 		int endNodeId = segment.EndNodeId;
 		bool crossingAtEnd = segment.CrossingAtEnd;
 
+		// The edges at the cut carry over to both halves, so the road keeps its shape there.
+		var width = new RoadWidth(segment, table.Length);
+		float leftAtCut = width.LeftExtraAt(distance);
+		float rightAtCut = width.RightExtraAt(distance);
+		float leftExtraEnd = segment.LeftExtraEnd;
+		float rightExtraEnd = segment.RightExtraEnd;
+
 		segment.EndNodeId = node.Id;
 		segment.CrossingAtEnd = true;
+		segment.LeftExtraEnd = leftAtCut;
+		segment.RightExtraEnd = rightAtCut;
 		segment.StartTangent = first.P1 - first.P0;
 		segment.EndTangent = first.P2 - first.P3;
 
@@ -247,6 +257,11 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			StartNodeId = node.Id,
 			EndNodeId = endNodeId,
 			Width = segment.Width,
+			LeftExtraStart = leftAtCut,
+			RightExtraStart = rightAtCut,
+			LeftExtraEnd = leftExtraEnd,
+			RightExtraEnd = rightExtraEnd,
+			Ramp = segment.Ramp,
 			Profile = segment.Profile,
 			Bridge = segment.Bridge,
 			Props = segment.Props,
@@ -465,12 +480,24 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 		// The merged road runs startId to endId; a road that ran the other way has its lane directions mirrored.
 		bool mainSameWay = main == first ? first.StartNodeId == startId : second.StartNodeId == _NodeId;
 
+		// The far ends keep their edges (a road that ran the other way has its sides swapped); the base width is
+		// the main road's, so the extras are worked back from the edges themselves.
+		EdgesAtNode(first, startId, out float startLeft, out float startRight);
+		EdgesAtNode(second, endId, out float endLeft, out float endRight);
+		bool firstSameWay = first.StartNodeId == startId;
+		bool secondSameWay = second.EndNodeId == endId;
+
 		var merged = new RoadSegment
 		{
 			Id = NextId++,
 			StartNodeId = startId,
 			EndNodeId = endId,
 			Width = main.Width,
+			LeftExtraStart = (firstSameWay ? startLeft : startRight) - main.Width * 0.5f,
+			RightExtraStart = (firstSameWay ? startRight : startLeft) - main.Width * 0.5f,
+			LeftExtraEnd = (secondSameWay ? endLeft : endRight) - main.Width * 0.5f,
+			RightExtraEnd = (secondSameWay ? endRight : endLeft) - main.Width * 0.5f,
+			Ramp = first.Ramp || second.Ramp,
 			Profile = main.Profile,
 			Bridge = main.Bridge,
 			Props = main.Props,
@@ -507,8 +534,199 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			return false;
 		}
 
-		_Curve = new RoadCurve(start.Position, start.Position + _Segment.StartTangent, end.Position + _Segment.EndTangent, end.Position);
+		Vector3 p0 = start.Position;
+		Vector3 p3 = end.Position;
+		Vector3 startHandle = _Segment.StartTangent;
+		Vector3 endHandle = _Segment.EndTangent;
+
+		// A ramp's end at a junction is moved to the side of the road it runs off, and turned to run along it.
+		if (_Segment.Ramp)
+		{
+			if (TryRampEnd(_Segment, _Segment.StartNodeId, out Vector3 shift, out Vector3 direction))
+			{
+				p0 += shift;
+				startHandle = direction * startHandle.Length;
+			}
+
+			if (TryRampEnd(_Segment, _Segment.EndNodeId, out shift, out direction))
+			{
+				p3 += shift;
+				endHandle = direction * endHandle.Length;
+			}
+		}
+
+		_Curve = new RoadCurve(p0, p0 + startHandle, p3 + endHandle, p3);
 		return true;
+	}
+
+
+
+	/// <summary>
+	/// The edges of a segment along its length: its width, and the extras its sides carry at each end.
+	/// </summary>
+	public RoadWidth WidthOf(RoadSegment _Segment)
+	{
+		var table = GetCurveTable(_Segment);
+
+		return new RoadWidth(_Segment, table?.Length ?? 1.0f);
+	}
+
+
+
+	/// <summary>
+	/// Where a ramp's end at a junction goes. The road it runs off is the pair of other arms most nearly in line
+	/// with each other (the road running through the node); the ramp's centreline is shifted so that its outer
+	/// edge meets the widest edge that road has on the ramp's side, and its handle turned along the road, in the
+	/// sense the ramp heads. False at a node with no road running through (a road end, a pass-through node, or
+	/// three roads all meeting at angles).
+	/// </summary>
+	private bool TryRampEnd(RoadSegment _Segment, int _NodeId, out Vector3 _Shift, out Vector3 _Direction)
+	{
+		_Shift = Vector3.Zero;
+		_Direction = Vector3.Zero;
+
+		var node = FindNode(_NodeId);
+		var far = FindNode(_Segment.OtherNodeId(_NodeId));
+
+		if (node is null || far is null)
+			return false;
+
+		Vector3 chord = (far.Position - node.Position).WithZ(0.0f);
+
+		if (chord.IsNearZeroLength)
+			return false;
+
+		chord = chord.Normal;
+
+		var others = GetSegmentsAt(_NodeId).Where(candidate => candidate.Id != _Segment.Id && !candidate.Ramp).ToList();
+
+		if (others.Count < 2)
+			return false;
+
+		// The through road: the two arms leaving the node most nearly opposite each other, as long as they are
+		// within 60 degrees of straight.
+		RoadSegment throughA = null;
+		RoadSegment throughB = null;
+		float straightest = 0.5f;
+
+		for (int i = 0; i < others.Count; i++)
+		{
+			for (int j = i + 1; j < others.Count; j++)
+			{
+				float straightness = -Vector3.Dot(LeavingDirection(others[i], _NodeId), LeavingDirection(others[j], _NodeId));
+
+				if (straightness > straightest)
+				{
+					straightest = straightness;
+					throughA = others[i];
+					throughB = others[j];
+				}
+			}
+		}
+
+		if (throughA is null)
+			return false;
+
+		// Along the through road in the sense the ramp heads: the arm of the pair the ramp's far end lies towards.
+		Vector3 alongA = LeavingDirection(throughA, _NodeId);
+		Vector3 alongB = LeavingDirection(throughB, _NodeId);
+		Vector3 along = Vector3.Dot(chord, alongA) >= Vector3.Dot(chord, alongB) ? alongA : -alongB;
+		Vector3 left = Vector3.Cross(Vector3.Up, along).Normal;
+		float side = Vector3.Dot(chord, left) >= 0.0f ? 1.0f : -1.0f;
+		Vector3 sideDirection = left * side;
+
+		// The widest edge on the ramp's side of the two through arms.
+		float edge = 0.0f;
+
+		foreach (var candidate in new[] { throughA, throughB })
+		{
+			float alignment = Vector3.Dot(LeavingDirection(candidate, _NodeId), along);
+
+			// Looking out along an arm that runs the other way, the ramp's side is the arm's other side; and an arm
+			// ending at the node is looked out along backwards, which swaps its own sides again.
+			bool onArmLeft = side > 0.0f == alignment > 0.0f;
+			bool segmentLeft = candidate.StartNodeId == _NodeId ? onArmLeft : !onArmLeft;
+
+			edge = MathF.Max(edge, EdgeAtNode(candidate, _NodeId, segmentLeft));
+		}
+
+		// The ramp's own outer edge: the one on its side looking along its own way of travel near the node.
+		Vector3 travel = _Segment.StartNodeId == _NodeId ? chord : -chord;
+		bool travelsAlong = Vector3.Dot(travel, along) >= 0.0f;
+		bool ownLeft = side > 0.0f == travelsAlong;
+		float own = EdgeAtNode(_Segment, _NodeId, ownLeft);
+
+		// Nothing wider than the ramp itself to move onto (the through road has no extra lane there): the ramp
+		// would only be parked on the road's centreline, running along it, so it is left as an ordinary arm.
+		if (edge - own < 1.0f)
+			return false;
+
+		_Shift = sideDirection * (edge - own);
+		_Direction = Vector3.Dot(chord, along) >= 0.0f ? along : -along;
+
+		return true;
+	}
+
+
+
+	/// <summary>
+	/// The horizontal direction a segment leaves a node in: its handle there, or straight at its far node when
+	/// the handle is nothing.
+	/// </summary>
+	private Vector3 LeavingDirection(RoadSegment _Segment, int _NodeId)
+	{
+		Vector3 handle = GetHandle(_Segment, _NodeId).WithZ(0.0f);
+
+		if (!handle.IsNearZeroLength)
+			return handle.Normal;
+
+		var node = FindNode(_NodeId);
+		var far = FindNode(_Segment.OtherNodeId(_NodeId));
+
+		if (node is null || far is null)
+			return Vector3.Forward;
+
+		Vector3 chord = (far.Position - node.Position).WithZ(0.0f);
+
+		return chord.IsNearZeroLength ? Vector3.Forward : chord.Normal;
+	}
+
+
+
+	/// <summary>
+	/// How far from its centreline a segment's edge sits at one of its nodes; the side is the segment's own (left
+	/// looking from its start to its end).
+	/// </summary>
+	private static float EdgeAtNode(RoadSegment _Segment, int _NodeId, bool _Left)
+	{
+		bool atStart = _Segment.StartNodeId == _NodeId;
+		float extra = _Left ? (atStart ? _Segment.LeftExtraStart : _Segment.LeftExtraEnd) : (atStart ? _Segment.RightExtraStart : _Segment.RightExtraEnd);
+
+		return _Segment.Width * 0.5f + extra;
+	}
+
+
+
+	private static void EdgesAtNode(RoadSegment _Segment, int _NodeId, out float _Left, out float _Right)
+	{
+		_Left = EdgeAtNode(_Segment, _NodeId, true);
+		_Right = EdgeAtNode(_Segment, _NodeId, false);
+	}
+
+
+
+	/// <summary>
+	/// Whether two roads meeting at a pass-through node have the same edges there, so one carries straight on
+	/// from the other: looking out of the node along each, one's left is the other's right.
+	/// </summary>
+	private static bool SameEdgesAt(RoadSegment _A, RoadSegment _B, int _NodeId)
+	{
+		float outLeftA = EdgeAtNode(_A, _NodeId, _A.StartNodeId == _NodeId);
+		float outRightA = EdgeAtNode(_A, _NodeId, _A.StartNodeId != _NodeId);
+		float outLeftB = EdgeAtNode(_B, _NodeId, _B.StartNodeId == _NodeId);
+		float outRightB = EdgeAtNode(_B, _NodeId, _B.StartNodeId != _NodeId);
+
+		return MathF.Abs(outLeftA - outRightB) < 0.01f && MathF.Abs(outRightA - outLeftB) < 0.01f;
 	}
 
 

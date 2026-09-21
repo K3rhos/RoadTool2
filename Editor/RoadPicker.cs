@@ -70,7 +70,7 @@ internal static class RoadPicker
 			if (table is null)
 				continue;
 
-			float reach = segment.Width * 0.5f + _Margin;
+			float reach = _Network.WidthOf(segment).MaxHalf + _Margin;
 			Vector3 previous = transform.PointToWorld(table.SamplePosition(0));
 
 			for (int i = 1; i < table.SampleCount; i++)

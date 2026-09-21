@@ -213,7 +213,19 @@ public class RoadSelectTool : EditorTool
 
 	public void OnSegmentEdited()
 	{
-		Network?.MarkDirty();
+		var network = Network;
+
+		if (!network.IsValid())
+			return;
+
+		// Turning a road into a ramp (or back) changes how the roads at its ends flow through their nodes.
+		if (SelectedSegment is { } segment)
+		{
+			network.RefreshTangentsAround(segment.StartNodeId);
+			network.RefreshTangentsAround(segment.EndNodeId);
+		}
+
+		network.MarkDirty();
 	}
 
 
@@ -456,7 +468,7 @@ public class RoadSelectTool : EditorTool
 
 			if (_HoverSegment is { } pick && _Network.TryGetCurve(pick.Segment, out var curve))
 			{
-				RoadGizmos.DrawRoadOutline(curve, pick.Segment.Width, transform);
+				RoadGizmos.DrawRoadOutline(curve, _Network.WidthOf(pick.Segment), transform);
 
 				// Ctrl turns the click into "insert a node here": show where.
 				if (Gizmo.IsCtrlPressed)
@@ -482,7 +494,7 @@ public class RoadSelectTool : EditorTool
 			if (SelectedSegment is { } segment && _Network.TryGetCurve(segment, out var curve))
 			{
 				Gizmo.Draw.Color = Color.Yellow;
-				RoadGizmos.DrawRoadOutline(curve, segment.Width, transform);
+				RoadGizmos.DrawRoadOutline(curve, _Network.WidthOf(segment), transform);
 			}
 
 			if (SelectedNode is not { } node)
@@ -609,6 +621,16 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 		var row = group.AddRow();
 		row.Spacing = 4;
 		row.Add(new Button("Delete Road", "delete") { Clicked = m_Tool.DeleteSelection });
+
+		// How the edges run: extra width per side at each end (a lane appearing over a taper), and the ramp
+		// treatment for a road leaving another from its side.
+		var shape = AddGroup("Edges");
+
+		SidebarRows.Add(shape, serialized.GetProperty(nameof(RoadSegment.LeftExtraStart)));
+		SidebarRows.Add(shape, serialized.GetProperty(nameof(RoadSegment.LeftExtraEnd)));
+		SidebarRows.Add(shape, serialized.GetProperty(nameof(RoadSegment.RightExtraStart)));
+		SidebarRows.Add(shape, serialized.GetProperty(nameof(RoadSegment.RightExtraEnd)));
+		SidebarRows.Add(shape, serialized.GetProperty(nameof(RoadSegment.Ramp)));
 	}
 
 

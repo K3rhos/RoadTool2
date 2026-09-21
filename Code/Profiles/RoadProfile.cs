@@ -82,7 +82,7 @@ public sealed class RoadProfile : GameResource
 	/// What a road gets when no profile is assigned anywhere: the shipped asphalt profile, or failing that plain
 	/// asphalt with bare edges.
 	/// </summary>
-	public static RoadProfile Fallback => s_Fallback ??= ResourceLibrary.Get<RoadProfile>("roadtool2/profiles/asphalt.road") ?? new RoadProfile();
+	public static RoadProfile Fallback => s_Fallback ??= ResourceLibrary.Get<RoadProfile>("roadtool2/resources/profiles/asphalt.road") ?? new RoadProfile();
 
 	[Group("Road")] public Material RoadMaterial { get; set; }
 	[Group("Road"), Range(10.0f, 10000.0f)] public float RoadTextureRepeat { get; set { field = value.Clamp(1.0f, 100000.0f); } } = 500.0f;
@@ -189,7 +189,7 @@ public sealed class RoadProfile : GameResource
 
 	[Hide, JsonIgnore] public bool HasBorder => Border != RoadBorderStyle.None;
 
-	[Hide, JsonIgnore] public DecalDefinition ResolvedCrossingDecal => CrossingDecal ?? ResourceLibrary.Get<DecalDefinition>("roadtool2/decals/crossing.decal");
+	[Hide, JsonIgnore] public DecalDefinition ResolvedCrossingDecal => CrossingDecal ?? ResourceLibrary.Get<DecalDefinition>("roadtool2/resources/decals/crossing.decal");
 
 
 

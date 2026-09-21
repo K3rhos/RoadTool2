@@ -192,7 +192,7 @@ public class RoadLaneTool : EditorTool
 			Gizmo.Draw.IgnoreDepth = true;
 			Gizmo.Draw.LineThickness = _Hovered ? 2.0f : 1.0f;
 			Gizmo.Draw.Color = (_Hovered ? Color.Orange : Color.White).WithAlpha(_Hovered ? 0.9f : 0.5f);
-			RoadGizmos.DrawRoadOutline(curve, _Segment.Width, transform);
+			RoadGizmos.DrawRoadOutline(curve, _Network.WidthOf(_Segment), transform);
 
 			// Lane boundaries, coloured by what they separate: the centre line stands out.
 			for (int boundary = 1; boundary < lanes; boundary++)

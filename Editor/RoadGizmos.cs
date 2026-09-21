@@ -28,18 +28,29 @@ internal static class RoadGizmos
 	/// </summary>
 	public static void DrawRoadOutline(in RoadCurve _Curve, float _Width, in Transform _Transform, int _Steps = 24)
 	{
-		float halfWidth = _Width * 0.5f;
+		DrawRoadOutline(_Curve, RoadWidth.Uniform(_Width), _Transform, _Steps);
+	}
+
+
+
+	/// <summary>
+	/// Draws the two edges of a road along the curve, each its own distance out (the curve's parameter standing in
+	/// for its distance), capped at both ends.
+	/// </summary>
+	public static void DrawRoadOutline(in RoadCurve _Curve, in RoadWidth _Width, in Transform _Transform, int _Steps = 24)
+	{
 		Vector3 previousLeft = default;
 		Vector3 previousRight = default;
 
 		for (int i = 0; i <= _Steps; i++)
 		{
 			float t = (float)i / _Steps;
+			float distance = t * _Width.Length;
 			Vector3 point = _Curve.Evaluate(t);
 			Vector3 right = RoadCurve.RightOf(_Curve.Tangent(t));
 
-			Vector3 left = _Transform.PointToWorld(point - right * halfWidth);
-			Vector3 rightEdge = _Transform.PointToWorld(point + right * halfWidth);
+			Vector3 left = _Transform.PointToWorld(point - right * _Width.LeftAt(distance));
+			Vector3 rightEdge = _Transform.PointToWorld(point + right * _Width.RightAt(distance));
 
 			if (i == 0 || i == _Steps)
 				Gizmo.Draw.Line(left, rightEdge);

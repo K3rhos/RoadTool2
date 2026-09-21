@@ -97,7 +97,7 @@ internal static class RoadBridgeBuilder
 	/// for the caller to stand under the piece. <paramref name="_GroundAt"/> finds the ground under a point (network
 	/// space), for the supports to land on; null when there is none.
 	/// </summary>
-	public static PolygonMesh Build(RoadCurveTable _Table, float _StartDistance, float _EndDistance, in BridgeSpan _Span, float _Width, RoadProfile _Profile, BridgeStyle _Style, float _Spacing, float _Lift, Func<Vector3, float?> _GroundAt, List<Placement> _Placements)
+	public static PolygonMesh Build(RoadCurveTable _Table, float _StartDistance, float _EndDistance, in BridgeSpan _Span, in RoadWidth _Width, RoadProfile _Profile, BridgeStyle _Style, float _Spacing, float _Lift, Func<Vector3, float?> _GroundAt, List<Placement> _Placements)
 	{
 		var mesh = new PolygonMesh();
 
@@ -110,7 +110,6 @@ internal static class RoadBridgeBuilder
 
 		float length = MathF.Max(0.0f, _EndDistance - _StartDistance);
 		int steps = Math.Max(1, (int)MathF.Ceiling(length / MathF.Max(1.0f, _Spacing)));
-		float halfWidth = _Width * 0.5f;
 
 		var left = new List<RoadBorderBuilder.PathPoint>(steps + 1);
 		var right = new List<RoadBorderBuilder.PathPoint>(steps + 1);
@@ -120,7 +119,7 @@ internal static class RoadBridgeBuilder
 			float distance = i == steps ? _EndDistance : _StartDistance + length * i / steps;
 			Vector3 rightDirection = RoadCurve.RightOf(_Table.TangentAt(distance));
 
-			RoadSurfaceBuilder.CrossSection(_Table, distance, halfWidth, _Lift, out Vector3 leftPos, out Vector3 rightPos);
+			RoadSurfaceBuilder.CrossSection(_Table, distance, _Width, _Lift, out Vector3 leftPos, out Vector3 rightPos);
 
 			left.Add(new RoadBorderBuilder.PathPoint(leftPos, -rightDirection, distance));
 			right.Add(new RoadBorderBuilder.PathPoint(rightPos, rightDirection, distance));
@@ -138,8 +137,8 @@ internal static class RoadBridgeBuilder
 		if (capEnd)
 			AddCap(mesh, left[^1], right[^1], _Profile, _Style, _Table.TangentAt(_EndDistance));
 
-		AddSides(mesh, _Table, span, halfWidth, _Lift, left, right, _Profile, _Style, _Placements);
-		AddSupports(mesh, _Table, span, halfWidth, _Lift, _Profile, _Style, _GroundAt, _Placements);
+		AddSides(mesh, _Table, span, _Width, _Lift, left, right, _Profile, _Style, _Placements);
+		AddSupports(mesh, _Table, span, _Width, _Lift, _Profile, _Style, _GroundAt, _Placements);
 
 		return mesh;
 	}
@@ -437,7 +436,7 @@ internal static class RoadBridgeBuilder
 	/// boundaries, the ends of the bridge included, so the rails (open bars) run into one at each end; prefabs
 	/// fill the bays.
 	/// </summary>
-	private static void AddSides(PolygonMesh _Mesh, RoadCurveTable _Table, in Span _Span, float _HalfWidth, float _Lift, List<RoadBorderBuilder.PathPoint> _Left, List<RoadBorderBuilder.PathPoint> _Right, RoadProfile _Profile, BridgeStyle _Style, List<Placement> _Placements)
+	private static void AddSides(PolygonMesh _Mesh, RoadCurveTable _Table, in Span _Span, in RoadWidth _Width, float _Lift, List<RoadBorderBuilder.PathPoint> _Left, List<RoadBorderBuilder.PathPoint> _Right, RoadProfile _Profile, BridgeStyle _Style, List<Placement> _Placements)
 	{
 		float border = _Profile.FlatBorderWidth;
 		float centre = border + _Style.SideWidth * 0.5f;
@@ -452,7 +451,7 @@ internal static class RoadBridgeBuilder
 
 				foreach (float distance in _Span.Edges(_Style.PostSpacing))
 				{
-					Frame(_Table, distance, _HalfWidth, _Lift, out Vector3 leftEdge, out Vector3 rightEdge, out Vector3 right, out Vector3 along);
+					Frame(_Table, distance, _Width, _Lift, out Vector3 leftEdge, out Vector3 rightEdge, out Vector3 right, out Vector3 along);
 
 					AddPost(_Mesh, material, repeat, leftEdge - right * centre, right, along, _Style.SideWidth, height);
 					AddPost(_Mesh, material, repeat, rightEdge + right * centre, right, along, _Style.SideWidth, height);
@@ -470,7 +469,7 @@ internal static class RoadBridgeBuilder
 
 				foreach (float distance in _Span.Centres(_Style.SideSpacing))
 				{
-					Frame(_Table, distance, _HalfWidth, _Lift, out Vector3 leftEdge, out Vector3 rightEdge, out Vector3 right, out Vector3 along);
+					Frame(_Table, distance, _Width, _Lift, out Vector3 leftEdge, out Vector3 rightEdge, out Vector3 right, out Vector3 along);
 
 					// Forward along the road, right pointing away from it: on the left side that is backwards.
 					_Placements.Add(new Placement(_Style.SidePrefab, leftEdge - right * centre, Rotation.LookAt(-along, Vector3.Up)));
@@ -523,7 +522,7 @@ internal static class RoadBridgeBuilder
 	/// The pillars (or support prefabs) under the deck, one in the middle of each bay along the segment, each
 	/// dropped onto the ground under it.
 	/// </summary>
-	private static void AddSupports(PolygonMesh _Mesh, RoadCurveTable _Table, in Span _Span, float _HalfWidth, float _Lift, RoadProfile _Profile, BridgeStyle _Style, Func<Vector3, float?> _GroundAt, List<Placement> _Placements)
+	private static void AddSupports(PolygonMesh _Mesh, RoadCurveTable _Table, in Span _Span, in RoadWidth _Width, float _Lift, RoadProfile _Profile, BridgeStyle _Style, Func<Vector3, float?> _GroundAt, List<Placement> _Placements)
 	{
 		if (_Style.Supports == BridgeSupportStyle.None)
 			return;
@@ -536,7 +535,7 @@ internal static class RoadBridgeBuilder
 
 		foreach (float distance in _Span.Centres(_Style.SupportSpacing))
 		{
-			Frame(_Table, distance, _HalfWidth, _Lift, out Vector3 leftEdge, out Vector3 rightEdge, out Vector3 right, out Vector3 along);
+			Frame(_Table, distance, _Width, _Lift, out Vector3 leftEdge, out Vector3 rightEdge, out Vector3 right, out Vector3 along);
 			Vector3 centre = (leftEdge + rightEdge) * 0.5f + Vector3.Up * underside;
 
 			if (_Style.Supports == BridgeSupportStyle.Prefab)
@@ -553,17 +552,20 @@ internal static class RoadBridgeBuilder
 				continue;
 			}
 
-			// A pair stands under the deck's edges, inset; too wide a pair for the deck collapses to one.
-			float offset = _HalfWidth + extent - _Style.PillarInset - _Style.PillarSize * 0.5f;
+			// A pair stands under the deck's edges, inset; too narrow a deck for a pair gets one in the middle.
+			float inset = extent - _Style.PillarInset - _Style.PillarSize * 0.5f;
+			float deckWidth = _Width.WidthAt(distance) + 2.0f * extent;
 
-			if (offset <= _Style.PillarSize * 0.5f)
+			if (deckWidth - 2.0f * (extent - inset) <= _Style.PillarSize * 2.0f)
 			{
 				AddPillar(_Mesh, material, centre, right, along, _Style, _GroundAt);
 				continue;
 			}
 
-			AddPillar(_Mesh, material, centre - right * offset, right, along, _Style, _GroundAt);
-			AddPillar(_Mesh, material, centre + right * offset, right, along, _Style, _GroundAt);
+			Vector3 down = Vector3.Up * underside;
+
+			AddPillar(_Mesh, material, leftEdge - right * inset + down, right, along, _Style, _GroundAt);
+			AddPillar(_Mesh, material, rightEdge + right * inset + down, right, along, _Style, _GroundAt);
 		}
 	}
 
@@ -793,12 +795,12 @@ internal static class RoadBridgeBuilder
 	/// <summary>
 	/// The road's frame at a distance: its edge points, and its right and along directions (horizontal).
 	/// </summary>
-	private static void Frame(RoadCurveTable _Table, float _Distance, float _HalfWidth, float _Lift, out Vector3 _Left, out Vector3 _Right, out Vector3 _RightDirection, out Vector3 _Along)
+	private static void Frame(RoadCurveTable _Table, float _Distance, in RoadWidth _Width, float _Lift, out Vector3 _Left, out Vector3 _Right, out Vector3 _RightDirection, out Vector3 _Along)
 	{
 		_RightDirection = RoadCurve.RightOf(_Table.TangentAt(_Distance));
 		_Along = Vector3.Cross(Vector3.Up, _RightDirection).Normal;
 
-		RoadSurfaceBuilder.CrossSection(_Table, _Distance, _HalfWidth, _Lift, out _Left, out _Right);
+		RoadSurfaceBuilder.CrossSection(_Table, _Distance, _Width, _Lift, out _Left, out _Right);
 	}
 
 

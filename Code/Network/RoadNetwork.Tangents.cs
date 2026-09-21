@@ -43,6 +43,10 @@ public sealed partial class RoadNetwork
 				if (otherSegment == segment)
 					continue;
 
+				// A ramp peels off the side of the road; the road flows on through the node as if it were not there.
+				if (otherSegment.Ramp && !segment.Ramp)
+					continue;
+
 				var neighbour = FindNode(otherSegment.OtherNodeId(_NodeId));
 
 				if (neighbour is not null)
@@ -102,8 +106,11 @@ public sealed partial class RoadNetwork
 	/// <summary>
 	/// The Bezier handle leaving a node toward one of its roads. A pass-through node (exactly one other neighbour)
 	/// gets a direction running from that neighbour through the node, so the road flows through without a kink.
-	/// Road ends and junction arms point straight at the far node. The handle spans a third of the chord, which
-	/// reproduces a straight line exactly when the nodes are collinear.
+	/// Road ends point straight at the far node. A junction arm points at its far node in plan but leaves at the
+	/// grade of the road running through the junction (the two other neighbours most nearly in line), so a ramp
+	/// off a level highway starts level and climbs on its way, instead of setting off uphill from the junction and
+	/// meeting it at a different height. The handle spans a third of the chord, which reproduces a straight line
+	/// exactly when the nodes are collinear.
 	/// </summary>
 	private static Vector3 ComputeAutoHandle(Vector3 _NodePosition, Vector3 _TargetPosition, IReadOnlyList<Vector3> _OtherNeighbours)
 	{
@@ -123,8 +130,75 @@ public sealed partial class RoadNetwork
 			if (!through.IsNearZeroLength && Vector3.Dot(through, chord) > 0.0f)
 				direction = through.Normal;
 		}
+		else if (_OtherNeighbours.Count >= 2 && TryThroughGrade(_NodePosition, _OtherNeighbours, out Vector3 throughDirection, out float grade))
+		{
+			Vector3 flat = chord.WithZ(0.0f);
+
+			if (!flat.IsNearZeroLength)
+			{
+				float horizontal = flat.Length;
+				float climb = grade * Vector3.Dot(flat / horizontal, throughDirection);
+
+				return (flat / horizontal + Vector3.Up * climb) * (horizontal / 3.0f);
+			}
+		}
 
 		return direction * (length / 3.0f);
+	}
+
+
+
+	/// <summary>
+	/// The road running through a junction, as the two neighbours most nearly opposite each other across the node
+	/// (within 60 degrees of straight): its horizontal direction and its rise per unit of horizontal distance.
+	/// </summary>
+	private static bool TryThroughGrade(Vector3 _NodePosition, IReadOnlyList<Vector3> _Neighbours, out Vector3 _Direction, out float _Grade)
+	{
+		_Direction = Vector3.Zero;
+		_Grade = 0.0f;
+
+		float straightest = 0.5f;
+		int bestA = -1;
+		int bestB = -1;
+
+		for (int i = 0; i < _Neighbours.Count; i++)
+		{
+			Vector3 a = (_Neighbours[i] - _NodePosition).WithZ(0.0f);
+
+			if (a.IsNearZeroLength)
+				continue;
+
+			for (int j = i + 1; j < _Neighbours.Count; j++)
+			{
+				Vector3 b = (_Neighbours[j] - _NodePosition).WithZ(0.0f);
+
+				if (b.IsNearZeroLength)
+					continue;
+
+				float straightness = -Vector3.Dot(a.Normal, b.Normal);
+
+				if (straightness > straightest)
+				{
+					straightest = straightness;
+					bestA = i;
+					bestB = j;
+				}
+			}
+		}
+
+		if (bestA < 0)
+			return false;
+
+		Vector3 across = _Neighbours[bestB] - _Neighbours[bestA];
+		Vector3 flat = across.WithZ(0.0f);
+
+		if (flat.IsNearZeroLength)
+			return false;
+
+		_Direction = flat.Normal;
+		_Grade = across.z / flat.Length;
+
+		return true;
 	}
 
 

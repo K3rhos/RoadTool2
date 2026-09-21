@@ -66,7 +66,7 @@ public class RoadTerrainTool : EditorTool
 				if (segment.Bridge is not null || !network.TryGetCurve(segment, out var curve))
 					continue;
 
-				float reach = segment.Width + 2.0f * (RoadTerrainConformer.BorderWidth(network.ProfileOf(segment)) + Falloff);
+				float reach = network.WidthOf(segment).MaxHalf * 2.0f + 2.0f * (RoadTerrainConformer.BorderWidth(network.ProfileOf(segment)) + Falloff);
 				RoadGizmos.DrawRoadOutline(curve, reach, network.WorldTransform);
 			}
 		}
@@ -233,9 +233,9 @@ internal static class RoadTerrainConformer
 
 			var profile = _Network.ProfileOf(segment);
 			var taper = _Network.GetBorderTaper(segment);
-			float halfWidth = segment.Width * 0.5f;
+			var width = new RoadWidth(segment, table.Length);
 			float border = BorderWidth(profile);
-			float reach = halfWidth + border + _Falloff;
+			float reach = width.MaxHalf + border + _Falloff;
 
 			Vector3 previous = networkTransform.PointToWorld(table.SamplePosition(0));
 
@@ -245,8 +245,10 @@ internal static class RoadTerrainConformer
 
 				// The border along this piece, as the segment's taper leaves it at the piece's middle.
 				float middle = (table.SampleDistance(i - 1) + table.SampleDistance(i)) * 0.5f;
-				float relief = taper.ReliefAt(middle, table.Length, out _, out _, out _);
-				float pieceBorder = border * taper.WidthScaleAt(middle, table.Length, profile.FlatBorderWidth);
+				float halfWidth = MathF.Max(width.LeftAt(middle), width.RightAt(middle));
+				// The conformer shapes both sides alike: the fuller of the two borders is what the ground meets.
+				float relief = MathF.Max(taper.Left.ReliefAt(middle, table.Length, out _, out _, out _), taper.Right.ReliefAt(middle, table.Length, out _, out _, out _));
+				float pieceBorder = border * MathF.Max(taper.Left.WidthScaleAt(middle, table.Length, profile.FlatBorderWidth), taper.Right.WidthScaleAt(middle, table.Length, profile.FlatBorderWidth));
 
 				Rasterise(entries, _Terrain, terrainTransform, resolution, cell, previous, current, reach, halfWidth, pieceBorder, relief, profile, _Network.SurfaceOffset, _Falloff, _Sink);
 				previous = current;

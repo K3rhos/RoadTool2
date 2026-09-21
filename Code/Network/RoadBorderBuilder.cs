@@ -172,37 +172,37 @@ internal static class RoadBorderBuilder
 	/// <summary>
 	/// Both borders of a stretch of road, rows at the same distances as the road surface.
 	/// </summary>
-	public static PolygonMesh BuildSegment(RoadCurveTable _Table, float _StartDistance, float _EndDistance, float _Width, RoadProfile _Profile, float _Spacing, float _Lift, BorderCaps _Caps, in SegmentBorderBlends _Blends, in RoadBorderTaper _Taper, BorderDebug _Debug = null)
+	public static PolygonMesh BuildSegment(RoadCurveTable _Table, float _StartDistance, float _EndDistance, in RoadWidth _Width, RoadProfile _Profile, float _Spacing, float _Lift, BorderCaps _Caps, in SegmentBorderBlends _Blends, in SegmentBorderTapers _Tapers, BorderDebug _Debug = null)
 	{
 		var mesh = new PolygonMesh();
 
 		float length = MathF.Max(0.0f, _EndDistance - _StartDistance);
 		int steps = Math.Max(1, (int)MathF.Ceiling(length / MathF.Max(1.0f, _Spacing)));
-		float halfWidth = _Width * 0.5f;
 
 		var left = new List<PathPoint>(steps + 1);
 		var right = new List<PathPoint>(steps + 1);
 
-		_Debug?.Note($"SEGMENT start={_StartDistance:0.###} end={_EndDistance:0.###} length={_Table.Length:0.###} width={_Width} lift={_Lift} spacing={_Spacing} caps={_Caps} profile={_Profile.ResourceName} border={_Profile.Border} borderWidth={_Profile.BorderWidth} curb={_Profile.CurbHeight} bevel={_Profile.CurbBevel}");
+		_Debug?.Note($"SEGMENT start={_StartDistance:0.###} end={_EndDistance:0.###} length={_Table.Length:0.###} width={_Width.Base} extras={_Width.LeftStart:0.#}/{_Width.LeftEnd:0.#}/{_Width.RightStart:0.#}/{_Width.RightEnd:0.#} lift={_Lift} spacing={_Spacing} caps={_Caps} profile={_Profile.ResourceName} border={_Profile.Border} borderWidth={_Profile.BorderWidth} curb={_Profile.CurbHeight} bevel={_Profile.CurbBevel}");
 		_Debug?.Note($"BLEND left {Describe(_Blends.Left)}");
 		_Debug?.Note($"BLEND right {Describe(_Blends.Right)}");
-		_Debug?.Note($"TAPER start={_Taper.StartLength:0.###}/{_Taper.StartWidth:0.###} end={_Taper.EndLength:0.###}/{_Taper.EndWidth:0.###}");
+		_Debug?.Note($"TAPER left start={_Tapers.Left.StartLength:0.###}/{_Tapers.Left.StartWidth:0.###} end={_Tapers.Left.EndLength:0.###}/{_Tapers.Left.EndWidth:0.###} right start={_Tapers.Right.StartLength:0.###}/{_Tapers.Right.StartWidth:0.###} end={_Tapers.Right.EndLength:0.###}/{_Tapers.Right.EndWidth:0.###}");
 
 		for (int i = 0; i <= steps; i++)
 		{
 			float distance = i == steps ? _EndDistance : _StartDistance + length * i / steps;
 			Vector3 rightDirection = RoadCurve.RightOf(_Table.TangentAt(distance));
 
-			RoadSurfaceBuilder.CrossSection(_Table, distance, halfWidth, _Lift, out Vector3 leftPos, out Vector3 rightPos);
+			RoadSurfaceBuilder.CrossSection(_Table, distance, _Width, _Lift, out Vector3 leftPos, out Vector3 rightPos);
 
 			left.Add(new PathPoint(leftPos, -rightDirection, distance, _Blends.Left.DeltaAt(distance)));
 			right.Add(new PathPoint(rightPos, rightDirection, distance, _Blends.Right.DeltaAt(distance)));
 		}
 
-		var shape = new ProfileShape(_Profile, _Taper, _Table.Length);
+		var leftShape = new ProfileShape(_Profile, _Tapers.Left, _Table.Length);
+		var rightShape = new ProfileShape(_Profile, _Tapers.Right, _Table.Length);
 
-		Sweep(mesh, shape, left, _Caps.HasFlag(BorderCaps.StartLeft), _Caps.HasFlag(BorderCaps.EndLeft), _Debug, BorderDebug.ArmColor, "arm L");
-		Sweep(mesh, shape, right, _Caps.HasFlag(BorderCaps.StartRight), _Caps.HasFlag(BorderCaps.EndRight), _Debug, BorderDebug.ArmColor, "arm R");
+		Sweep(mesh, leftShape, left, _Caps.HasFlag(BorderCaps.StartLeft), _Caps.HasFlag(BorderCaps.EndLeft), _Debug, BorderDebug.ArmColor, "arm L");
+		Sweep(mesh, rightShape, right, _Caps.HasFlag(BorderCaps.StartRight), _Caps.HasFlag(BorderCaps.EndRight), _Debug, BorderDebug.ArmColor, "arm R");
 
 		return mesh;
 	}
@@ -235,7 +235,7 @@ internal static class RoadBorderBuilder
 	/// halves are closed off against each other. The arms' segment blends are what their chunks were built with,
 	/// so the straight stretch of each half continues the arm's border exactly.
 	/// </summary>
-	public static PolygonMesh BuildJunction(RoadJunctionLayout _Layout, Func<RoadSegment, RoadProfile> _ProfileOf, Func<RoadSegment, SegmentBorderBlends> _BlendsOf, Func<RoadSegment, RoadBorderTaper> _TaperOf, BorderDebug _Debug = null)
+	public static PolygonMesh BuildJunction(RoadJunctionLayout _Layout, Func<RoadSegment, RoadProfile> _ProfileOf, Func<RoadSegment, SegmentBorderBlends> _BlendsOf, Func<RoadSegment, SegmentBorderTapers> _TaperOf, BorderDebug _Debug = null)
 	{
 		var mesh = new PolygonMesh();
 
@@ -253,8 +253,10 @@ internal static class RoadBorderBuilder
 			var profileA = _ProfileOf(path.ArmA.Segment);
 			var profileB = _ProfileOf(path.ArmB.Segment);
 			bool differ = !SameProfile(profileA, profileB);
-			var shapeA = new ProfileShape(profileA, _TaperOf(path.ArmA.Segment), path.ArmA.Length);
-			var shapeB = new ProfileShape(profileB, _TaperOf(path.ArmB.Segment), path.ArmB.Length);
+			// The first half runs on arm A's left looking out of the node, the second on arm B's right; which side of
+			// the segment that is depends on which way the segment runs.
+			var shapeA = new ProfileShape(profileA, _TaperOf(path.ArmA.Segment).Side(path.ArmA.AtStart), path.ArmA.Length);
+			var shapeB = new ProfileShape(profileB, _TaperOf(path.ArmB.Segment).Side(!path.ArmB.AtStart), path.ArmB.Length);
 
 			if (profileA.HasBorder)
 				Sweep(mesh, shapeA, HalfPath(path, true, _BlendsOf(path.ArmA.Segment)), false, differ || !profileB.HasBorder, _Debug, BorderDebug.FirstHalfColor, $"J{_Layout.Node.Id} A{path.ArmA.Segment.Id}");
@@ -409,9 +411,9 @@ internal static class RoadBorderBuilder
 			positions[i] = rows;
 		}
 
-		// A border tapered to nothing at its end has no face to close.
-		_CapStart &= reliefs[0] > 0.01f;
-		_CapEnd &= reliefs[^1] > 0.01f;
+		// A border tapered to nothing at its end, in height or in width, has no face to close.
+		_CapStart &= reliefs[0] > 0.01f && ShapeWidth(shapes[0]) > 0.5f;
+		_CapEnd &= reliefs[^1] > 0.01f && ShapeWidth(shapes[^1]) > 0.5f;
 
 		var stalls = RemoveFolds(path, positions, nodeCount);
 
@@ -553,6 +555,21 @@ internal static class RoadBorderBuilder
 
 		if (_CapEnd)
 			AddCap(_Mesh, capMaterial, capRepeat, handles[^1], positions[^1], shapes[^1], path[^1].Position - path[^2].Position);
+	}
+
+
+
+	/// <summary>
+	/// How far out from the road edge a cross-section reaches.
+	/// </summary>
+	private static float ShapeWidth(Vector2[] _Shape)
+	{
+		float width = 0.0f;
+
+		foreach (var node in _Shape)
+			width = MathF.Max(width, node.x);
+
+		return width;
 	}
 
 
