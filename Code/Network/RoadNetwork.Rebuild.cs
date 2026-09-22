@@ -563,6 +563,39 @@ public sealed partial class RoadNetwork
 
 
 	/// <summary>
+	/// The filled area of every junction, in network space (lifted to the road surface): its centre and its
+	/// outline, which the junction surface fans between, plus how far a pavement reaches out from the outline
+	/// round it and how far above the outline that pavement's top sits (nothing when no arm has a sidewalk). For
+	/// tools that need to know where road is.
+	/// </summary>
+	public IEnumerable<(Vector3 Centre, IReadOnlyList<Vector3> Polygon, float PavementReach, float PavementTop)> GetJunctionPolygons()
+	{
+		foreach (var layout in ComputeJunctionLayouts().Values)
+		{
+			if (layout.Polygon.Count < 3)
+				continue;
+
+			float reach = 0.0f;
+			float top = 0.0f;
+
+			foreach (var arm in layout.Arms)
+			{
+				var profile = ProfileOf(arm.Segment);
+
+				if (profile.Border != RoadBorderStyle.Sidewalk)
+					continue;
+
+				reach = MathF.Max(reach, profile.BorderWidth);
+				top = MathF.Max(top, profile.CurbHeight);
+			}
+
+			yield return (layout.Centre, layout.Polygon, reach, top);
+		}
+	}
+
+
+
+	/// <summary>
 	/// Lays out every junction. A road too short for the fillets at both its ends gets those fillets shrunk until
 	/// their tangent points fit on it (a trim past the tangent point would send the corner geometry back over the
 	/// road); only corners that cannot fit even sharp are clamped. Then the junction polygons are built.

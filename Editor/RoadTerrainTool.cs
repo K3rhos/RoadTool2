@@ -176,15 +176,23 @@ public class RoadTerrainTool : EditorTool
 /// </summary>
 internal static class RoadTerrainConformer
 {
+	/// <summary>
+	/// What the roads within reach of one height sample ask of it: the height the nearest road wants the ground
+	/// at (under the road, or at its border's edge), and how much of the untouched ground is left once every
+	/// road's pull on the sample is taken together. A sample between two roads is pulled by both, so the ground
+	/// between them stays level with them instead of mounding up as soon as it leaves either edge.
+	/// </summary>
 	private readonly struct Entry
 	{
 		public readonly float Distance;
-		public readonly float Target;
+		public readonly float Anchor;
+		public readonly float Remaining;
 
-		public Entry(float _Distance, float _Target)
+		public Entry(float _Distance, float _Anchor, float _Remaining)
 		{
 			Distance = _Distance;
-			Target = _Target;
+			Anchor = _Anchor;
+			Remaining = _Remaining;
 		}
 	}
 
@@ -219,13 +227,11 @@ internal static class RoadTerrainConformer
 		var terrainTransform = _Terrain.WorldTransform;
 		var networkTransform = _Network.WorldTransform;
 		var entries = new Dictionary<int, Entry>();
+		var caps = new Dictionary<int, float>();
+		var road = new Dictionary<int, Entry>();
 
 		foreach (var segment in _Network.Segments)
 		{
-			// A bridge spans the terrain; the ground under it stays as it is.
-			if (segment.Bridge is not null)
-				continue;
-
 			var table = _Network.GetCurveTable(segment);
 
 			if (table is null)
@@ -235,33 +241,66 @@ internal static class RoadTerrainConformer
 			var taper = _Network.GetBorderTaper(segment);
 			var width = new RoadWidth(segment, table.Length);
 			float border = BorderWidth(profile);
-			float reach = width.MaxHalf + border + _Falloff;
+
+			// A bridge spans the terrain: the ground under it is not shaped to it, only kept under its deck, which
+			// is what stops it showing through the deck's ends where the bridge meets the ground.
+			bool bridge = segment.Bridge is not null;
+			float deck = bridge ? profile.FlatBorderWidth + segment.Bridge.SideStripWidth + segment.Bridge.DeckOverhang : 0.0f;
+			float reach = bridge ? width.MaxHalf + deck : width.MaxHalf + border + _Falloff;
 
 			Vector3 previous = networkTransform.PointToWorld(table.SamplePosition(0));
+
+			road.Clear();
 
 			for (int i = 1; i < table.SampleCount; i++)
 			{
 				Vector3 current = networkTransform.PointToWorld(table.SamplePosition(i));
 
-				// The border along this piece, as the segment's taper leaves it at the piece's middle.
+				// Each side of the piece as it is at the piece's middle: how far out its edge sits, and its border
+				// as the segment's taper leaves it there.
 				float middle = (table.SampleDistance(i - 1) + table.SampleDistance(i)) * 0.5f;
-				float halfWidth = MathF.Max(width.LeftAt(middle), width.RightAt(middle));
-				// The conformer shapes both sides alike: the fuller of the two borders is what the ground meets.
-				float relief = MathF.Max(taper.Left.ReliefAt(middle, table.Length, out _, out _, out _), taper.Right.ReliefAt(middle, table.Length, out _, out _, out _));
-				float pieceBorder = border * MathF.Max(taper.Left.WidthScaleAt(middle, table.Length, profile.FlatBorderWidth), taper.Right.WidthScaleAt(middle, table.Length, profile.FlatBorderWidth));
 
-				Rasterise(entries, _Terrain, terrainTransform, resolution, cell, previous, current, reach, halfWidth, pieceBorder, relief, profile, _Network.SurfaceOffset, _Falloff, _Sink);
+				if (bridge)
+				{
+					RasteriseDeck(caps, _Terrain, terrainTransform, resolution, cell, previous, current, width.LeftAt(middle) + deck, width.RightAt(middle) + deck, _Network.SurfaceOffset, _Sink);
+					previous = current;
+					continue;
+				}
+
+				var leftSide = new Side(width.LeftAt(middle),
+					border * taper.Left.WidthScaleAt(middle, table.Length, profile.FlatBorderWidth),
+					taper.Left.ReliefAt(middle, table.Length, out _, out _, out _));
+
+				var rightSide = new Side(width.RightAt(middle),
+					border * taper.Right.WidthScaleAt(middle, table.Length, profile.FlatBorderWidth),
+					taper.Right.ReliefAt(middle, table.Length, out _, out _, out _));
+
+				Rasterise(road, caps, terrainTransform, resolution, cell, previous, current, reach, leftSide, rightSide, profile, _Network.SurfaceOffset, _Falloff, _Sink);
 				previous = current;
+			}
+
+			// One road pulls on a sample once, from its nearest piece; roads pull together.
+			foreach (var (index, pull) in road)
+			{
+				if (entries.TryGetValue(index, out var existing))
+					entries[index] = new Entry(MathF.Min(existing.Distance, pull.Distance), existing.Distance <= pull.Distance ? existing.Anchor : pull.Anchor, existing.Remaining * pull.Remaining);
+				else
+					entries[index] = pull;
 			}
 		}
 
-		if (entries.Count == 0)
+		// The junction surfaces and the pavements round them: whatever the roads nearby asked for, the ground has
+		// to stay under them.
+		foreach (var (centre, polygon, pavementReach, pavementTop) in _Network.GetJunctionPolygons())
+			RasteriseJunction(caps, _Terrain, terrainTransform, networkTransform, resolution, cell, centre, polygon, pavementReach, pavementTop, _Sink);
+
+		if (entries.Count == 0 && caps.Count == 0)
 			return 0;
 
 		// The touched rectangle, for the undo snapshot and the collider update.
 		int left = int.MaxValue, top = int.MaxValue, right = int.MinValue, bottom = int.MinValue;
 
-		foreach (int index in entries.Keys)
+		foreach (int index in entries.Keys.Concat(caps.Keys))
 		{
 			int x = index % resolution;
 			int y = index / resolution;
@@ -275,17 +314,28 @@ internal static class RoadTerrainConformer
 		var region = new RectInt(left, top, right - left + 1, bottom - top + 1);
 		ushort[] before = CopyRegion(storage.HeightMap, resolution, region);
 		float heightScale = ushort.MaxValue / storage.TerrainHeight;
+		float originalScale = storage.TerrainHeight / ushort.MaxValue;
+		int changed = 0;
 
-		foreach (var (index, entry) in entries)
+		foreach (int index in entries.Keys.Concat(caps.Keys).Distinct())
 		{
 			int x = index % resolution;
 			int y = index / resolution;
 
-			// The target is a world height; the map stores heights above the terrain's own origin.
+			// What the roads round this sample pull it to, capped by every road surface lying over it: a sample
+			// under one road and in another's falloff is still under a road.
 			Vector3 worldCentre = terrainTransform.PointToWorld(new Vector3((x + 0.5f) * cell, (y + 0.5f) * cell, 0.0f));
-			float local = terrainTransform.PointToLocal(worldCentre.WithZ(entry.Target)).z;
+			float original = terrainTransform.PointToWorld(new Vector3(0.0f, 0.0f, storage.HeightMap[index] * originalScale)).z;
+			float target = entries.TryGetValue(index, out var entry) ? MathX.Lerp(entry.Anchor, original, entry.Remaining) : original;
+
+			if (caps.TryGetValue(index, out float cap))
+				target = MathF.Min(target, cap);
+
+			// The target is a world height; the map stores heights above the terrain's own origin.
+			float local = terrainTransform.PointToLocal(worldCentre.WithZ(target)).z;
 
 			storage.HeightMap[index] = (ushort)Math.Clamp(MathF.Round(local * heightScale), 0.0f, ushort.MaxValue);
+			changed++;
 		}
 
 		ushort[] after = CopyRegion(storage.HeightMap, resolution, region);
@@ -297,17 +347,24 @@ internal static class RoadTerrainConformer
 			() => RestoreRegion(_Terrain, before, region),
 			() => RestoreRegion(_Terrain, after, region));
 
-		return entries.Count;
+		return changed;
 	}
 
 
 
 	/// <summary>
-	/// Visits every height sample within reach of one straight piece of road and records the nearest road's
-	/// target height for it.
+	/// One side of a piece of road: how far out from the centreline its edge sits, the width of its border there,
+	/// and how much of the border's relief is in force.
 	/// </summary>
-	private static void Rasterise(Dictionary<int, Entry> _Entries, Terrain _Terrain, in Transform _TerrainTransform, int _Resolution, float _Cell,
-		Vector3 _From, Vector3 _To, float _Reach, float _HalfWidth, float _Border, float _Relief, RoadProfile _Profile, float _SurfaceOffset, float _Falloff, float _Sink)
+	private readonly record struct Side(float Edge, float Border, float Relief);
+
+	/// <summary>
+	/// Visits every height sample within reach of one straight piece of road and records, for the road it is a
+	/// piece of, what its nearest piece asks of the sample; and, for every sample under the road's surface, the
+	/// height it must at least stay under.
+	/// </summary>
+	private static void Rasterise(Dictionary<int, Entry> _Road, Dictionary<int, float> _Caps, in Transform _TerrainTransform, int _Resolution, float _Cell,
+		Vector3 _From, Vector3 _To, float _Reach, in Side _Left, in Side _Right, RoadProfile _Profile, float _SurfaceOffset, float _Falloff, float _Sink)
 	{
 		// The piece's footprint in terrain samples.
 		Vector3 fromLocal = _TerrainTransform.PointToLocal(_From);
@@ -326,7 +383,6 @@ internal static class RoadTerrainConformer
 		var b = new Vector2(_To.x, _To.y);
 		Vector2 ab = b - a;
 		float lengthSquared = ab.LengthSquared;
-		float originalScale = _Terrain.Storage.TerrainHeight / ushort.MaxValue;
 
 		for (int y = minY; y <= maxY; y++)
 		{
@@ -335,23 +391,38 @@ internal static class RoadTerrainConformer
 				Vector3 world = _TerrainTransform.PointToWorld(new Vector3((x + 0.5f) * _Cell, (y + 0.5f) * _Cell, 0.0f));
 				var point = new Vector2(world.x, world.y);
 
-				// Nearest point on the piece, and the road height there.
+				// Nearest point on the piece, the road height there, and which side of the road the sample is on
+				// (its edge may sit further out on one side than the other).
 				float t = lengthSquared > 0.0f ? Math.Clamp(Vector2.Dot(point - a, ab) / lengthSquared, 0.0f, 1.0f) : 0.0f;
-				float distance = (a + ab * t).Distance(point);
+				Vector2 nearest = a + ab * t;
+				float distance = nearest.Distance(point);
 
 				if (distance > _Reach)
 					continue;
 
+				bool left = ab.x * (point.y - a.y) - ab.y * (point.x - a.x) >= 0.0f;
+				var side = left ? _Left : _Right;
 				int index = x + y * _Resolution;
+				float surface = MathX.Lerp(_From.z, _To.z, t) + _SurfaceOffset;
+				float anchor = AnchorHeight(distance, surface, side.Edge, side.Border, side.Relief, _Profile, _Sink);
 
-				if (_Entries.TryGetValue(index, out var existing) && existing.Distance <= distance)
+				// Under the road, and under a pavement, the ground can be no higher than this whatever another
+				// road nearby asks for.
+				bool covered = distance <= side.Edge + (_Profile.Border == RoadBorderStyle.Sidewalk ? side.Border : 0.0f);
+
+				if (covered && (!_Caps.TryGetValue(index, out float existingCap) || anchor < existingCap))
+					_Caps[index] = anchor;
+
+				if (_Road.TryGetValue(index, out var existing) && existing.Distance <= distance)
 					continue;
 
-				float surface = MathX.Lerp(_From.z, _To.z, t) + _SurfaceOffset;
-				float original = _TerrainTransform.PointToWorld(new Vector3(0.0f, 0.0f, _Terrain.Storage.HeightMap[index] * originalScale)).z;
-				float target = TargetHeight(distance, surface, original, _HalfWidth, _Border, _Relief, _Profile, _Falloff, _Sink);
+				// This road's pull on the sample: all of it out to the border's edge, fading over the falloff. The
+				// roads' pulls are taken together afterwards, so between two roads the ground is held level.
+				float beyond = MathF.Max(0.0f, distance - side.Edge - side.Border);
+				float release = _Falloff > 0.0f ? Math.Clamp(beyond / _Falloff, 0.0f, 1.0f) : (beyond > 0.0f ? 1.0f : 0.0f);
+				release = release * release * (3.0f - 2.0f * release);
 
-				_Entries[index] = new Entry(distance, target);
+				_Road[index] = new Entry(distance, anchor, release);
 			}
 		}
 	}
@@ -359,10 +430,194 @@ internal static class RoadTerrainConformer
 
 
 	/// <summary>
-	/// The ground height at a distance from a road's centreline: kept under the surface across the road, ramping
-	/// under the border to meet the border's outer edge, then blending into the untouched terrain.
+	/// Keeps every height sample under a bridge's deck below the road on it: the ground is not shaped to a bridge,
+	/// but it must not come up through its deck where the bridge runs into the ground at its ends.
 	/// </summary>
-	private static float TargetHeight(float _Distance, float _Surface, float _Original, float _HalfWidth, float _Border, float _Relief, RoadProfile _Profile, float _Falloff, float _Sink)
+	private static void RasteriseDeck(Dictionary<int, float> _Caps, Terrain _Terrain, in Transform _TerrainTransform, int _Resolution, float _Cell,
+		Vector3 _From, Vector3 _To, float _LeftReach, float _RightReach, float _SurfaceOffset, float _Sink)
+	{
+		float reach = MathF.Max(_LeftReach, _RightReach);
+		Vector3 fromLocal = _TerrainTransform.PointToLocal(_From);
+		Vector3 toLocal = _TerrainTransform.PointToLocal(_To);
+		float localReach = reach / _TerrainTransform.Scale.x;
+
+		int minX = Math.Clamp((int)MathF.Floor((MathF.Min(fromLocal.x, toLocal.x) - localReach) / _Cell), 0, _Resolution - 1);
+		int maxX = Math.Clamp((int)MathF.Ceiling((MathF.Max(fromLocal.x, toLocal.x) + localReach) / _Cell), 0, _Resolution - 1);
+		int minY = Math.Clamp((int)MathF.Floor((MathF.Min(fromLocal.y, toLocal.y) - localReach) / _Cell), 0, _Resolution - 1);
+		int maxY = Math.Clamp((int)MathF.Ceiling((MathF.Max(fromLocal.y, toLocal.y) + localReach) / _Cell), 0, _Resolution - 1);
+
+		if (minX > maxX || minY > maxY)
+			return;
+
+		var a = new Vector2(_From.x, _From.y);
+		var b = new Vector2(_To.x, _To.y);
+		Vector2 ab = b - a;
+		float lengthSquared = ab.LengthSquared;
+
+		for (int y = minY; y <= maxY; y++)
+		{
+			for (int x = minX; x <= maxX; x++)
+			{
+				Vector3 world = _TerrainTransform.PointToWorld(new Vector3((x + 0.5f) * _Cell, (y + 0.5f) * _Cell, 0.0f));
+				var point = new Vector2(world.x, world.y);
+
+				float t = lengthSquared > 0.0f ? Math.Clamp(Vector2.Dot(point - a, ab) / lengthSquared, 0.0f, 1.0f) : 0.0f;
+				float distance = (a + ab * t).Distance(point);
+				bool left = ab.x * (point.y - a.y) - ab.y * (point.x - a.x) >= 0.0f;
+
+				if (distance > (left ? _LeftReach : _RightReach))
+					continue;
+
+				int index = x + y * _Resolution;
+				float cap = MathX.Lerp(_From.z, _To.z, t) + _SurfaceOffset - _Sink;
+
+				if (!_Caps.TryGetValue(index, out float existingCap) || cap < existingCap)
+					_Caps[index] = cap;
+			}
+		}
+	}
+
+
+
+	/// <summary>
+	/// Keeps every height sample under a junction's surface (a fan from its centre to its outline) below it, and
+	/// every sample under the pavement round the outline just under the pavement's top.
+	/// </summary>
+	private static void RasteriseJunction(Dictionary<int, float> _Caps, Terrain _Terrain, in Transform _TerrainTransform, in Transform _NetworkTransform, int _Resolution, float _Cell,
+		Vector3 _Centre, IReadOnlyList<Vector3> _Polygon, float _PavementReach, float _PavementTop, float _Sink)
+	{
+		var centre = _NetworkTransform.PointToWorld(_Centre);
+		var vertices = new Vector3[_Polygon.Count];
+		float localReach = _PavementReach / _TerrainTransform.Scale.x;
+		float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+
+		for (int i = 0; i < _Polygon.Count; i++)
+		{
+			vertices[i] = _NetworkTransform.PointToWorld(_Polygon[i]);
+			Vector3 local = _TerrainTransform.PointToLocal(vertices[i]);
+
+			minX = MathF.Min(minX, local.x - localReach);
+			maxX = MathF.Max(maxX, local.x + localReach);
+			minY = MathF.Min(minY, local.y - localReach);
+			maxY = MathF.Max(maxY, local.y + localReach);
+		}
+
+		int fromX = Math.Clamp((int)MathF.Floor(minX / _Cell), 0, _Resolution - 1);
+		int toX = Math.Clamp((int)MathF.Ceiling(maxX / _Cell), 0, _Resolution - 1);
+		int fromY = Math.Clamp((int)MathF.Floor(minY / _Cell), 0, _Resolution - 1);
+		int toY = Math.Clamp((int)MathF.Ceiling(maxY / _Cell), 0, _Resolution - 1);
+
+		for (int y = fromY; y <= toY; y++)
+		{
+			for (int x = fromX; x <= toX; x++)
+			{
+				Vector3 world = _TerrainTransform.PointToWorld(new Vector3((x + 0.5f) * _Cell, (y + 0.5f) * _Cell, 0.0f));
+				var point = new Vector2(world.x, world.y);
+				float cap;
+
+				if (FanHeight(centre, vertices, point) is { } height)
+				{
+					cap = height - _Sink;
+				}
+				else if (_PavementReach > 0.0f && OutlineDistance(vertices, point, out float edgeHeight) <= _PavementReach)
+				{
+					// Flush with the pavement, a hair under, like the border along a road.
+					cap = edgeHeight + _PavementTop - 0.5f;
+				}
+				else
+				{
+					continue;
+				}
+
+				int index = x + y * _Resolution;
+
+				if (!_Caps.TryGetValue(index, out float existingCap) || cap < existingCap)
+					_Caps[index] = cap;
+			}
+		}
+	}
+
+
+
+	/// <summary>
+	/// How far a point in plan is from an outline, and the outline's height at the nearest point.
+	/// </summary>
+	private static float OutlineDistance(Vector3[] _Vertices, Vector2 _Point, out float _Height)
+	{
+		float best = float.MaxValue;
+
+		_Height = 0.0f;
+
+		for (int i = 0; i < _Vertices.Length; i++)
+		{
+			Vector3 v0 = _Vertices[i];
+			Vector3 v1 = _Vertices[(i + 1) % _Vertices.Length];
+			var p0 = new Vector2(v0.x, v0.y);
+			Vector2 edge = new Vector2(v1.x, v1.y) - p0;
+			float lengthSquared = edge.LengthSquared;
+			float t = lengthSquared > 0.0f ? Math.Clamp(Vector2.Dot(_Point - p0, edge) / lengthSquared, 0.0f, 1.0f) : 0.0f;
+			float distance = (p0 + edge * t).Distance(_Point);
+
+			if (distance >= best)
+				continue;
+
+			best = distance;
+			_Height = MathX.Lerp(v0.z, v1.z, t);
+		}
+
+		return best;
+	}
+
+
+
+	/// <summary>
+	/// The height of the fan of triangles from a centre to an outline at a point in plan, or null outside it.
+	/// </summary>
+	private static float? FanHeight(Vector3 _Centre, Vector3[] _Vertices, Vector2 _Point)
+	{
+		var c = new Vector2(_Centre.x, _Centre.y);
+
+		for (int i = 0; i < _Vertices.Length; i++)
+		{
+			Vector3 v0 = _Vertices[i];
+			Vector3 v1 = _Vertices[(i + 1) % _Vertices.Length];
+			var p0 = new Vector2(v0.x, v0.y);
+			var p1 = new Vector2(v1.x, v1.y);
+
+			float area = Cross(p0 - c, p1 - c);
+
+			if (MathF.Abs(area) < 0.0001f)
+				continue;
+
+			// Barycentric weights; a little slack so samples on the seams between triangles are not missed.
+			float w0 = Cross(p1 - _Point, c - _Point) / area;
+			float w1 = Cross(c - _Point, p0 - _Point) / area;
+			float w2 = 1.0f - w0 - w1;
+
+			if (w0 < -0.001f || w1 < -0.001f || w2 < -0.001f)
+				continue;
+
+			return w0 * v0.z + w1 * v1.z + w2 * _Centre.z;
+		}
+
+		return null;
+	}
+
+
+
+	private static float Cross(Vector2 _A, Vector2 _B)
+	{
+		return _A.x * _B.y - _A.y * _B.x;
+	}
+
+
+
+	/// <summary>
+	/// The height a road holds the ground at, at a distance from its centreline: under the surface across the
+	/// road, ramping under the border to meet the border's outer edge, and the edge's height from there on (how
+	/// far that hold reaches before the untouched terrain takes over is the falloff, applied by the caller).
+	/// </summary>
+	private static float AnchorHeight(float _Distance, float _Surface, float _HalfWidth, float _Border, float _Relief, RoadProfile _Profile, float _Sink)
 	{
 		float outer = _HalfWidth + _Border;
 		float edge;
@@ -409,13 +664,7 @@ internal static class RoadTerrainConformer
 			}
 		}
 
-		if (_Falloff <= 0.0f)
-			return _Original;
-
-		float blend = Math.Clamp((_Distance - outer) / _Falloff, 0.0f, 1.0f);
-		float smooth = blend * blend * (3.0f - 2.0f * blend);
-
-		return MathX.Lerp(edge, _Original, smooth);
+		return edge;
 	}
 
 
