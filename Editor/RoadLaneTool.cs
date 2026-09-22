@@ -182,25 +182,36 @@ public class RoadLaneTool : EditorTool
 			return;
 
 		var transform = _Network.WorldTransform;
+		var width = _Network.WidthOf(_Segment);
 		float lift = _Network.SurfaceOffset + 2.0f;
 		int lanes = _Segment.LaneCount;
 		float laneWidth = _Segment.Width / lanes;
 		float halfWidth = _Segment.Width * 0.5f;
+
+		// The same rule the paint follows: a road pulled in anywhere has its lanes across whatever surface is
+		// there, one that only grows keeps them on its base width.
+		bool reshaped = _Segment.LeftExtraStart < 0.0f || _Segment.LeftExtraEnd < 0.0f || _Segment.RightExtraStart < 0.0f || _Segment.RightExtraEnd < 0.0f;
+
+		float OffsetAt(float _Fraction, float _Distance)
+		{
+			return reshaped ? -width.LeftAt(_Distance) + _Fraction * width.WidthAt(_Distance) : -halfWidth + _Fraction * _Segment.Width;
+		}
 
 		using (Gizmo.Scope($"roadtool2_lanes_{_Segment.Id}"))
 		{
 			Gizmo.Draw.IgnoreDepth = true;
 			Gizmo.Draw.LineThickness = _Hovered ? 2.0f : 1.0f;
 			Gizmo.Draw.Color = (_Hovered ? Color.Orange : Color.White).WithAlpha(_Hovered ? 0.9f : 0.5f);
-			RoadGizmos.DrawRoadOutline(curve, _Network.WidthOf(_Segment), transform);
+			RoadGizmos.DrawRoadOutline(curve, width, transform);
 
 			// Lane boundaries, coloured by what they separate: the centre line stands out.
 			for (int boundary = 1; boundary < lanes; boundary++)
 			{
 				bool centre = _Segment.IsLaneForward(boundary - 1) != _Segment.IsLaneForward(boundary);
+				float fraction = (float)boundary / lanes;
 
 				Gizmo.Draw.Color = (centre ? Color.Yellow : Color.White).WithAlpha(_Hovered ? 0.9f : 0.4f);
-				DrawOffsetLine(table, transform, -halfWidth + boundary * laneWidth, lift);
+				DrawOffsetLine(table, transform, distance => OffsetAt(fraction, distance), lift);
 			}
 
 			// Arrows down the middle of each lane.
@@ -212,13 +223,13 @@ public class RoadLaneTool : EditorTool
 
 			for (int lane = 0; lane < lanes; lane++)
 			{
-				float offset = -halfWidth + (lane + 0.5f) * laneWidth;
+				float fraction = (lane + 0.5f) / lanes;
 				float sign = _Segment.IsLaneForward(lane) ? 1.0f : -1.0f;
 
 				for (int i = 0; i < arrows; i++)
 				{
 					float distance = table.Length * (i + 0.5f) / arrows;
-					DrawArrow(table, transform, distance, offset, sign, arrowLength, lift);
+					DrawArrow(table, transform, distance, OffsetAt(fraction, distance), sign, arrowLength, lift);
 				}
 			}
 		}
@@ -226,14 +237,14 @@ public class RoadLaneTool : EditorTool
 
 
 
-	private static void DrawOffsetLine(RoadCurveTable _Table, in Transform _Transform, float _Offset, float _Lift)
+	private static void DrawOffsetLine(RoadCurveTable _Table, in Transform _Transform, Func<float, float> _OffsetAt, float _Lift)
 	{
 		Vector3 previous = default;
 
 		for (int i = 0; i < _Table.SampleCount; i++)
 		{
 			float distance = _Table.SampleDistance(i);
-			Vector3 point = _Transform.PointToWorld(_Table.PositionAt(distance) + RoadCurve.RightOf(_Table.TangentAt(distance)) * _Offset + Vector3.Up * _Lift);
+			Vector3 point = _Transform.PointToWorld(_Table.PositionAt(distance) + RoadCurve.RightOf(_Table.TangentAt(distance)) * _OffsetAt(distance) + Vector3.Up * _Lift);
 
 			if (i > 0)
 				Gizmo.Draw.Line(previous, point);

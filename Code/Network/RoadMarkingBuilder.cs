@@ -44,24 +44,31 @@ internal static class RoadMarkingBuilder
 
 	/// <summary>
 	/// A line to paint: at a fixed distance across the road (from the centreline, negative to the left), or, with
-	/// <see cref="Follow"/> set, following that edge (-1 left, +1 right) at <see cref="Inset"/> in from it. A fixed
-	/// line is only painted where it lies on the surface, and one with <see cref="MinExtra"/> only where that side's
-	/// extra width has reached it.
+	/// <see cref="Follow"/> set, following that edge (-1 left, +1 right) at <see cref="Inset"/> in from it, or (2)
+	/// at a fraction of the way across the surface from its left edge (<see cref="Offset"/> then holds the fraction).
+	/// A fixed line is only painted where it lies on the surface, and one with <see cref="MinExtra"/> only where that
+	/// side's extra width has reached it.
 	/// </summary>
 	private readonly record struct Line(float Offset, int Follow, float Inset, int ExtraSide, float MinExtra, RoadLineStyle Style, Material Material)
 	{
+		public const int Across = 2;
+
 		public float OffsetAt(in RoadWidth _Width, float _Distance)
 		{
 			return Follow switch
 			{
 				-1 => -_Width.LeftAt(_Distance) + Inset,
 				1 => _Width.RightAt(_Distance) - Inset,
+				Across => -_Width.LeftAt(_Distance) + Offset * _Width.WidthAt(_Distance) + Inset,
 				_ => Offset
 			};
 		}
 
 		public bool VisibleAt(in RoadWidth _Width, float _Distance)
 		{
+			if (Follow == Across)
+				return _Width.WidthAt(_Distance) > Style.Width;
+
 			if (Follow != 0)
 				return _Width.WidthAt(_Distance) > 2.0f * Inset;
 
@@ -105,9 +112,17 @@ internal static class RoadMarkingBuilder
 			{
 				float spacing = line.Style.DoubleSpacing * 0.5f;
 
-				// Following an edge, the pair moves in from it together; fixed, it straddles the boundary.
-				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, line with { Offset = line.Offset - spacing, Inset = line.Inset + (line.Follow < 0 ? -spacing : spacing) }, _Width, _SurfaceOffset, _Phase);
-				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, line with { Offset = line.Offset + spacing, Inset = line.Inset + (line.Follow < 0 ? spacing : -spacing) }, _Width, _SurfaceOffset, _Phase);
+				// The pair straddles the line's place: a fixed line by its offset, the others by their inset (which
+				// counts inward from the right edge, so it runs the other way there).
+				var (first, second) = line.Follow switch
+				{
+					0 => (line with { Offset = line.Offset - spacing }, line with { Offset = line.Offset + spacing }),
+					1 => (line with { Inset = line.Inset + spacing }, line with { Inset = line.Inset - spacing }),
+					_ => (line with { Inset = line.Inset - spacing }, line with { Inset = line.Inset + spacing })
+				};
+
+				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, first, _Width, _SurfaceOffset, _Phase);
+				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, second, _Width, _SurfaceOffset, _Phase);
 			}
 			else
 			{
@@ -120,8 +135,10 @@ internal static class RoadMarkingBuilder
 
 	/// <summary>
 	/// The lines a road is due, from its lanes: between lanes going the same way a lane line, where the direction
-	/// changes the centre line, along both edges the edge line, and along each base edge a lane line for the extra
-	/// lane a side may carry.
+	/// changes the centre line, and along both edges the edge line. A road that only ever grows (extras of zero or
+	/// more) keeps its lanes on the base width and takes each side's extra as a lane of its own, with a lane line
+	/// along the old edge once the extra is most of a lane; a road that is pulled in anywhere (a negative extra)
+	/// has been reshaped or moved off its centreline, and its lanes divide whatever surface there is.
 	/// </summary>
 	private static List<Line> CollectLines(RoadSegment _Segment, RoadProfile _Profile)
 	{
@@ -129,6 +146,7 @@ internal static class RoadMarkingBuilder
 		int lanes = _Segment.LaneCount;
 		float laneWidth = _Segment.Width / lanes;
 		float halfWidth = _Segment.Width * 0.5f;
+		bool reshaped = IsReshaped(_Segment);
 
 		for (int boundary = 1; boundary < lanes; boundary++)
 		{
@@ -140,12 +158,15 @@ internal static class RoadMarkingBuilder
 
 			var material = sameWay ? _Profile.ResolvedLaneLineMaterial : _Profile.ResolvedCentreLineMaterial;
 
-			lines.Add(new Line(-halfWidth + boundary * laneWidth, 0, 0.0f, 0, 0.0f, style, material));
+			if (reshaped)
+				lines.Add(new Line((float)boundary / lanes, Line.Across, 0.0f, 0, 0.0f, style, material));
+			else
+				lines.Add(new Line(-halfWidth + boundary * laneWidth, 0, 0.0f, 0, 0.0f, style, material));
 		}
 
 		var lane = _Profile.LaneLine;
 
-		if (lane is not null && lane.Enabled && lane.Width > 0.0f && HasExtra(_Segment))
+		if (!reshaped && lane is not null && lane.Enabled && lane.Width > 0.0f && HasExtra(_Segment))
 		{
 			float minExtra = laneWidth * ExtraLaneShare;
 
@@ -175,6 +196,13 @@ internal static class RoadMarkingBuilder
 	private static bool HasExtra(RoadSegment _Segment)
 	{
 		return _Segment.LeftExtraStart > 0.0f || _Segment.LeftExtraEnd > 0.0f || _Segment.RightExtraStart > 0.0f || _Segment.RightExtraEnd > 0.0f;
+	}
+
+
+
+	private static bool IsReshaped(RoadSegment _Segment)
+	{
+		return _Segment.LeftExtraStart < 0.0f || _Segment.LeftExtraEnd < 0.0f || _Segment.RightExtraStart < 0.0f || _Segment.RightExtraEnd < 0.0f;
 	}
 
 

@@ -1,0 +1,50 @@
+{
+  "RoadMaterial": "roadtool2/materials/asphalt.vmat",
+  "RoadTextureRepeat": 500,
+  "Border": "Sidewalk",
+  "BorderMaterial": "roadtool2/materials/sidewalk.vmat",
+  "BorderTextureRepeat": 200,
+  "BorderWidth": 50,
+  "CurbHeight": 2,
+  "CurbBevel": 0,
+  "Drop": 8,
+  "VergeWidth": 200,
+  "VergeDepth": 60,
+  "SlopeSegments": 3,
+  "Chaos": 30,
+  "ChaosScale": 0.02,
+  "TransitionLength": 300,
+  "BlendMaterial": "roadtool2/materials/sidewalkgravelblend.vmat",
+  "LaneLine": {
+    "Enabled": true,
+    "Material": null,
+    "Width": 14,
+    "DashLength": 200,
+    "GapLength": 300,
+    "DoubleSpacing": 0
+  },
+  "CentreLine": {
+    "Enabled": true,
+    "Material": null,
+    "Width": 14,
+    "DashLength": 0,
+    "GapLength": 0,
+    "DoubleSpacing": 0
+  },
+  "EdgeLine": {
+    "Enabled": false,
+    "Material": null,
+    "Width": 10,
+    "DashLength": 0,
+    "GapLength": 0,
+    "DoubleSpacing": 0
+  },
+  "EdgeLineMargin": 10,
+  "Crossings": false,
+  "CrossingDecal": null,
+  "CrossingDepth": 120,
+  "CrossingInset": 10,
+  "CrossingClearance": 150,
+  "__references": [],
+  "__version": 0
+}
