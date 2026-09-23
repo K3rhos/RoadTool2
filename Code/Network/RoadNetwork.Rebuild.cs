@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 42;
+	private const int GeneratorVersion = 47;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -578,9 +578,28 @@ public sealed partial class RoadNetwork
 			return;
 
 		_Length = MathF.Min(_Profile.TransitionLength, _Limit);
-		_Width = otherProfile.FlatBorderWidth;
+		_Width = MeetingWidth(_Profile, otherProfile);
 		_Flatten = !sameKind;
 		_Spill = !sameKind && otherProfile.Border == RoadBorderStyle.CountrySide;
+	}
+
+
+
+	/// <summary>
+	/// The width BOTH borders run to where two road types meet, so they line up at the node: running each one to
+	/// the other's width only swaps them over and leaves a step of the whole difference between the two. A kerb is
+	/// a built thing and keeps the width it has, so a verge on the other side is what gives; two borders of a kind
+	/// meet halfway; and a border with nothing on the other side still runs out to nothing.
+	/// </summary>
+	private static float MeetingWidth(RoadProfile _Profile, RoadProfile _Other)
+	{
+		if (!_Profile.HasBorder || !_Other.HasBorder)
+			return 0.0f;
+
+		if (_Profile.Border == _Other.Border)
+			return (_Profile.FlatBorderWidth + _Other.FlatBorderWidth) * 0.5f;
+
+		return _Profile.Border == RoadBorderStyle.Sidewalk ? _Profile.FlatBorderWidth : _Other.FlatBorderWidth;
 	}
 
 
@@ -600,6 +619,32 @@ public sealed partial class RoadNetwork
 			bool pavement = profile.Border == RoadBorderStyle.Sidewalk;
 
 			yield return (lot.Centre, RoadLotOutline.Build(lot, OpeningsOf(lot)).Points, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f);
+		}
+
+		// A rounded dead end reaches past its node, where no road piece covers the ground.
+		foreach (var segment in Segments)
+		{
+			var table = GetCurveTable(segment);
+
+			if (table is null || segment.Bridge is not null)
+				continue;
+
+			var profile = ProfileOf(segment);
+			bool pavement = profile.Border == RoadBorderStyle.Sidewalk;
+			var width = new RoadWidth(segment, table.Length);
+
+			foreach (bool atStart in new[] { true, false })
+			{
+				int nodeId = atStart ? segment.StartNodeId : segment.EndNodeId;
+
+				if (GetDegree(nodeId) != 1 || LotAtOpening(nodeId) is not null)
+					continue;
+
+				var outline = RoadCapBuilder.Outline(table, atStart ? 0.0f : table.Length, atStart, width, profile, SurfaceOffset, out Vector3 centre);
+
+				if (outline.Count >= 3)
+					yield return (centre, outline, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f);
+			}
 		}
 
 		foreach (var layout in ComputeJunctionLayouts().Values)
@@ -998,9 +1043,13 @@ public sealed partial class RoadNetwork
 
 		if (degree <= 1)
 		{
-			_Left = true;
-			_Right = true;
-			return true;
+			// A road rounded off where it stops carries its border round the end; a cap across the road as well
+			// would sit inside that.
+			bool rounded = _Segment.Bridge is null && ProfileOf(_Segment).RoundedEnds;
+
+			_Left = !rounded;
+			_Right = !rounded;
+			return !rounded;
 		}
 
 		if (_Layouts.TryGetValue(_NodeId, out var layout))
@@ -1180,7 +1229,41 @@ public sealed partial class RoadNetwork
 			plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Border, caps, _Blends, hash.Value, default, _Taper));
 		}
 
+		// A road that simply stops is rounded off there, in a piece of its own beyond the node.
+		AddCapPlan(plans, _Segment, _Table, _Profile, _SurfaceSignature, true);
+		AddCapPlan(plans, _Segment, _Table, _Profile, _SurfaceSignature, false);
+
 		return plans;
+	}
+
+
+
+	/// <summary>
+	/// The rounded end of a road, where it has one: at a node with nothing else at it, which is not a way into a
+	/// parking lot (the lot's own kerb closes that), and on a road no bridge carries (a deck ends where it ends).
+	/// The plan's start is the end's own distance along the curve and its end the depth the cap reaches past it.
+	/// </summary>
+	private void AddCapPlan(List<ChunkPlan> _Plans, RoadSegment _Segment, RoadCurveTable _Table, RoadProfile _Profile, long _SurfaceSignature, bool _AtStart)
+	{
+		int nodeId = _AtStart ? _Segment.StartNodeId : _Segment.EndNodeId;
+
+		if (_Segment.Bridge is not null || GetDegree(nodeId) != 1 || LotAtOpening(nodeId) is not null)
+			return;
+
+		float distance = _AtStart ? 0.0f : _Table.Length;
+		float depth = RoadCapBuilder.Depth(_Profile, new RoadWidth(_Segment, _Table.Length), distance);
+
+		if (depth <= 0.01f)
+			return;
+
+		var hash = StableHash.Create();
+
+		hash.Add(_SurfaceSignature);
+		hash.Add(_AtStart ? 1 : 0);
+		hash.Add(depth);
+		_Profile.AddBorderToHash(ref hash);
+
+		_Plans.Add(new ChunkPlan(_AtStart ? 0 : 1, 2, distance, depth, RoadChunkKind.Cap, BorderCaps.None, default, hash.Value));
 	}
 
 
@@ -1593,6 +1676,12 @@ public sealed partial class RoadNetwork
 
 			foreach (var prop in props)
 				placements.Add((prop.Prefab, new Transform(prop.Position, prop.Rotation, prop.Scale)));
+		}
+		else if (plan.Kind == RoadChunkKind.Cap)
+		{
+			// Surface and border in one piece: the whole end is small, and nothing else shares it.
+			mesh = RoadCapBuilder.Build(_Job.Table, plan.Start, plan.Index == 0, _Job.Width, _Job.Profile, SurfaceOffset, plan.End);
+			name = $"Road {_Job.SegmentId} {(plan.Index == 0 ? "start" : "end")} cap";
 		}
 		else if (plan.Kind == RoadChunkKind.Marking)
 		{

@@ -35,6 +35,6 @@ Layer0
 	NormalMap "roadtool2/textures/asphalt/asphalt_normal.jpg"
 
 	//---- Roughness ----
-	g_flRoughnessScaleFactor "2.000"
+	g_flRoughnessScaleFactor "0.500"
 	Roughness "roadtool2/textures/asphalt/asphalt_roughness.jpg"
 }

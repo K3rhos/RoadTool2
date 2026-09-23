@@ -1,18 +1,18 @@
 {
   "Maps": {
-    "$blob": "dcaa635b-a09a-8344-9afa-c49f471c5582"
+    "$blob": "1b17a8d8-39a7-8531-9388-71c0e13d7aad"
   },
   "Resolution": 1024,
   "TerrainSize": 100000,
   "TerrainHeight": 10000,
   "Materials": [
     {
-      "Id": "07ac99b9-dc05-41ad-8536-64700d4efe53",
-      "Path": "textures/grass/grass_cut.tmat"
+      "Id": "cac1eab7-9f42-4af1-a998-7152c7bccc57",
+      "Path": "thirdparty/3djungle/grass/materials/grass.tmat"
     },
     {
-      "Id": "bfc9583c-a54d-400e-b5a7-ef54cd0a41d0",
-      "Path": "textures/gravel/gravel.tmat"
+      "Id": "de4e9d4a-fb6b-4d5e-a48e-f237d55ff9b9",
+      "Path": "thirdparty/3djungle/dirt/materials/dirt.tmat"
     }
   ],
   "MaterialSettings": {

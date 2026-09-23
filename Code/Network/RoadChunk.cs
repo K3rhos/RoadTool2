@@ -27,7 +27,12 @@ public enum RoadChunkKind
 	/// <summary>
 	/// The prefabs standing along a road and before its junctions.
 	/// </summary>
-	Props
+	Props,
+
+	/// <summary>
+	/// The rounded end of a road that stops: surface and border together, in one piece per end.
+	/// </summary>
+	Cap
 }
 
 /// <summary>

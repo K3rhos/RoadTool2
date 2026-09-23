@@ -1,0 +1,19 @@
+{
+  "AlbedoImage": "thirdparty/3djungle/grass/textures/grass_basecolor.jpg",
+  "RoughnessImage": "thirdparty/3djungle/grass/textures/grass_roughness.jpg",
+  "NormalImage": "thirdparty/3djungle/grass/textures/grass_normal.jpg",
+  "HeightImage": "thirdparty/3djungle/grass/textures/grass_height.jpg",
+  "AOImage": "thirdparty/3djungle/grass/textures/grass_ao.jpg",
+  "UVScale": 2,
+  "Metalness": 0,
+  "NormalStrength": 2,
+  "HeightBlendStrength": 1,
+  "DisplacementScale": 1,
+  "NoTiling": true,
+  "Surface": {
+    "Id": "e4cdf469-221d-4fd7-8c0c-302a86d58299",
+    "Path": "surfaces/grass.surface"
+  },
+  "__references": [],
+  "__version": 0
+}

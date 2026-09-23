@@ -105,6 +105,13 @@ public sealed class RoadProfile : GameResource
 	/// </summary>
 	[Group("Optimization"), ShowIf(nameof(Simplify), true), Range(0.0f, 50.0f)] public float SimplifyDeviation { get; set { field = value.Clamp(0.0f, 10000.0f); } } = 2.0f;
 
+	/// <summary>
+	/// Rounds off a road of this type where it dead ends: the surface carries on past the last node as a half disc
+	/// and the border wraps round it, so the road reads as a turning head instead of being sliced through. Nothing
+	/// happens at an end another road carries on from.
+	/// </summary>
+	[Group("Road"), Title("Rounded Dead Ends")] public bool RoundedEnds { get; set; } = true;
+
 	[Group("Border")] public RoadBorderStyle Border { get; set; } = RoadBorderStyle.None;
 
 	/// <summary>
@@ -116,7 +123,7 @@ public sealed class RoadProfile : GameResource
 	/// <summary>
 	/// Sidewalk: pavement width. Country side: width of the road-material shoulder before the drop.
 	/// </summary>
-	[Group("Border"), HideIf(nameof(Border), RoadBorderStyle.None), Range(10.0f, 500.0f)] public float BorderWidth { get; set { field = value.Clamp(1.0f, 5000.0f); } } = 150.0f;
+	[Group("Border"), HideIf(nameof(Border), RoadBorderStyle.None), Range(0.0f, 500.0f)] public float BorderWidth { get; set { field = value.Clamp(0.0f, 5000.0f); } } = 150.0f;
 
 	[Group("Sidewalk"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk), Range(0.1f, 100.0f)] public float CurbHeight { get; set { field = value.Clamp(0.1f, 1000.0f); } } = 5.0f;
 
@@ -141,7 +148,7 @@ public sealed class RoadProfile : GameResource
 	/// <summary>
 	/// Frequency of the wander: smaller values give longer, gentler waves.
 	/// </summary>
-	[Group("Country Side"), ShowIf(nameof(Border), RoadBorderStyle.CountrySide), Range(0.001f, 0.2f)] public float ChaosScale { get; set { field = value.Clamp(0.0001f, 10.0f); } } = 0.02f;
+	[Group("Country Side"), ShowIf(nameof(Border), RoadBorderStyle.CountrySide), Range(0.0f, 0.2f)] public float ChaosScale { get; set { field = value.Clamp(0.00001f, 10.0f); } } = 0.02f;
 
 	/// <summary>
 	/// Where this road type meets another at a pass-through node, its border tapers into the other's over this
@@ -208,9 +215,20 @@ public sealed class RoadProfile : GameResource
 	[Hide, JsonIgnore] public bool HasBorder => Border != RoadBorderStyle.None;
 
 	/// <summary>
-	/// How this road type's rows are thinned out, as the row sampler wants it.
+	/// How this road type's rows are thinned out, as the row sampler wants it. A verge that wanders with noise caps
+	/// how far apart the rows may be spread, because the sampler decides what it can drop by measuring the ROAD'S
+	/// EDGES and knows nothing about a border that moves between them: left to itself it drops every row on a
+	/// straight road and leaves the verge a run of long flat facets stepping past each other. One feature of that
+	/// noise is 1 / <see cref="ChaosScale"/> across, and nothing that fine survives rows spread wider than it — so
+	/// a coarser <see cref="ChaosScale"/> (or no <see cref="Chaos"/> at all) is what buys a country road its
+	/// thinning back.
 	/// </summary>
-	[Hide, JsonIgnore] public RoadSimplify Simplification => new(Simplify, SimplifyAngle, SimplifyDeviation);
+	[Hide, JsonIgnore] public RoadSimplify Simplification => new(Simplify, SimplifyAngle, SimplifyDeviation, BorderWanders ? 1.0f / ChaosScale : 0.0f);
+
+	/// <summary>
+	/// Whether this road type's border has shape of its own between the rows, rather than following the road.
+	/// </summary>
+	[Hide, JsonIgnore] public bool BorderWanders => Border == RoadBorderStyle.CountrySide && Chaos > 0.0f && ChaosScale > 0.0f;
 
 	[Hide, JsonIgnore] public DecalDefinition ResolvedCrossingDecal => CrossingDecal ?? ResourceLibrary.Get<DecalDefinition>("roadtool2/resources/decals/crossing.decal");
 

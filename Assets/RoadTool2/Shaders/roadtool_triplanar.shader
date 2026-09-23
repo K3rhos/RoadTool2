@@ -230,7 +230,7 @@ PS
 
 		m.Albedo = l_6.rgb;
         m.Normal = l_7;
-        m.Roughness = l_9.r * g_flRoughnessScaleFactor;
+        m.Roughness = pow(l_9.r, g_flRoughnessScaleFactor);
 		m.Metalness = l_11.r;
 		m.AmbientOcclusion = l_10.r;
 		m.Emission = l_15.rgb * g_flEmissionTintBoost;

@@ -155,12 +155,6 @@ internal static class RoadBorderBuilder
 	private const float JoinDistance = 1.0f;
 
 	/// <summary>
-	/// How much of the spilled gravel reaches the kerb side of the pavement, relative to its outer edge: the verge
-	/// it comes from lies beyond the neighbour's shoulder, so it creeps in from the outside.
-	/// </summary>
-	private const float SpillInnerFactor = 0.2f;
-
-	/// <summary>
 	/// How far the gravel's front wanders back and forth along the road, as a fraction of the spill length, and
 	/// the size of the noise it wanders by (about a wavelength per hundred units).
 	/// </summary>
@@ -531,13 +525,16 @@ internal static class RoadBorderBuilder
 				if (face.Blendable && blendMaterial is not null && (spills[i] > 0.0f || spills[i + 1] > 0.0f))
 				{
 					material = blendMaterial;
-					blends = new[]
-					{
-						SpillBlend(spills[i], SpillInnerFactor),
-						SpillBlend(spills[i], 1.0f),
-						SpillBlend(spills[i + 1], 1.0f),
-						SpillBlend(spills[i + 1], SpillInnerFactor)
-					};
+
+					// One weight per row, the same right across the pavement, so a face's four corners hold a
+					// gradient that runs one way only. Weighting the kerb side differently from the outer one
+					// leaves the four corners non-planar, and the two triangles the face is split into then read
+					// that gradient differently: the split shows up as a kink in the gravel's front, which is a
+					// far louder thing than the slant it was there to give.
+					var near = SpillBlend(spills[i]);
+					var far = SpillBlend(spills[i + 1]);
+
+					blends = new[] { near, near, far, far };
 				}
 
 				if (outerJoined)
@@ -615,9 +612,32 @@ internal static class RoadBorderBuilder
 		return _Profile.Border switch
 		{
 			RoadBorderStyle.Sidewalk => 4,
-			RoadBorderStyle.CountrySide => 3 + _Profile.SlopeSegments,
+			RoadBorderStyle.CountrySide => DropFoot(_Profile) + 1 + _Profile.SlopeSegments,
 			_ => 0
 		};
+	}
+
+
+
+	/// <summary>
+	/// Whether a country side border has a shoulder of road material before it drops away. A road type that asks
+	/// for no width there gets none: the verge starts at the road's edge, rather than a hair out from it behind a
+	/// strip too thin to see and too thin to be worth a face.
+	/// </summary>
+	private static bool HasShoulder(RoadProfile _Profile)
+	{
+		return _Profile.BorderWidth > 0.0f;
+	}
+
+
+
+	/// <summary>
+	/// The node at the foot of the drop, which the verge's slope runs from: past the road's edge, and past the
+	/// shoulder when there is one.
+	/// </summary>
+	private static int DropFoot(RoadProfile _Profile)
+	{
+		return HasShoulder(_Profile) ? 2 : 1;
 	}
 
 
@@ -651,16 +671,18 @@ internal static class RoadBorderBuilder
 				float roadRepeat = _Profile.RoadTextureRepeat;
 				float vergeRepeat = _Profile.BorderTextureRepeat;
 
-				// Shoulder (an extension of the road, so it tiles like one), the drop (the road's exposed thickness),
-				// then the slope down to the terrain.
-				var faces = new List<Face>
-				{
-					new Face(0, 1, roadMaterial, roadRepeat, _Planar: true),
-					new Face(1, 2, roadMaterial, roadRepeat, _U0: 0.0f, _U1: _Profile.Drop / roadRepeat)
-				};
+				// Shoulder (an extension of the road, so it tiles like one) where the road type has one, the drop
+				// (the road's exposed thickness), then the slope down to the terrain.
+				int foot = DropFoot(_Profile);
+				var faces = new List<Face>();
+
+				if (HasShoulder(_Profile))
+					faces.Add(new Face(0, 1, roadMaterial, roadRepeat, _Planar: true));
+
+				faces.Add(new Face(foot - 1, foot, roadMaterial, roadRepeat, _U0: 0.0f, _U1: _Profile.Drop / roadRepeat));
 
 				for (int k = 0; k < _Profile.SlopeSegments; k++)
-					faces.Add(new Face(2 + k, 3 + k, vergeMaterial, vergeRepeat, _AccumulateFrom: 2));
+					faces.Add(new Face(foot + k, foot + 1 + k, vergeMaterial, vergeRepeat, _AccumulateFrom: foot));
 
 				return faces.ToArray();
 			}
@@ -713,23 +735,31 @@ internal static class RoadBorderBuilder
 				float meanderShoulder = (Noise.Perlin(x + BandShoulder, y) - 0.5f) * 2.0f * amplitude;
 				float meanderOuter = (Noise.Perlin(x + BandOuter, y) - 0.5f) * 2.0f * amplitude;
 
-				// Floor the widths so a strong inward wander can never fold two nodes onto each other.
-				float shoulder = MathF.Max(1.0f, profile.BorderWidth + meanderShoulder);
+				// A shoulder that is meant to be there is floored, so a strong inward wander can never fold it back
+				// onto the road; a road type that asks for none has none at all, and its verge drops away at the
+				// road's own edge.
+				bool hasShoulder = HasShoulder(profile);
+				float shoulder = hasShoulder ? MathF.Max(1.0f, profile.BorderWidth + meanderShoulder) : 0.0f;
 				float span = MathF.Max(1.0f, profile.VergeWidth + meanderOuter);
 
 				// Towards a different road type the whole strip runs to that type's width, keeping its proportions.
 				if (tapering)
 				{
 					float total = shoulder + span;
-					float ratio = MathX.Lerp(total, targetWidth, towards) / total;
+					float ratio = total > 0.001f ? MathX.Lerp(total, targetWidth, towards) / total : 1.0f;
 
-					shoulder = MathF.Max(0.5f, shoulder * ratio);
+					shoulder = hasShoulder ? MathF.Max(0.5f, shoulder * ratio) : 0.0f;
 					span = MathF.Max(0.5f, span * ratio);
 				}
 
+				int foot = DropFoot(profile);
+
 				_Nodes[0] = new Vector2(0.0f, 0.0f);
-				_Nodes[1] = new Vector2(shoulder, 0.0f);
-				_Nodes[2] = new Vector2(shoulder, -profile.Drop * relief);
+
+				if (hasShoulder)
+					_Nodes[1] = new Vector2(shoulder, 0.0f);
+
+				_Nodes[foot] = new Vector2(shoulder, -profile.Drop * relief);
 
 				for (int k = 1; k <= profile.SlopeSegments; k++)
 				{
@@ -738,7 +768,7 @@ internal static class RoadBorderBuilder
 					// The roll varies along the road and across the slope, so the verge undulates in 3D.
 					float roll = (Noise.Fbm(3, x, y, BandRoll + fraction * profile.VergeWidth * scale) - 0.5f) * 2.0f * amplitude;
 
-					_Nodes[2 + k] = new Vector2(shoulder + fraction * span, (-profile.Drop - fraction * profile.VergeDepth) * relief + roll);
+					_Nodes[foot + k] = new Vector2(shoulder + fraction * span, (-profile.Drop - fraction * profile.VergeDepth) * relief + roll);
 				}
 
 				break;
@@ -768,9 +798,9 @@ internal static class RoadBorderBuilder
 	/// A spill amount as the vertex blend a blendable material reads: its red channel is how much of the second
 	/// layer (the gravel) shows.
 	/// </summary>
-	private static Color32 SpillBlend(float _Spill, float _Factor)
+	private static Color32 SpillBlend(float _Spill)
 	{
-		byte weight = (byte)Math.Clamp(MathF.Round(_Spill * _Factor * 255.0f), 0.0f, 255.0f);
+		byte weight = (byte)Math.Clamp(MathF.Round(_Spill * 255.0f), 0.0f, 255.0f);
 
 		return new Color32(weight, 0, 0, 255);
 	}

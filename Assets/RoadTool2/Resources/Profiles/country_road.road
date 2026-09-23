@@ -9,19 +9,19 @@
   "SimplifyDeviation": 2,
   "Border": "CountrySide",
   "BorderMaterial": {
-    "Id": "7161510f-1268-49e6-807c-7309e0f45e23",
-    "Path": "roadtool2/materials/gravel.vmat"
+    "Id": "a589ee65-ee1d-4922-839c-522ff7190cc3",
+    "Path": "thirdparty/3djungle/dirt/materials/dirt.vmat"
   },
   "BorderTextureRepeat": 200,
-  "BorderWidth": 50,
+  "BorderWidth": 0,
   "CurbHeight": 5,
   "CurbBevel": 0,
   "Drop": 5,
-  "VergeWidth": 50,
-  "VergeDepth": 40,
+  "VergeWidth": 150,
+  "VergeDepth": 20,
   "SlopeSegments": 3,
   "Chaos": 20,
-  "ChaosScale": 0.025,
+  "ChaosScale": 1E-05,
   "TransitionLength": 300,
   "BlendMaterial": null,
   "LaneLine": {
@@ -48,7 +48,7 @@
     "GapLength": 0,
     "DoubleSpacing": 0
   },
-  "EdgeLineMargin": -30,
+  "EdgeLineMargin": 10,
   "Crossings": false,
   "CrossingDecal": null,
   "CrossingDepth": 120,

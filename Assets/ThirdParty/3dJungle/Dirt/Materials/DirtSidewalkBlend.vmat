@@ -1,0 +1,34 @@
+// THIS FILE IS AUTO-GENERATED
+
+Layer0
+{
+	shader "shaders/blendable.shader"
+
+	//---- Number Of Blendable Layers ----
+	F_MULTIBLEND 1 // 2 Layers
+
+	//---- Fog ----
+	g_bFogEnabled "1"
+
+	//---- Material A ----
+	g_flTintColorA "[1.000000 1.000000 1.000000 0.000000]"
+	TextureAmbientOcclusionA "materials/default/default_ao.tga"
+	TextureBlendMaskA "materials/default/default_blend.tga"
+	TextureColorA "roadtool2/textures/sidewalk/sidewalk_diffuse.jpg"
+	TextureMetalnessA "materials/default/default_metal.tga"
+	TextureNormalA "roadtool2/textures/sidewalk/sidewalk_normal.jpg"
+	TextureRoughnessA "roadtool2/textures/sidewalk/sidewalk_roughness.jpg"
+	TextureTintMaskA "materials/default/default.tga"
+
+	//---- Material B ----
+	g_flBlendSoftnessB "1.000"
+	g_flTintColorB "[0.152941 0.152941 0.152941 0.000000]"
+	g_vTexCoordScale2 "[2.000 2.000]"
+	TextureAmbientOcclusionB "thirdparty/3djungle/dirt/textures/dirt_ao.jpg"
+	TextureBlendMaskB "materials/default/default_blend.tga"
+	TextureColorB "thirdparty/3djungle/dirt/textures/dirt_basecolor.jpg"
+	TextureMetalnessB "materials/default/default_metal.tga"
+	TextureNormalB "thirdparty/3djungle/dirt/textures/dirt_normal.jpg"
+	TextureRoughnessB "thirdparty/3djungle/dirt/textures/dirt_roughness.jpg"
+	TextureTintMaskB "materials/default/default.tga"
+}

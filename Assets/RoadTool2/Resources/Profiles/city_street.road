@@ -1,11 +1,17 @@
 {
+  "RoadMaterial": {
+    "Id": "d455ca89-b392-4406-b495-cb82f47ba3fa",
+    "Path": "roadtool2/materials/asphalt.vmat"
+  },
+  "RoadTextureRepeat": 500,
   "Simplify": true,
   "SimplifyAngle": 1,
   "SimplifyDeviation": 2,
-  "RoadMaterial": "roadtool2/materials/asphalt.vmat",
-  "RoadTextureRepeat": 500,
   "Border": "Sidewalk",
-  "BorderMaterial": "roadtool2/materials/sidewalk.vmat",
+  "BorderMaterial": {
+    "Id": "3ad71a9b-5dad-4540-9ba5-fb04f0c4e6e8",
+    "Path": "roadtool2/materials/sidewalk.vmat"
+  },
   "BorderTextureRepeat": 200,
   "BorderWidth": 150,
   "CurbHeight": 5,
@@ -17,7 +23,10 @@
   "Chaos": 30,
   "ChaosScale": 0.02,
   "TransitionLength": 300,
-  "BlendMaterial": "roadtool2/materials/sidewalkgravelblend.vmat",
+  "BlendMaterial": {
+    "Id": "9c205da6-128b-4b59-abad-e61ff7e0b2b9",
+    "Path": "thirdparty/3djungle/dirt/materials/dirtsidewalkblend.vmat"
+  },
   "LaneLine": {
     "Enabled": true,
     "Material": null,

@@ -27,6 +27,22 @@ public class RoadTerrainTool : EditorTool
 	/// </summary>
 	[Property, Title("Sink"), Range(0.0f, 50.0f)] public float Sink { get; set { field = value.Clamp(0.0f, 1000.0f); } } = 5.0f;
 
+	/// <summary>
+	/// The terrain material painted along the roads. Give a country road's verge the same texture and the two
+	/// merge, instead of the verge ending on a line against the landscape.
+	/// </summary>
+	[Property, Title("Paint Material")] public TerrainMaterial PaintMaterial { get; set; }
+
+	/// <summary>
+	/// How far past a road's border the material is painted at full strength.
+	/// </summary>
+	[Property, Title("Margin"), Range(0.0f, 1000.0f)] public float PaintMargin { get; set { field = value.Clamp(0.0f, 100000.0f); } } = 100.0f;
+
+	/// <summary>
+	/// How far it fades out beyond that, back into whatever the ground was painted with.
+	/// </summary>
+	[Property, Title("Fade"), Range(0.0f, 2000.0f)] public float PaintFade { get; set { field = value.Clamp(0.0f, 100000.0f); } } = 200.0f;
+
 	public RoadNetwork Network => Root?.Network;
 
 	private RoadNetworkTool Root => Manager?.CurrentTool as RoadNetworkTool;
@@ -95,6 +111,41 @@ public class RoadTerrainTool : EditorTool
 			texels += RoadTerrainConformer.Conform(terrain, network, Falloff, Sink);
 
 		Report(texels > 0 ? $"Terrain shaped under the roads ({texels:N0} height samples)." : "No road lies over a terrain.");
+	}
+
+
+
+	public void PaintTerrain()
+	{
+		var network = Network;
+
+		if (!network.IsValid())
+			return;
+
+		if (PaintMaterial is null)
+		{
+			Report("Pick a terrain material to paint with first.");
+			return;
+		}
+
+		var terrains = Scene.GetAllComponents<Terrain>().Where(terrain => terrain.IsValid() && terrain.Storage is not null).ToList();
+
+		if (terrains.Count == 0)
+		{
+			Report("No terrain in the scene.");
+			return;
+		}
+
+		int texels = 0;
+		string problem = null;
+
+		foreach (var terrain in terrains)
+		{
+			texels += RoadTerrainPainter.Paint(terrain, network, PaintMaterial, PaintMargin, PaintFade, out string reason);
+			problem ??= reason;
+		}
+
+		Report(texels > 0 ? $"Terrain painted along the roads ({texels:N0} texels)." : problem ?? "No road lies over a terrain.");
 	}
 
 
@@ -569,7 +620,7 @@ internal static class RoadTerrainConformer
 	/// <summary>
 	/// How far a point in plan is from an outline, and the outline's height at the nearest point.
 	/// </summary>
-	private static float OutlineDistance(Vector3[] _Vertices, Vector2 _Point, out float _Height)
+	internal static float OutlineDistance(Vector3[] _Vertices, Vector2 _Point, out float _Height)
 	{
 		float best = float.MaxValue;
 
@@ -600,7 +651,7 @@ internal static class RoadTerrainConformer
 	/// <summary>
 	/// The height of the fan of triangles from a centre to an outline at a point in plan, or null outside it.
 	/// </summary>
-	private static float? FanHeight(Vector3 _Centre, Vector3[] _Vertices, Vector2 _Point)
+	internal static float? FanHeight(Vector3 _Centre, Vector3[] _Vertices, Vector2 _Point)
 	{
 		var c = new Vector2(_Centre.x, _Centre.y);
 
@@ -729,6 +780,302 @@ internal static class RoadTerrainConformer
 	}
 }
 
+/// <summary>
+/// Paints a terrain material along the roads. Every texel under a road and its border, and out by a margin from
+/// there, takes the chosen material as its overlay layer — at full strength inside that band, fading to nothing
+/// over the fade beyond it. Give a country road's verge the same texture and the two merge into each other; a
+/// street gets a worn band round it.
+/// </summary>
+internal static class RoadTerrainPainter
+{
+	/// <summary>
+	/// A control map texel names its two materials in five bits each, so a terrain can hold this many.
+	/// </summary>
+	private const int MaxMaterials = 32;
+
+	/// <summary>
+	/// Paints one terrain, records an undo step, and returns how many texels changed. <paramref name="_Problem"/>
+	/// is set when nothing could be painted for a reason the user needs telling about.
+	/// </summary>
+	public static int Paint(Terrain _Terrain, RoadNetwork _Network, TerrainMaterial _Material, float _Margin, float _Fade, out string _Problem)
+	{
+		_Problem = null;
+
+		var storage = _Terrain.Storage;
+		int resolution = storage.Resolution;
+
+		if (resolution <= 0 || storage.ControlMap is null || storage.ControlMap.Length != resolution * resolution)
+			return 0;
+
+		int id = storage.Materials.IndexOf(_Material);
+
+		if (id < 0)
+		{
+			if (storage.Materials.Count >= MaxMaterials)
+			{
+				_Problem = $"\"{_Terrain.GameObject.Name}\" already carries {MaxMaterials} terrain materials, which is all its control map can name.";
+				return 0;
+			}
+
+			// The control map names materials by their place in the terrain's own list, so one the terrain has
+			// never held joins the list first.
+			storage.Materials.Add(_Material);
+			_Terrain.UpdateMaterialsBuffer();
+
+			id = storage.Materials.Count - 1;
+		}
+
+		float cell = storage.TerrainSize / resolution;
+		var terrainTransform = _Terrain.WorldTransform;
+		var networkTransform = _Network.WorldTransform;
+		var coverage = new Dictionary<int, float>();
+
+		foreach (var segment in _Network.Segments)
+		{
+			var table = _Network.GetCurveTable(segment);
+
+			// A bridge carries its road over the ground rather than lying on it: what is under it is landscape.
+			if (table is null || segment.Bridge is not null)
+				continue;
+
+			var profile = _Network.ProfileOf(segment);
+			var taper = _Network.GetBorderTaper(segment);
+			var width = new RoadWidth(segment, table.Length);
+			float border = profile.FlatBorderWidth;
+
+			Vector3 previous = networkTransform.PointToWorld(table.SamplePosition(0));
+
+			for (int i = 1; i < table.SampleCount; i++)
+			{
+				Vector3 current = networkTransform.PointToWorld(table.SamplePosition(i));
+
+				// The band as the piece's middle has it: the road's edge on that side, its border as the segment's
+				// taper leaves it there, and the margin.
+				float middle = (table.SampleDistance(i - 1) + table.SampleDistance(i)) * 0.5f;
+				float left = width.LeftAt(middle) + border * taper.Left.WidthScaleAt(middle, table.Length, border) + _Margin;
+				float right = width.RightAt(middle) + border * taper.Right.WidthScaleAt(middle, table.Length, border) + _Margin;
+
+				RasterisePiece(coverage, terrainTransform, resolution, cell, previous, current, left, right, _Fade);
+
+				previous = current;
+			}
+		}
+
+		// A junction or a parking lot is a surface of its own: painted inside its outline and out from it.
+		foreach (var (centre, polygon, pavementReach, _) in _Network.GetJunctionPolygons())
+			RasteriseArea(coverage, terrainTransform, networkTransform, resolution, cell, centre, polygon, pavementReach + _Margin, _Fade);
+
+		if (coverage.Count == 0)
+			return 0;
+
+		// The touched rectangle, for the undo snapshot and the collider update.
+		int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+
+		foreach (int index in coverage.Keys)
+		{
+			int x = index % resolution;
+			int y = index / resolution;
+
+			minX = Math.Min(minX, x);
+			maxX = Math.Max(maxX, x);
+			minY = Math.Min(minY, y);
+			maxY = Math.Max(maxY, y);
+		}
+
+		var region = new RectInt(minX, minY, maxX - minX + 1, maxY - minY + 1);
+		uint[] before = CopyRegion(storage.ControlMap, resolution, region);
+		int changed = 0;
+
+		foreach (var (index, strength) in coverage)
+		{
+			// The material goes on as the OVERLAY, so whatever the ground was painted with stays underneath it as
+			// the base and the band's edge is a blend rather than a cut.
+			var texel = new CompactTerrainMaterial(storage.ControlMap[index])
+			{
+				OverlayTextureId = (byte)id,
+				BlendFactor = (byte)Math.Clamp(MathF.Round(strength * 255.0f), 0.0f, 255.0f)
+			};
+
+			if (storage.ControlMap[index] == texel.Packed)
+				continue;
+
+			storage.ControlMap[index] = texel.Packed;
+			changed++;
+		}
+
+		if (changed == 0)
+			return 0;
+
+		uint[] after = CopyRegion(storage.ControlMap, resolution, region);
+
+		_Terrain.SyncGPUTexture();
+		_Terrain.UpdateCollision(Terrain.SyncFlags.Control, region);
+
+		SceneEditorSession.Active.UndoSystem.Insert("Paint Terrain Along Roads",
+			() => RestoreRegion(_Terrain, before, region),
+			() => RestoreRegion(_Terrain, after, region));
+
+		return changed;
+	}
+
+
+
+	/// <summary>
+	/// Visits every control map texel within reach of one straight piece of road and records how much of the
+	/// material it takes. A texel near two roads takes the most either of them gives it.
+	/// </summary>
+	private static void RasterisePiece(Dictionary<int, float> _Coverage, in Transform _TerrainTransform, int _Resolution, float _Cell,
+		Vector3 _From, Vector3 _To, float _Left, float _Right, float _Fade)
+	{
+		Vector3 fromLocal = _TerrainTransform.PointToLocal(_From);
+		Vector3 toLocal = _TerrainTransform.PointToLocal(_To);
+		float localReach = (MathF.Max(_Left, _Right) + _Fade) / _TerrainTransform.Scale.x;
+
+		int minX = Math.Clamp((int)MathF.Floor((MathF.Min(fromLocal.x, toLocal.x) - localReach) / _Cell), 0, _Resolution - 1);
+		int maxX = Math.Clamp((int)MathF.Ceiling((MathF.Max(fromLocal.x, toLocal.x) + localReach) / _Cell), 0, _Resolution - 1);
+		int minY = Math.Clamp((int)MathF.Floor((MathF.Min(fromLocal.y, toLocal.y) - localReach) / _Cell), 0, _Resolution - 1);
+		int maxY = Math.Clamp((int)MathF.Ceiling((MathF.Max(fromLocal.y, toLocal.y) + localReach) / _Cell), 0, _Resolution - 1);
+
+		if (minX > maxX || minY > maxY)
+			return;
+
+		var a = new Vector2(_From.x, _From.y);
+		var b = new Vector2(_To.x, _To.y);
+		Vector2 ab = b - a;
+		float lengthSquared = ab.LengthSquared;
+
+		for (int y = minY; y <= maxY; y++)
+		{
+			for (int x = minX; x <= maxX; x++)
+			{
+				Vector3 world = _TerrainTransform.PointToWorld(new Vector3((x + 0.5f) * _Cell, (y + 0.5f) * _Cell, 0.0f));
+				var point = new Vector2(world.x, world.y);
+
+				float t = lengthSquared > 0.0f ? Math.Clamp(Vector2.Dot(point - a, ab) / lengthSquared, 0.0f, 1.0f) : 0.0f;
+				float distance = (a + ab * t).Distance(point);
+
+				// Which side the texel is on: a road's edge may sit further out on one side than the other.
+				bool left = ab.x * (point.y - a.y) - ab.y * (point.x - a.x) >= 0.0f;
+
+				Take(_Coverage, x + y * _Resolution, Strength(distance, left ? _Left : _Right, _Fade));
+			}
+		}
+	}
+
+
+
+	/// <summary>
+	/// The same for the surface of a junction or a parking lot: everything inside its outline, and out from it.
+	/// </summary>
+	private static void RasteriseArea(Dictionary<int, float> _Coverage, in Transform _TerrainTransform, in Transform _NetworkTransform, int _Resolution, float _Cell,
+		Vector3 _Centre, IReadOnlyList<Vector3> _Polygon, float _Band, float _Fade)
+	{
+		if (_Polygon.Count < 3)
+			return;
+
+		var centre = _NetworkTransform.PointToWorld(_Centre);
+		var vertices = new Vector3[_Polygon.Count];
+		float localReach = (_Band + _Fade) / _TerrainTransform.Scale.x;
+		float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+
+		for (int i = 0; i < _Polygon.Count; i++)
+		{
+			vertices[i] = _NetworkTransform.PointToWorld(_Polygon[i]);
+
+			Vector3 local = _TerrainTransform.PointToLocal(vertices[i]);
+
+			minX = MathF.Min(minX, local.x - localReach);
+			maxX = MathF.Max(maxX, local.x + localReach);
+			minY = MathF.Min(minY, local.y - localReach);
+			maxY = MathF.Max(maxY, local.y + localReach);
+		}
+
+		int fromX = Math.Clamp((int)MathF.Floor(minX / _Cell), 0, _Resolution - 1);
+		int toX = Math.Clamp((int)MathF.Ceiling(maxX / _Cell), 0, _Resolution - 1);
+		int fromY = Math.Clamp((int)MathF.Floor(minY / _Cell), 0, _Resolution - 1);
+		int toY = Math.Clamp((int)MathF.Ceiling(maxY / _Cell), 0, _Resolution - 1);
+
+		for (int y = fromY; y <= toY; y++)
+		{
+			for (int x = fromX; x <= toX; x++)
+			{
+				Vector3 world = _TerrainTransform.PointToWorld(new Vector3((x + 0.5f) * _Cell, (y + 0.5f) * _Cell, 0.0f));
+				var point = new Vector2(world.x, world.y);
+
+				float distance = RoadTerrainConformer.FanHeight(centre, vertices, point) is not null
+					? 0.0f
+					: RoadTerrainConformer.OutlineDistance(vertices, point, out _);
+
+				Take(_Coverage, x + y * _Resolution, Strength(distance, _Band, _Fade));
+			}
+		}
+	}
+
+
+
+	private static void Take(Dictionary<int, float> _Coverage, int _Index, float _Strength)
+	{
+		if (_Strength <= 0.0f)
+			return;
+
+		if (!_Coverage.TryGetValue(_Index, out float existing) || _Strength > existing)
+			_Coverage[_Index] = _Strength;
+	}
+
+
+
+	/// <summary>
+	/// How much of the material a texel takes at a distance from a road: all of it out to the band's edge, then
+	/// smoothly to nothing over the fade.
+	/// </summary>
+	private static float Strength(float _Distance, float _Band, float _Fade)
+	{
+		if (_Distance <= _Band)
+			return 1.0f;
+
+		if (_Fade <= 0.0f)
+			return 0.0f;
+
+		float beyond = Math.Clamp((_Distance - _Band) / _Fade, 0.0f, 1.0f);
+
+		return 1.0f - beyond * beyond * (3.0f - 2.0f * beyond);
+	}
+
+
+
+	private static uint[] CopyRegion(uint[] _Data, int _Stride, RectInt _Region)
+	{
+		var region = new uint[_Region.Width * _Region.Height];
+
+		for (int y = 0; y < _Region.Height; y++)
+		{
+			for (int x = 0; x < _Region.Width; x++)
+				region[x + y * _Region.Width] = _Data[_Region.Left + x + (_Region.Top + y) * _Stride];
+		}
+
+		return region;
+	}
+
+
+
+	private static void RestoreRegion(Terrain _Terrain, uint[] _Region, RectInt _Rect)
+	{
+		if (!_Terrain.IsValid() || _Terrain.Storage is null)
+			return;
+
+		int stride = _Terrain.Storage.Resolution;
+
+		for (int y = 0; y < _Rect.Height; y++)
+		{
+			for (int x = 0; x < _Rect.Width; x++)
+				_Terrain.Storage.ControlMap[_Rect.Left + x + (_Rect.Top + y) * stride] = _Region[x + y * _Rect.Width];
+		}
+
+		_Terrain.SyncGPUTexture();
+		_Terrain.UpdateCollision(Terrain.SyncFlags.Control, _Rect);
+	}
+}
+
 
 
 file class RoadTerrainToolWidget : ToolSidebarWidget
@@ -752,6 +1099,14 @@ file class RoadTerrainToolWidget : ToolSidebarWidget
 		SidebarRows.Add(settings, serialized.GetProperty(nameof(RoadTerrainTool.Sink)));
 		settings.Add(new Label("The ground is cut and filled to meet every road and its border, then blends back over the falloff. Roads themselves do not move.") { WordWrap = true });
 		settings.Add(new Button("Conform Terrain To Roads", "landscape") { Clicked = m_Tool.ConformTerrain });
+
+		var painting = AddGroup("Painting");
+
+		SidebarRows.Add(painting, serialized.GetProperty(nameof(RoadTerrainTool.PaintMaterial)));
+		SidebarRows.Add(painting, serialized.GetProperty(nameof(RoadTerrainTool.PaintMargin)));
+		SidebarRows.Add(painting, serialized.GetProperty(nameof(RoadTerrainTool.PaintFade)));
+		painting.Add(new Label("Paints the material onto the terrain under every road and its border, out by the margin and fading from there. Give a country verge the same texture and the two merge.") { WordWrap = true });
+		painting.Add(new Button("Paint Terrain Along Roads", "brush") { Clicked = m_Tool.PaintTerrain });
 
 		var nodes = AddGroup("Nodes");
 

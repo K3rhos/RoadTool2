@@ -1,0 +1,19 @@
+{
+  "AlbedoImage": "thirdparty/3djungle/dirt/textures/dirt_basecolor_tmat.jpg",
+  "RoughnessImage": "thirdparty/3djungle/dirt/textures/dirt_roughness.jpg",
+  "NormalImage": "thirdparty/3djungle/dirt/textures/dirt_normal.jpg",
+  "HeightImage": "materials/default/default_ao.tga",
+  "AOImage": "thirdparty/3djungle/dirt/textures/dirt_ao.jpg",
+  "UVScale": 3,
+  "Metalness": 0,
+  "NormalStrength": 1,
+  "HeightBlendStrength": 1,
+  "DisplacementScale": 0,
+  "NoTiling": true,
+  "Surface": {
+    "Id": "14ae5abf-adef-457a-ab27-e3af86396a8c",
+    "Path": "surfaces/dirt.surface"
+  },
+  "__references": [],
+  "__version": 0
+}

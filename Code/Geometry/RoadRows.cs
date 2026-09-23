@@ -10,7 +10,12 @@ namespace RedSnail.RoadTool2;
 /// <see cref="Deviation"/> from its true curve. A straight street then costs two rows instead of dozens; a road
 /// whose shape matters at every row (a country verge wandering with noise) keeps them all.
 /// </summary>
-public readonly record struct RoadSimplify(bool Enabled, float Angle, float Deviation)
+/// <param name="MaxGap">
+/// How far apart the rows may be spread at the most, whatever the two measures allow; 0 for no limit. It is what a
+/// road type whose border has shape of its own between the rows (a verge wandering with noise) uses to stop the
+/// thinning running away with detail the sampler cannot see.
+/// </param>
+public readonly record struct RoadSimplify(bool Enabled, float Angle, float Deviation, float MaxGap = 0.0f)
 {
 	public void AddToHash(ref StableHash _Hash)
 	{
@@ -21,6 +26,7 @@ public readonly record struct RoadSimplify(bool Enabled, float Angle, float Devi
 
 		_Hash.Add(Angle);
 		_Hash.Add(Deviation);
+		_Hash.Add(MaxGap);
 	}
 }
 
@@ -66,7 +72,7 @@ internal static class RoadRows
 		for (int i = 0; i < rows.Count; i++)
 			RoadSurfaceBuilder.CrossSection(_Table, rows[i], _Width, 0.0f, out left[i], out right[i]);
 
-		var kept = Walk(0, rows.Count - 1, _Simplify, left, right);
+		var kept = Walk(rows, _Simplify, left, right);
 		var distances = new List<float>(kept.Count);
 
 		foreach (int index in kept)
@@ -79,19 +85,25 @@ internal static class RoadRows
 
 	/// <summary>
 	/// Walks the rows from one end, each time reaching as far ahead as the rows in between can be dropped for on
-	/// every track measured.
+	/// every track measured, and never further than the road type lets its rows be spread.
 	/// </summary>
-	private static List<int> Walk(int _From, int _To, in RoadSimplify _Simplify, params Vector3[][] _Tracks)
+	private static List<int> Walk(IReadOnlyList<float> _Rows, in RoadSimplify _Simplify, params Vector3[][] _Tracks)
 	{
-		var kept = new List<int>(_To - _From + 1) { _From };
-		int anchor = _From;
+		int last = _Rows.Count - 1;
+		var kept = new List<int>(_Rows.Count) { 0 };
+		int anchor = 0;
 
-		while (anchor < _To)
+		while (anchor < last)
 		{
 			int next = anchor + 1;
 
-			for (int candidate = anchor + 2; candidate <= _To; candidate++)
+			for (int candidate = anchor + 2; candidate <= last; candidate++)
 			{
+				// Two rows are never merged into one, however straight the road is, so the cap can only ever
+				// stop the reach growing — the rows already there all stay.
+				if (_Simplify.MaxGap > 0.0f && _Rows[candidate] - _Rows[anchor] > _Simplify.MaxGap)
+					break;
+
 				bool droppable = true;
 
 				foreach (var track in _Tracks)

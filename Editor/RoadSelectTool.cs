@@ -7,6 +7,22 @@ using Sandbox;
 namespace RedSnail.RoadTool2.Editor;
 
 /// <summary>
+/// Which frame a node's position is shown and edited in.
+/// </summary>
+public enum RoadNodeSpace
+{
+	/// <summary>
+	/// The network's own axes.
+	/// </summary>
+	Global,
+
+	/// <summary>
+	/// The node's road: X along it, Y across it. Height stays height either way.
+	/// </summary>
+	Local
+}
+
+/// <summary>
 /// Select and edit what is already there: click a node or a road to select it, drag a node along the ground (or use
 /// its move gizmo), drag a node's tangent handles to reshape the roads through it, Ctrl+click a road to insert a
 /// node, Delete to remove the selection.
@@ -42,7 +58,61 @@ public class RoadSelectTool : EditorTool
 
 	public RoadSegment SelectedSegment => Network.IsValid() ? Network.FindSegment(SelectedSegmentId) : null;
 
+	/// <summary>
+	/// Which frame the selected node's position is shown and edited in, the same choice the move gizmo offers.
+	/// Local puts X along the road through the node and Y across it, so a value typed there slides the node down
+	/// its own road rather than along a world axis.
+	/// </summary>
+	[Property, Title("Space")] public RoadNodeSpace NodeSpace { get; set; } = RoadNodeSpace.Global;
+
+	/// <summary>
+	/// The selected node's position, in whichever frame <see cref="NodeSpace"/> asks for.
+	/// </summary>
+	[Property, Title("Position")]
+	public Vector3 NodePosition
+	{
+		get
+		{
+			var network = Network;
+
+			if (!network.IsValid() || SelectedNode is not { } node)
+				return Vector3.Zero;
+
+			return NodeSpace == RoadNodeSpace.Local ? NodeAxes(network, node).Inverse * node.Position : node.Position;
+		}
+		set
+		{
+			var network = Network;
+
+			if (!network.IsValid() || SelectedNode is not { } node)
+				return;
+
+			network.MoveNode(node.Id, NodeSpace == RoadNodeSpace.Local ? NodeAxes(network, node) * value : value);
+		}
+	}
+
 	private RoadNetworkTool Root => Manager?.CurrentTool as RoadNetworkTool;
+
+
+
+	/// <summary>
+	/// The node's own axes in the network's space: forward along the road through it, laid flat so that Z stays
+	/// height and a number typed into it does not drag the node along the road's grade. World axes when no road at
+	/// the node gives a direction.
+	/// </summary>
+	private static Rotation NodeAxes(RoadNetwork _Network, RoadNode _Node)
+	{
+		var segment = _Network.GetSegmentsAt(_Node.Id).FirstOrDefault();
+
+		if (segment is null)
+			return Rotation.Identity;
+
+		// The handle points from the node into its road: at the road's end that is against the road's direction.
+		Vector3 handle = RoadNetwork.GetHandle(segment, _Node.Id);
+		Vector3 forward = (segment.EndNodeId == _Node.Id ? -handle : handle).WithZ(0.0f);
+
+		return forward.IsNearZeroLength ? Rotation.Identity : Rotation.LookAt(forward.Normal, Vector3.Up);
+	}
 
 	private DragKind m_Drag;
 	private int m_DragSegmentId = -1;
@@ -589,7 +659,15 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 		serialized.OnPropertyFinishEdit += _ => EndEdit();
 		serialized.OnPropertyChanged += property => m_Tool.OnNodeEdited(_Node, property?.Name);
 
-		SidebarRows.AddVector(group, serialized.GetProperty(nameof(RoadNode.Position)));
+		// The position is read off the tool rather than the node, so it can be shown in the node's own frame as
+		// well as the network's; its setter moves the node either way.
+		var tool = m_Tool.GetSerialized();
+
+		tool.OnPropertyStartEdit += _ => BeginEdit("Move Node");
+		tool.OnPropertyFinishEdit += _ => EndEdit();
+
+		SidebarRows.Add(group, tool.GetProperty(nameof(RoadSelectTool.NodeSpace)));
+		SidebarRows.AddVector(group, tool.GetProperty(nameof(RoadSelectTool.NodePosition)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadNode.AutoTangents)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadNode.CornerRadius)));
 		group.Add(new Label($"Roads at this node: {_Network.GetDegree(_Node.Id)}"));
