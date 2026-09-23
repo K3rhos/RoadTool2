@@ -82,13 +82,7 @@ public sealed class ParkingStyle : GameResource
 	{
 		base.PostReload();
 
-		var scene = Application.Editor.Scene;
-
-		if (!scene.IsValid())
-			return;
-
-		foreach (var network in scene.GetAllComponents<RoadNetwork>())
-			network.MarkDirty();
+		RoadNetwork.Editor_MarkDirty();
 	}
 
 

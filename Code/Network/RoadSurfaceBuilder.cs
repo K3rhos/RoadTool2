@@ -16,8 +16,11 @@ internal static class RoadSurfaceBuilder
 	/// </summary>
 	public static void CrossSection(RoadCurveTable _Table, float _Distance, in RoadWidth _Width, float _Lift, out Vector3 _Left, out Vector3 _Right)
 	{
-		Vector3 position = _Table.PositionAt(_Distance) + Vector3.Up * _Lift;
-		Vector3 right = RoadCurve.RightOf(_Table.TangentAt(_Distance));
+		_Table.Frame(_Distance, out Vector3 position, out Vector3 tangent);
+
+		position += Vector3.Up * _Lift;
+
+		Vector3 right = RoadCurve.RightOf(tangent);
 
 		_Left = position - right * _Width.LeftAt(_Distance);
 		_Right = position + right * _Width.RightAt(_Distance);

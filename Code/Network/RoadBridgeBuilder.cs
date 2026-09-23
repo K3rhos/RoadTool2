@@ -302,7 +302,16 @@ internal static class RoadBridgeBuilder
 		}
 
 		var handles = SharedHandles(_Mesh, _Path, positions, nodeCount);
-		bool flip = Vector3.Dot(Vector3.Cross(_Path[^1].Position - _Path[0].Position, _Path[0].Outward), Vector3.Up) > 0.0f;
+
+		// Which side of its path the strip lies on, summed over every step: the chord from the first point to the
+		// last says nothing on a path that turns back on itself (a loop ramp's deck), and a strip wound against its
+		// neighbours is a hole.
+		float winding = 0.0f;
+
+		for (int i = 0; i < _Path.Count - 1; i++)
+			winding += Vector3.Dot(Vector3.Cross(_Path[i + 1].Position - _Path[i].Position, _Path[i].Outward), Vector3.Up);
+
+		bool flip = winding > 0.0f;
 
 		for (int i = 0; i < _Path.Count - 1; i++)
 		{

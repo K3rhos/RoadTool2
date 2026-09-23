@@ -60,7 +60,7 @@ public class RoadNetworkTool : EditorTool
 
 
 	/// <summary>
-	/// Prefers a selected network (or a selected chunk's network), else the first one in the scene.
+	/// Prefers a selected network (or a selected chunk's network), else the scene's own.
 	/// </summary>
 	public void ResolveNetwork()
 	{
@@ -68,7 +68,7 @@ public class RoadNetworkTool : EditorTool
 			.Select(gameObject => gameObject.Components.Get<RoadNetwork>() ?? gameObject.Parent?.Components.Get<RoadNetwork>())
 			.FirstOrDefault(network => network.IsValid());
 
-		Network = selected ?? Scene.GetAllComponents<RoadNetwork>().FirstOrDefault(network => network.IsValid());
+		Network = selected ?? Scene.Get<RoadNetwork>();
 	}
 
 

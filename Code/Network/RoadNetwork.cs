@@ -89,16 +89,142 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 
 
 
+	/// <summary>
+	/// Everything that wants the network asks the scene for it (<c>Scene.Get&lt;RoadNetwork&gt;()</c>), so a second
+	/// one would be found by nobody in particular while both generated pieces over the same ground. The one that
+	/// arrives second takes itself out again.
+	/// </summary>
+	protected override void OnAwake()
+	{
+		var existing = Scene.Get<RoadNetwork>();
+
+		if (!existing.IsValid() || existing == this)
+			return;
+
+		Log.Warning($"Only one {nameof(RoadNetwork)} can exist in a scene: the one added to \"{GameObject.Name}\" has been removed. Use the one on \"{existing.GameObject.Name}\".");
+
+		Destroy();
+	}
+
+
+
+	protected override void OnEnabled()
+	{
+		MarkDirty();
+	}
+
+
+
+	/// <summary>
+	/// Undo/redo restore the graph by deserializing into this component; the list setters catch most of it, this
+	/// catches the rest (and inspector edits).
+	/// </summary>
+	protected override void OnValidate()
+	{
+		MarkDirty();
+	}
+
+
+
+	protected override void OnUpdate()
+	{
+		// Only the editor scene generates; in play mode the pieces are whatever was saved.
+		if (!Scene.IsEditor)
+			return;
+
+		Tick();
+	}
+
+
+
+	private readonly Dictionary<int, RoadNode> m_NodeIndex = new();
+	private readonly Dictionary<int, RoadSegment> m_SegmentIndex = new();
+	private readonly Dictionary<int, List<RoadSegment>> m_NodeSegments = new();
+	private static readonly List<RoadSegment> s_NoSegments = new();
+
+	private int m_GraphRevision;
+	private int m_IndexRevision = -1;
+
+	/// <summary>
+	/// Says the graph's shape changed, so the lookups below are rebuilt before they are next used. Called at the
+	/// mutation itself rather than at the end of the operation that does it, because the rest of that operation
+	/// reads the graph back (a road removed, then its node's degree asked for).
+	/// </summary>
+	private void InvalidateIndex()
+	{
+		m_GraphRevision++;
+	}
+
+
+
+	/// <summary>
+	/// Nodes and roads by id, and the roads at each node. Everything asks the graph these three questions
+	/// constantly — the reconcile per node and per road, the editor's picking once a frame for every road — and
+	/// answering them by scanning the lists makes all of that quadratic in the size of the network.
+	/// </summary>
+	private void EnsureIndex()
+	{
+		if (m_IndexRevision == m_GraphRevision)
+			return;
+
+		m_IndexRevision = m_GraphRevision;
+
+		m_NodeIndex.Clear();
+		m_SegmentIndex.Clear();
+
+		// Fresh lists rather than cleared ones: a caller may still be walking the last set.
+		m_NodeSegments.Clear();
+
+		foreach (var node in Nodes)
+		{
+			if (node is not null)
+				m_NodeIndex[node.Id] = node;
+		}
+
+		foreach (var segment in Segments)
+		{
+			if (segment is null)
+				continue;
+
+			m_SegmentIndex[segment.Id] = segment;
+
+			Attach(segment.StartNodeId, segment);
+
+			// A road looping back to its own node touches it once, as the scan it replaces counted it.
+			if (segment.EndNodeId != segment.StartNodeId)
+				Attach(segment.EndNodeId, segment);
+		}
+	}
+
+
+
+	private void Attach(int _NodeId, RoadSegment _Segment)
+	{
+		if (!m_NodeSegments.TryGetValue(_NodeId, out var list))
+		{
+			list = new List<RoadSegment>();
+			m_NodeSegments[_NodeId] = list;
+		}
+
+		list.Add(_Segment);
+	}
+
+
+
 	public RoadNode FindNode(int _Id)
 	{
-		return Nodes.FirstOrDefault(node => node.Id == _Id);
+		EnsureIndex();
+
+		return m_NodeIndex.GetValueOrDefault(_Id);
 	}
 
 
 
 	public RoadSegment FindSegment(int _Id)
 	{
-		return Segments.FirstOrDefault(segment => segment.Id == _Id);
+		EnsureIndex();
+
+		return m_SegmentIndex.GetValueOrDefault(_Id);
 	}
 
 
@@ -108,21 +234,33 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 		if (_NodeA == _NodeB)
 			return null;
 
-		return Segments.FirstOrDefault(segment => segment.Touches(_NodeA) && segment.Touches(_NodeB));
+		foreach (var segment in GetSegmentsAt(_NodeA))
+		{
+			if (segment.Touches(_NodeB))
+				return segment;
+		}
+
+		return null;
 	}
 
 
 
-	public IEnumerable<RoadSegment> GetSegmentsAt(int _NodeId)
+	/// <summary>
+	/// The roads at a node. The list belongs to the network: treat it as read only, and copy it before doing
+	/// anything that changes the graph while walking it.
+	/// </summary>
+	public IReadOnlyList<RoadSegment> GetSegmentsAt(int _NodeId)
 	{
-		return Segments.Where(segment => segment.Touches(_NodeId));
+		EnsureIndex();
+
+		return m_NodeSegments.TryGetValue(_NodeId, out var segments) ? segments : s_NoSegments;
 	}
 
 
 
 	public int GetDegree(int _NodeId)
 	{
-		return Segments.Count(segment => segment.Touches(_NodeId));
+		return GetSegmentsAt(_NodeId).Count;
 	}
 
 
@@ -196,6 +334,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 		};
 
 		Segments.Add(segment);
+		InvalidateIndex();
 
 		RefreshTangentsAround(_StartNodeId);
 		RefreshTangentsAround(_EndNodeId);
@@ -412,13 +551,19 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			return false;
 
 		Segments.Remove(segment);
+		InvalidateIndex();
 
 		foreach (int nodeId in new[] { segment.StartNodeId, segment.EndNodeId })
 		{
 			if (GetDegree(nodeId) == 0)
+			{
 				Nodes.RemoveAll(node => node.Id == nodeId);
+				InvalidateIndex();
+			}
 			else
+			{
 				RefreshTangentsAround(nodeId);
+			}
 		}
 
 		MarkDirty();
@@ -513,6 +658,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 		Segments.Remove(second);
 		Nodes.Remove(node);
 		Segments.Add(merged);
+		InvalidateIndex();
 
 		RefreshTangentsAround(startId);
 		RefreshTangentsAround(endId);

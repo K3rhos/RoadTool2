@@ -19,6 +19,12 @@ public sealed class RoadCurveTable
 
 	public int SampleCount => m_Positions.Length;
 
+	/// <summary>
+	/// The box the curve itself runs through. Picking widens it by the road's own reach and skips the road
+	/// altogether when the cursor's ray misses it, which is most of them in a city.
+	/// </summary>
+	public BBox Bounds { get; }
+
 
 
 	public RoadCurveTable(RoadCurve _Curve, int _Samples)
@@ -30,11 +36,16 @@ public sealed class RoadCurveTable
 		m_Distances = new float[count + 1];
 		m_Positions[0] = _Curve.P0;
 
+		var bounds = new BBox(_Curve.P0, _Curve.P0);
+
 		for (int i = 1; i <= count; i++)
 		{
 			m_Positions[i] = _Curve.Evaluate((float)i / count);
 			m_Distances[i] = m_Distances[i - 1] + Vector3.DistanceBetween(m_Positions[i - 1], m_Positions[i]);
+			bounds = bounds.AddPoint(m_Positions[i]);
 		}
+
+		Bounds = bounds;
 	}
 
 
@@ -104,5 +115,19 @@ public sealed class RoadCurveTable
 	public Vector3 TangentAt(float _Distance)
 	{
 		return Curve.Tangent(DistanceToT(_Distance));
+	}
+
+
+
+	/// <summary>
+	/// Where the road is at a distance and which way it runs there, in one go: everything that lays something
+	/// across the road wants both, and asking for them separately searches the table twice.
+	/// </summary>
+	public void Frame(float _Distance, out Vector3 _Position, out Vector3 _Tangent)
+	{
+		float t = DistanceToT(_Distance);
+
+		_Position = Curve.Evaluate(t);
+		_Tangent = Curve.Tangent(t);
 	}
 }

@@ -60,6 +60,7 @@ internal static class RoadPicker
 	public static RoadSegmentPick? PickSegment(RoadNetwork _Network, Ray _Ray, float _Margin = 0.0f)
 	{
 		var transform = _Network.WorldTransform;
+		var localRay = _Ray.ToLocal(transform);
 		RoadSegmentPick? best = null;
 		float bestLateral = float.MaxValue;
 
@@ -70,7 +71,13 @@ internal static class RoadPicker
 			if (table is null)
 				continue;
 
-			float reach = _Network.WidthOf(segment).MaxHalf + _Margin;
+			// The table is the road's own, so its width comes from it rather than from another lookup.
+			float reach = new RoadWidth(segment, table.Length).MaxHalf + _Margin;
+
+			// Roads the cursor is nowhere near are most of them: one box test each beats walking their samples.
+			if (!table.Bounds.Grow(reach).Trace(localRay, float.MaxValue, out _))
+				continue;
+
 			Vector3 previous = transform.PointToWorld(table.SamplePosition(0));
 
 			for (int i = 1; i < table.SampleCount; i++)

@@ -103,6 +103,8 @@ public sealed partial class RoadNetwork
 		var node = new RoadNode { Id = NextId++, Position = lot.EdgePoint(edge, along), AutoTangents = false };
 
 		Nodes.Add(node);
+		InvalidateIndex();
+
 		lot.Openings.Add(node.Id);
 		SnapOpenings(lot);
 		MarkDirty();

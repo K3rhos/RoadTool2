@@ -24,29 +24,28 @@ public static class RoadBorderDebugDump
 		if (scene is null)
 			return;
 
-		foreach (var network in scene.GetAllComponents<RoadNetwork>())
+		var network = scene.Get<RoadNetwork>();
+
+		if (!network.IsValid() || !network.DebugBorders || network.IsRebuilding)
+			return;
+
+		if (s_Written.TryGetValue(network.Id, out int revision) && revision == network.DebugRevision)
+			return;
+
+		s_Written[network.Id] = network.DebugRevision;
+
+		try
 		{
-			if (!network.IsValid() || !network.DebugBorders || network.IsRebuilding)
-				continue;
+			string path = GetPath(network);
 
-			if (s_Written.TryGetValue(network.Id, out int revision) && revision == network.DebugRevision)
-				continue;
+			Directory.CreateDirectory(Path.GetDirectoryName(path));
+			File.WriteAllText(path, network.BuildDebugRecord());
 
-			s_Written[network.Id] = network.DebugRevision;
-
-			try
-			{
-				string path = GetPath(network);
-
-				Directory.CreateDirectory(Path.GetDirectoryName(path));
-				File.WriteAllText(path, network.BuildDebugRecord());
-
-				Log.Info($"Road Tool 2: border debug written to {path}");
-			}
-			catch (Exception exception)
-			{
-				Log.Warning($"Road Tool 2: could not write the border debug record: {exception.Message}");
-			}
+			Log.Info($"Road Tool 2: border debug written to {path}");
+		}
+		catch (Exception exception)
+		{
+			Log.Warning($"Road Tool 2: could not write the border debug record: {exception.Message}");
 		}
 	}
 

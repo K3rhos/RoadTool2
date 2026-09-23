@@ -48,12 +48,24 @@ internal static class RoadMarkingBuilder
 		private readonly RoadWidth m_Width;
 		private readonly float m_Lift;
 
+		/// <summary>
+		/// The road's two edges at each row, worked out once: every point of paint stands on one of these cells, and
+		/// re-deriving its corners per point costs four searches of the curve table each time.
+		/// </summary>
+		private readonly Vector3[] m_Left;
+		private readonly Vector3[] m_Right;
+
 		public Surface(RoadCurveTable _Table, IReadOnlyList<float> _Rows, in RoadWidth _Width, float _Lift)
 		{
 			m_Table = _Table;
 			m_Rows = _Rows;
 			m_Width = _Width;
 			m_Lift = _Lift;
+			m_Left = new Vector3[_Rows.Count];
+			m_Right = new Vector3[_Rows.Count];
+
+			for (int i = 0; i < _Rows.Count; i++)
+				RoadSurfaceBuilder.CrossSection(_Table, _Rows[i], _Width, 0.0f, out m_Left[i], out m_Right[i]);
 		}
 
 		/// <summary>
@@ -63,9 +75,11 @@ internal static class RoadMarkingBuilder
 		/// </summary>
 		public void Place(float _Distance, float _Offset, out Vector3 _Point, out Vector3 _Right)
 		{
-			_Right = RoadCurve.RightOf(m_Table.TangentAt(_Distance));
+			m_Table.Frame(_Distance, out Vector3 centre, out Vector3 tangent);
 
-			Vector3 point = m_Table.PositionAt(_Distance) + _Right * _Offset;
+			_Right = RoadCurve.RightOf(tangent);
+
+			Vector3 point = centre + _Right * _Offset;
 
 			_Point = point.WithZ(CellHeight(_Distance, new Vector2(point.x, point.y)) + m_Lift);
 		}
@@ -151,8 +165,9 @@ internal static class RoadMarkingBuilder
 		/// </summary>
 		private Vector2 Offset(float _Distance, in Line _Line)
 		{
-			Vector3 right = RoadCurve.RightOf(m_Table.TangentAt(_Distance));
-			Vector3 point = m_Table.PositionAt(_Distance) + right * _Line.OffsetAt(m_Width, _Distance);
+			m_Table.Frame(_Distance, out Vector3 centre, out Vector3 tangent);
+
+			Vector3 point = centre + RoadCurve.RightOf(tangent) * _Line.OffsetAt(m_Width, _Distance);
 
 			return new Vector2(point.x, point.y);
 		}
@@ -173,21 +188,29 @@ internal static class RoadMarkingBuilder
 		{
 			int index = Bracket(_Distance);
 
-			RoadSurfaceBuilder.CrossSection(m_Table, m_Rows[index], m_Width, 0.0f, out Vector3 nearLeft, out Vector3 nearRight);
-			RoadSurfaceBuilder.CrossSection(m_Table, m_Rows[index + 1], m_Width, 0.0f, out Vector3 farLeft, out Vector3 farRight);
-
-			return RoadSurfaceBuilder.CellHeight(nearLeft, nearRight, farRight, farLeft, _Point);
+			return RoadSurfaceBuilder.CellHeight(m_Left[index], m_Right[index], m_Right[index + 1], m_Left[index + 1], _Point);
 		}
 
+		/// <summary>
+		/// The cell a distance falls in: the last row at or before it, never the very last row (which has no cell
+		/// beyond it).
+		/// </summary>
 		private int Bracket(float _Distance)
 		{
-			for (int i = m_Rows.Count - 2; i > 0; i--)
+			int low = 0;
+			int high = m_Rows.Count - 2;
+
+			while (low < high)
 			{
-				if (_Distance >= m_Rows[i])
-					return i;
+				int mid = (low + high + 1) / 2;
+
+				if (m_Rows[mid] <= _Distance)
+					low = mid;
+				else
+					high = mid - 1;
 			}
 
-			return 0;
+			return low;
 		}
 	}
 

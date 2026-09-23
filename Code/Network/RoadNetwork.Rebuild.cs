@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 41;
+	private const int GeneratorVersion = 42;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -85,34 +85,41 @@ public sealed partial class RoadNetwork
 	public void MarkDirty()
 	{
 		m_IsDirty = true;
-	}
 
-
-
-	protected override void OnEnabled()
-	{
-		MarkDirty();
+		// Undo, reloads and the inspector all land here with a graph nobody told us about piece by piece.
+		InvalidateIndex();
 	}
 
 
 
 	/// <summary>
-	/// Undo/redo restore the graph by deserializing into this component; the list setters catch most of it, this
-	/// catches the rest (and inspector edits).
+	/// Asks the network in the editor's scene for a reconcile. Editing a road type, a bridge, a prop set or a
+	/// parking layout changes roads that hold no copy of it, so the asset tells the network rather than the other
+	/// way round.
 	/// </summary>
-	protected override void OnValidate()
+	public static void Editor_MarkDirty()
 	{
-		MarkDirty();
+		var scene = Application.Editor?.Scene;
+
+		if (!scene.IsValid())
+			return;
+
+		var network = scene.Get<RoadNetwork>();
+
+		if (!network.IsValid())
+			return;
+
+		network.MarkDirty();
 	}
 
 
 
-	protected override void OnUpdate()
+	/// <summary>
+	/// One reconcile pass, then as much of the queued work as this frame's budget allows. Driven from the
+	/// component's own update in RoadNetwork.cs.
+	/// </summary>
+	private void Tick()
 	{
-		// Only the editor scene generates; in play mode the pieces are whatever was saved.
-		if (!Scene.IsEditor)
-			return;
-
 		if (m_IsDirty)
 		{
 			m_IsDirty = false;
@@ -1444,9 +1451,9 @@ public sealed partial class RoadNetwork
 	/// </summary>
 	private RoadProfile JunctionSurfaceProfile(RoadJunctionLayout _Layout)
 	{
-		var main = _Layout.Arms.OrderByDescending(arm => arm.Widths.Base).ThenBy(arm => arm.Segment.Id).First();
+		var main = _Layout.Arms.OrderByDescending(arm => arm.Widths.Base).ThenBy(arm => arm.Segment.Id).FirstOrDefault();
 
-		return ProfileOf(main.Segment);
+		return ProfileOf(main?.Segment);
 	}
 
 
