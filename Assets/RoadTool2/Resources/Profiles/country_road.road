@@ -1,8 +1,17 @@
 {
-  "RoadMaterial": "roadtool2/materials/asphalt.vmat",
+  "RoadMaterial": {
+    "Id": "d455ca89-b392-4406-b495-cb82f47ba3fa",
+    "Path": "roadtool2/materials/asphalt.vmat"
+  },
   "RoadTextureRepeat": 500,
+  "Simplify": true,
+  "SimplifyAngle": 1,
+  "SimplifyDeviation": 2,
   "Border": "CountrySide",
-  "BorderMaterial": "roadtool2/materials/gravel.vmat",
+  "BorderMaterial": {
+    "Id": "7161510f-1268-49e6-807c-7309e0f45e23",
+    "Path": "roadtool2/materials/gravel.vmat"
+  },
   "BorderTextureRepeat": 200,
   "BorderWidth": 50,
   "CurbHeight": 5,

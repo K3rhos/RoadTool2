@@ -19,9 +19,177 @@ internal static class RoadMarkingBuilder
 	public const float Lift = 0.6f;
 
 	/// <summary>
-	/// Row spacing along a line; finer than the surface so a curved line stays on the curved road.
+	/// The road surface as the mesh really is: flat between the rows the chunk was built on, not the curve those
+	/// rows were taken from. Paint placed on the curve instead hangs in the air over a crest and disappears into
+	/// the road in a dip, by as much as the surface's own chords cut the corner — which is why the paint's rows
+	/// are the road's rows, and anything in between (a dash ending mid-row) is placed on the chord.
 	/// </summary>
-	private const float RowSpacing = 40.0f;
+	private readonly struct Surface
+	{
+		/// <summary>
+		/// Two rows this close together are one: a dash ending a hair from a row must not make a sliver quad.
+		/// </summary>
+		private const float RowMargin = 0.5f;
+
+		/// <summary>
+		/// How far a painted line may cut the corner of its own path. Far tighter than the road's own tolerance:
+		/// a road cutting a couple of units off a bend is invisible across hundreds of units of asphalt, the same
+		/// couple of units in a line a few units wide is a kink.
+		/// </summary>
+		private const float LineDeviation = 0.25f;
+
+		/// <summary>
+		/// How many times a stretch of line may be halved to stay within that.
+		/// </summary>
+		private const int MaxSplits = 6;
+
+		private readonly RoadCurveTable m_Table;
+		private readonly IReadOnlyList<float> m_Rows;
+		private readonly RoadWidth m_Width;
+		private readonly float m_Lift;
+
+		public Surface(RoadCurveTable _Table, IReadOnlyList<float> _Rows, in RoadWidth _Width, float _Lift)
+		{
+			m_Table = _Table;
+			m_Rows = _Rows;
+			m_Width = _Width;
+			m_Lift = _Lift;
+		}
+
+		/// <summary>
+		/// Where a point of a line at an offset across the road goes, and the way across the road there: along the
+		/// road's own curve in plan, so the line reads smooth, at the height of the road cell it lies over, so it
+		/// lies flat on the surface as built.
+		/// </summary>
+		public void Place(float _Distance, float _Offset, out Vector3 _Point, out Vector3 _Right)
+		{
+			_Right = RoadCurve.RightOf(m_Table.TangentAt(_Distance));
+
+			Vector3 point = m_Table.PositionAt(_Distance) + _Right * _Offset;
+
+			_Point = point.WithZ(CellHeight(_Distance, new Vector2(point.x, point.y)) + m_Lift);
+		}
+
+		/// <summary>
+		/// The rows a stretch of paint is built on: its own two ends, every road row in between and, in each cell,
+		/// the place where the line crosses that cell's diagonal — so no part of the line spans a fold in the road
+		/// — and between those, wherever the line's own bend asks for one.
+		/// </summary>
+		public List<float> RowsBetween(float _From, float _To, in Line _Line)
+		{
+			var rows = new List<float> { _From };
+			float previous = _From;
+
+			foreach (float sticky in FoldsBetween(_From, _To, _Line))
+			{
+				Subdivide(rows, previous, sticky, _Line, MaxSplits);
+				previous = sticky;
+			}
+
+			Subdivide(rows, previous, _To, _Line, MaxSplits);
+
+			return rows;
+		}
+
+		/// <summary>
+		/// The places between two distances where the road folds under the line: its rows, and the diagonals of
+		/// the cells between them.
+		/// </summary>
+		private IEnumerable<float> FoldsBetween(float _From, float _To, Line _Line)
+		{
+			for (int i = 0; i + 1 < m_Rows.Count; i++)
+			{
+				float from = m_Rows[i];
+				float to = m_Rows[i + 1];
+
+				if (to <= _From || from >= _To)
+					continue;
+
+				if (from > _From + RowMargin && from < _To - RowMargin)
+					yield return from;
+
+				// The cell is split from its near left corner to its far right one, so a line a fraction of the way
+				// across the road crosses that diagonal the same fraction of the way along the cell.
+				float middle = (from + to) * 0.5f;
+				float width = m_Width.WidthAt(middle);
+				float fraction = width > 0.001f ? Math.Clamp((_Line.OffsetAt(m_Width, middle) + m_Width.LeftAt(middle)) / width, 0.0f, 1.0f) : 0.5f;
+				float crossing = MathX.Lerp(from, to, fraction);
+
+				if (crossing > MathF.Max(_From, from) + RowMargin && crossing < MathF.Min(_To, to) - RowMargin)
+					yield return crossing;
+			}
+		}
+
+		/// <summary>
+		/// Adds the rows a stretch of line needs to stay on its path, and its far end. A stretch straight enough
+		/// to be drawn in one go adds nothing but that end, which is what makes a dash on a straight road a single
+		/// quad however long it is.
+		/// </summary>
+		private void Subdivide(List<float> _Rows, float _From, float _To, in Line _Line, int _Splits)
+		{
+			if (_Splits > 0 && _To - _From > RowMargin * 2.0f)
+			{
+				float middle = (_From + _To) * 0.5f;
+				Vector2 from = Offset(_From, _Line);
+				Vector2 to = Offset(_To, _Line);
+				Vector2 centre = Offset(middle, _Line);
+
+				if (centre.Distance(Nearest(from, to, centre)) > LineDeviation)
+				{
+					Subdivide(_Rows, _From, middle, _Line, _Splits - 1);
+					Subdivide(_Rows, middle, _To, _Line, _Splits - 1);
+
+					return;
+				}
+			}
+
+			_Rows.Add(_To);
+		}
+
+		/// <summary>
+		/// Where the line runs in plan at a distance.
+		/// </summary>
+		private Vector2 Offset(float _Distance, in Line _Line)
+		{
+			Vector3 right = RoadCurve.RightOf(m_Table.TangentAt(_Distance));
+			Vector3 point = m_Table.PositionAt(_Distance) + right * _Line.OffsetAt(m_Width, _Distance);
+
+			return new Vector2(point.x, point.y);
+		}
+
+		private static Vector2 Nearest(Vector2 _From, Vector2 _To, Vector2 _Point)
+		{
+			Vector2 span = _To - _From;
+			float lengthSquared = span.LengthSquared;
+			float t = lengthSquared > 0.0f ? Math.Clamp(Vector2.Dot(_Point - _From, span) / lengthSquared, 0.0f, 1.0f) : 0.0f;
+
+			return _From + span * t;
+		}
+
+		/// <summary>
+		/// The height of the road cell a distance falls in, at a point in plan.
+		/// </summary>
+		private float CellHeight(float _Distance, Vector2 _Point)
+		{
+			int index = Bracket(_Distance);
+
+			RoadSurfaceBuilder.CrossSection(m_Table, m_Rows[index], m_Width, 0.0f, out Vector3 nearLeft, out Vector3 nearRight);
+			RoadSurfaceBuilder.CrossSection(m_Table, m_Rows[index + 1], m_Width, 0.0f, out Vector3 farLeft, out Vector3 farRight);
+
+			return RoadSurfaceBuilder.CellHeight(nearLeft, nearRight, farRight, farLeft, _Point);
+		}
+
+		private int Bracket(float _Distance)
+		{
+			for (int i = m_Rows.Count - 2; i > 0; i--)
+			{
+				if (_Distance >= m_Rows[i])
+					return i;
+			}
+
+			return 0;
+		}
+	}
 
 	/// <summary>
 	/// The share of a lane's width a side's extra has to reach before the lane line along the old edge is painted.
@@ -101,10 +269,12 @@ internal static class RoadMarkingBuilder
 	/// <summary>
 	/// Adds the lines over one stretch of the road to the mesh. An empty or inverted stretch adds nothing.
 	/// </summary>
-	public static void Build(PolygonMesh _Mesh, RoadCurveTable _Table, float _StartDistance, float _EndDistance, RoadSegment _Segment, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset, in DashPhase _Phase)
+	public static void Build(PolygonMesh _Mesh, RoadCurveTable _Table, IReadOnlyList<float> _RoadRows, float _StartDistance, float _EndDistance, RoadSegment _Segment, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset, in DashPhase _Phase)
 	{
-		if (_EndDistance - _StartDistance < 1.0f)
+		if (_EndDistance - _StartDistance < 1.0f || _RoadRows.Count < 2)
 			return;
+
+		var surface = new Surface(_Table, _RoadRows, _Width, _SurfaceOffset + Lift);
 
 		foreach (var line in CollectLines(_Segment, _Profile))
 		{
@@ -121,12 +291,12 @@ internal static class RoadMarkingBuilder
 					_ => (line with { Inset = line.Inset - spacing }, line with { Inset = line.Inset + spacing })
 				};
 
-				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, first, _Width, _SurfaceOffset, _Phase);
-				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, second, _Width, _SurfaceOffset, _Phase);
+				BuildLine(_Mesh, _Table, surface, _StartDistance, _EndDistance, first, _Width, _Phase);
+				BuildLine(_Mesh, _Table, surface, _StartDistance, _EndDistance, second, _Width, _Phase);
 			}
 			else
 			{
-				BuildLine(_Mesh, _Table, _StartDistance, _EndDistance, line, _Width, _SurfaceOffset, _Phase);
+				BuildLine(_Mesh, _Table, surface, _StartDistance, _EndDistance, line, _Width, _Phase);
 			}
 		}
 	}
@@ -207,14 +377,14 @@ internal static class RoadMarkingBuilder
 
 
 
-	private static void BuildLine(PolygonMesh _Mesh, RoadCurveTable _Table, float _StartDistance, float _EndDistance, in Line _Line, in RoadWidth _Width, float _SurfaceOffset, in DashPhase _Phase)
+	private static void BuildLine(PolygonMesh _Mesh, RoadCurveTable _Table, in Surface _Surface, float _StartDistance, float _EndDistance, in Line _Line, in RoadWidth _Width, in DashPhase _Phase)
 	{
 		if (_EndDistance - _StartDistance < 0.01f)
 			return;
 
 		if (!_Line.Style.IsDashed)
 		{
-			BuildStrip(_Mesh, _Table, _StartDistance, _EndDistance, _Line, _Width, _SurfaceOffset);
+			BuildStrip(_Mesh, _Surface, _StartDistance, _EndDistance, _Line, _Width);
 			return;
 		}
 
@@ -242,49 +412,49 @@ internal static class RoadMarkingBuilder
 			float from = _Phase.Reversed ? _Phase.Offset + length - runTo : runFrom - _Phase.Offset;
 			float to = _Phase.Reversed ? _Phase.Offset + length - runFrom : runTo - _Phase.Offset;
 
-			BuildStrip(_Mesh, _Table, from, to, _Line, _Width, _SurfaceOffset);
+			BuildStrip(_Mesh, _Surface, from, to, _Line, _Width);
 		}
 	}
 
 
 
 	/// <summary>
-	/// One painted strip: a quad strip of the line's width, sitting <see cref="Lift"/> above the surface, with the
-	/// quads left out wherever the line has run off the surface.
+	/// One painted strip: a quad strip of the line's width, sitting <see cref="Lift"/> above the surface, on the
+	/// road's own rows so it lies flat on the road however coarse the road is, with the quads left out wherever
+	/// the line has run off the surface.
 	/// </summary>
-	private static void BuildStrip(PolygonMesh _Mesh, RoadCurveTable _Table, float _StartDistance, float _EndDistance, in Line _Line, in RoadWidth _Width, float _SurfaceOffset)
+	private static void BuildStrip(PolygonMesh _Mesh, in Surface _Surface, float _StartDistance, float _EndDistance, in Line _Line, in RoadWidth _Width)
 	{
-		float length = _EndDistance - _StartDistance;
-		int steps = Math.Max(1, (int)MathF.Ceiling(length / RowSpacing));
+		var rows = _Surface.RowsBetween(_StartDistance, _EndDistance, _Line);
+		int count = rows.Count;
 		float halfWidth = _Line.Style.Width * 0.5f;
-		float lift = _SurfaceOffset + Lift;
+		float repeat = MathF.Max(_Line.Style.Width, 1.0f);
 		var material = _Line.Material;
 
-		var left = new HalfEdgeMesh.VertexHandle[steps + 1];
-		var right = new HalfEdgeMesh.VertexHandle[steps + 1];
-		var along = new float[steps + 1];
-		var visible = new bool[steps + 1];
+		var left = new HalfEdgeMesh.VertexHandle[count];
+		var right = new HalfEdgeMesh.VertexHandle[count];
+		var along = new float[count];
+		var visible = new bool[count];
 
-		for (int i = 0; i <= steps; i++)
+		for (int i = 0; i < count; i++)
 		{
-			float distance = i == steps ? _EndDistance : _StartDistance + length * i / steps;
+			float distance = rows[i];
 
 			visible[i] = _Line.VisibleAt(_Width, distance);
 
 			if (!visible[i])
 				continue;
 
-			Vector3 centre = _Table.PositionAt(distance) + Vector3.Up * lift;
-			Vector3 rightDirection = RoadCurve.RightOf(_Table.TangentAt(distance));
-			Vector3 onLine = centre + rightDirection * _Line.OffsetAt(_Width, distance);
+			_Surface.Place(distance, _Line.OffsetAt(_Width, distance), out Vector3 onLine, out Vector3 across);
 
-			var handles = _Mesh.AddVertices(onLine - rightDirection * halfWidth, onLine + rightDirection * halfWidth);
+			var handles = _Mesh.AddVertices(onLine - across * halfWidth, onLine + across * halfWidth);
+
 			left[i] = handles[0];
 			right[i] = handles[1];
-			along[i] = distance / MathF.Max(_Line.Style.Width, 1.0f);
+			along[i] = distance / repeat;
 		}
 
-		for (int i = 0; i < steps; i++)
+		for (int i = 0; i < count - 1; i++)
 		{
 			if (!visible[i] || !visible[i + 1])
 				continue;

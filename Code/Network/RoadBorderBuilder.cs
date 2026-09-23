@@ -176,20 +176,19 @@ internal static class RoadBorderBuilder
 	{
 		var mesh = new PolygonMesh();
 
-		float length = MathF.Max(0.0f, _EndDistance - _StartDistance);
-		int steps = Math.Max(1, (int)MathF.Ceiling(length / MathF.Max(1.0f, _Spacing)));
+		// The same rows the surface is built on, so the border's inner edge sits exactly on the road's.
+		var rows = RoadRows.Build(_Table, _StartDistance, _EndDistance, _Spacing, _Width, _Profile.Simplification);
 
-		var left = new List<PathPoint>(steps + 1);
-		var right = new List<PathPoint>(steps + 1);
+		var left = new List<PathPoint>(rows.Count);
+		var right = new List<PathPoint>(rows.Count);
 
 		_Debug?.Note($"SEGMENT start={_StartDistance:0.###} end={_EndDistance:0.###} length={_Table.Length:0.###} width={_Width.Base} extras={_Width.LeftStart:0.#}/{_Width.LeftEnd:0.#}/{_Width.RightStart:0.#}/{_Width.RightEnd:0.#} lift={_Lift} spacing={_Spacing} caps={_Caps} profile={_Profile.ResourceName} border={_Profile.Border} borderWidth={_Profile.BorderWidth} curb={_Profile.CurbHeight} bevel={_Profile.CurbBevel}");
 		_Debug?.Note($"BLEND left {Describe(_Blends.Left)}");
 		_Debug?.Note($"BLEND right {Describe(_Blends.Right)}");
 		_Debug?.Note($"TAPER left start={_Tapers.Left.StartLength:0.###}/{_Tapers.Left.StartWidth:0.###} end={_Tapers.Left.EndLength:0.###}/{_Tapers.Left.EndWidth:0.###} right start={_Tapers.Right.StartLength:0.###}/{_Tapers.Right.StartWidth:0.###} end={_Tapers.Right.EndLength:0.###}/{_Tapers.Right.EndWidth:0.###}");
 
-		for (int i = 0; i <= steps; i++)
+		foreach (float distance in rows)
 		{
-			float distance = i == steps ? _EndDistance : _StartDistance + length * i / steps;
 			Vector3 rightDirection = RoadCurve.RightOf(_Table.TangentAt(distance));
 
 			RoadSurfaceBuilder.CrossSection(_Table, distance, _Width, _Lift, out Vector3 leftPos, out Vector3 rightPos);

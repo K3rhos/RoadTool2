@@ -108,15 +108,14 @@ internal static class RoadBridgeBuilder
 		bool capStart = first && _Span.CapStart;
 		bool capEnd = last && _Span.CapEnd;
 
-		float length = MathF.Max(0.0f, _EndDistance - _StartDistance);
-		int steps = Math.Max(1, (int)MathF.Ceiling(length / MathF.Max(1.0f, _Spacing)));
+		// The same rows the road on the deck is built on, so the deck follows it exactly.
+		var rows = RoadRows.Build(_Table, _StartDistance, _EndDistance, _Spacing, _Width, _Profile.Simplification);
 
-		var left = new List<RoadBorderBuilder.PathPoint>(steps + 1);
-		var right = new List<RoadBorderBuilder.PathPoint>(steps + 1);
+		var left = new List<RoadBorderBuilder.PathPoint>(rows.Count);
+		var right = new List<RoadBorderBuilder.PathPoint>(rows.Count);
 
-		for (int i = 0; i <= steps; i++)
+		foreach (float distance in rows)
 		{
-			float distance = i == steps ? _EndDistance : _StartDistance + length * i / steps;
 			Vector3 rightDirection = RoadCurve.RightOf(_Table.TangentAt(distance));
 
 			RoadSurfaceBuilder.CrossSection(_Table, distance, _Width, _Lift, out Vector3 leftPos, out Vector3 rightPos);

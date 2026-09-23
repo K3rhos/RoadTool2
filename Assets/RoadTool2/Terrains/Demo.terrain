@@ -6,8 +6,14 @@
   "TerrainSize": 100000,
   "TerrainHeight": 10000,
   "Materials": [
-    "textures/grass/grass_cut.tmat",
-    "textures/gravel/gravel.tmat"
+    {
+      "Id": "07ac99b9-dc05-41ad-8536-64700d4efe53",
+      "Path": "textures/grass/grass_cut.tmat"
+    },
+    {
+      "Id": "bfc9583c-a54d-400e-b5a7-ef54cd0a41d0",
+      "Path": "textures/gravel/gravel.tmat"
+    }
   ],
   "MaterialSettings": {
     "HeightBlendEnabled": true,

@@ -87,6 +87,24 @@ public sealed class RoadProfile : GameResource
 	[Group("Road")] public Material RoadMaterial { get; set; }
 	[Group("Road"), Range(10.0f, 10000.0f)] public float RoadTextureRepeat { get; set { field = value.Clamp(1.0f, 100000.0f); } } = 500.0f;
 
+	/// <summary>
+	/// Thins the generated geometry out where this road type hardly bends: a straight street is a couple of long
+	/// quads instead of one every sample. Worth leaving off for a road whose shape matters at every row (a country
+	/// verge wanders with noise, and rows are what it wanders at).
+	/// </summary>
+	[Group("Optimization")] public bool Simplify { get; set; } = true;
+
+	/// <summary>
+	/// A row where the road turns less than this may be dropped.
+	/// </summary>
+	[Group("Optimization"), ShowIf(nameof(Simplify), true), Range(0.1f, 10.0f)] public float SimplifyAngle { get; set { field = value.Clamp(0.0f, 180.0f); } } = 1.0f;
+
+	/// <summary>
+	/// How far the thinned road may stray from its true curve. Small keeps a gentle bend smooth; 0 drops rows on
+	/// the turn angle alone, which lets a long shallow curve flatten.
+	/// </summary>
+	[Group("Optimization"), ShowIf(nameof(Simplify), true), Range(0.0f, 50.0f)] public float SimplifyDeviation { get; set { field = value.Clamp(0.0f, 10000.0f); } } = 2.0f;
+
 	[Group("Border")] public RoadBorderStyle Border { get; set; } = RoadBorderStyle.None;
 
 	/// <summary>
@@ -189,6 +207,11 @@ public sealed class RoadProfile : GameResource
 
 	[Hide, JsonIgnore] public bool HasBorder => Border != RoadBorderStyle.None;
 
+	/// <summary>
+	/// How this road type's rows are thinned out, as the row sampler wants it.
+	/// </summary>
+	[Hide, JsonIgnore] public RoadSimplify Simplification => new(Simplify, SimplifyAngle, SimplifyDeviation);
+
 	[Hide, JsonIgnore] public DecalDefinition ResolvedCrossingDecal => CrossingDecal ?? ResourceLibrary.Get<DecalDefinition>("roadtool2/resources/decals/crossing.decal");
 
 
@@ -244,6 +267,10 @@ public sealed class RoadProfile : GameResource
 	{
 		_Hash.Add(RoadMaterial?.ResourcePath);
 		_Hash.Add(RoadTextureRepeat);
+
+		// Where the rows sit is what the surface, the borders and the bridge are all built on, and every one of
+		// their signatures folds this one in.
+		Simplification.AddToHash(ref _Hash);
 	}
 
 

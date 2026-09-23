@@ -1,4 +1,7 @@
 {
+  "Simplify": true,
+  "SimplifyAngle": 1,
+  "SimplifyDeviation": 2,
   "RoadMaterial": "roadtool2/materials/asphalt.vmat",
   "RoadTextureRepeat": 500,
   "Border": "None",
