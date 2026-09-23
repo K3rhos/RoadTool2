@@ -47,11 +47,23 @@ public class RoadLotTool : EditorTool
 	private float m_Width;
 	private float m_Depth;
 
+	/// <summary>
+	/// The move gizmo's drag: where the lot's centre started, how far the arrows have been pulled since, and the
+	/// undo scope the whole drag lands in (one entry, not one per frame).
+	/// </summary>
+	private bool m_Moving;
+
+	private Vector3 m_MoveStartWorld;
+	private Vector3 m_MoveDelta;
+	private IDisposable m_UndoScope;
+
 
 
 	public override void OnDisabled()
 	{
 		m_FromNodeId = -1;
+
+		EndMove();
 	}
 
 
@@ -70,6 +82,9 @@ public class RoadLotTool : EditorTool
 		if (!network.IsValid())
 		{
 			m_FromNodeId = -1;
+
+			EndMove();
+
 			return;
 		}
 
@@ -84,14 +99,28 @@ public class RoadLotTool : EditorTool
 			return;
 		}
 
-		if (!Gizmo.HasMouseFocus || Gizmo.HasHovered)
-			return;
+		// The gizmo takes the cursor while it is hovered or held, so nothing below picks or deselects under it.
+		if (Gizmo.HasMouseFocus && !Gizmo.HasHovered && !m_Moving)
+			UpdatePicking(network);
 
-		var node = FreeNodeUnderCursor(network);
-		var joinable = node is null ? null : LotNear(network, node);
+		if (SelectedLot is { } selected)
+			UpdateLotGizmo(network, selected);
+		else
+			EndMove();
+	}
+
+
+
+	/// <summary>
+	/// Laying a lot out, joining a road to one, or picking one: whatever the cursor is over.
+	/// </summary>
+	private void UpdatePicking(RoadNetwork _Network)
+	{
+		var node = FreeNodeUnderCursor(_Network);
+		var joinable = node is null ? null : LotNear(_Network, node);
 
 		if (node is not null)
-			DrawNodeHint(network, node, joinable);
+			DrawNodeHint(_Network, node, joinable);
 
 		if (!Gizmo.WasLeftMousePressed)
 			return;
@@ -99,8 +128,8 @@ public class RoadLotTool : EditorTool
 		if (node is not null && joinable is not null)
 		{
 			// A road end close to a lot joins it as another way in, rather than starting a lot of its own.
-			using (SceneEditorSession.Active.UndoScope("Join Road To Parking Lot").WithComponentChanges(network).Push())
-				network.JoinOpening(joinable.Id, node.Id);
+			using (SceneEditorSession.Active.UndoScope("Join Road To Parking Lot").WithComponentChanges(_Network).Push())
+				_Network.JoinOpening(joinable.Id, node.Id);
 
 			Select(joinable);
 
@@ -116,7 +145,87 @@ public class RoadLotTool : EditorTool
 			return;
 		}
 
-		Select(LotUnderCursor(network));
+		Select(LotUnderCursor(_Network));
+	}
+
+
+
+	/// <summary>
+	/// The standard move gizmo on the selected lot. Its centre square drags along the ground, the arrows move on
+	/// world axes, or in Local space (the editor's Global/Local toggle) along the lot's own sides.
+	/// </summary>
+	private void UpdateLotGizmo(RoadNetwork _Network, RoadLot _Lot)
+	{
+		var transform = _Network.WorldTransform;
+		Vector3 centreWorld = transform.PointToWorld(_Lot.Centre);
+		var handleRotation = Gizmo.Settings.GlobalSpace ? Rotation.Identity : transform.Rotation * _Lot.Rotation;
+
+		using (Gizmo.Scope("roadtool2_lot_gizmo", new Transform(centreWorld)))
+		{
+			Gizmo.Hitbox.DepthBias = 0.01f;
+
+			Vector3? surfaceHit = null;
+
+			bool moved = Gizmo.Control.Position("position", Vector3.Zero, out Vector3 delta, handleRotation, centerRaycast: () =>
+			{
+				surfaceHit = GroundHit(centreWorld);
+				return surfaceHit;
+			});
+
+			if (moved)
+			{
+				if (!m_Moving)
+				{
+					m_Moving = true;
+					m_MoveStartWorld = centreWorld;
+					m_MoveDelta = Vector3.Zero;
+					m_UndoScope ??= SceneEditorSession.Active.UndoScope("Move Parking Lot").WithComponentChanges(_Network).Push();
+				}
+
+				Vector3 target;
+
+				if (surfaceHit is Vector3 hit)
+				{
+					target = hit;
+				}
+				else
+				{
+					m_MoveDelta += delta;
+					target = Gizmo.Snap(m_MoveStartWorld, m_MoveDelta, handleRotation);
+				}
+
+				_Network.MoveLot(_Lot.Id, transform.PointToLocal(target));
+			}
+		}
+
+		if (m_Moving && !Gizmo.IsLeftMouseDown)
+			EndMove();
+	}
+
+
+
+	/// <summary>
+	/// Where the ground is under the cursor, ignoring the network's own pieces; the plane through the lot when the
+	/// cursor is over nothing at all.
+	/// </summary>
+	private Vector3? GroundHit(Vector3 _Fallback)
+	{
+		var trace = Trace.WithoutTags(RoadNetwork.ChunkTag).Run();
+
+		if (trace.Hit)
+			return trace.EndPosition;
+
+		return new Plane(_Fallback, Vector3.Up).Trace(Gizmo.CurrentRay, true);
+	}
+
+
+
+	private void EndMove()
+	{
+		m_Moving = false;
+
+		m_UndoScope?.Dispose();
+		m_UndoScope = null;
 	}
 
 

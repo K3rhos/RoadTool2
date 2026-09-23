@@ -241,6 +241,41 @@ public sealed partial class RoadNetwork
 
 
 	/// <summary>
+	/// Moves a lot, taking its entrances with it: each opening node travels the same way the edge it sits on does,
+	/// so the roads into the lot bend to follow instead of the lot sliding out from under them (and none of them
+	/// jumps to another edge on the way, which is what re-snapping alone would do on a long drag).
+	/// </summary>
+	public void MoveLot(int _LotId, Vector3 _Centre)
+	{
+		var lot = FindLot(_LotId);
+
+		if (lot is null)
+			return;
+
+		// A drag that is holding still would otherwise rebuild the lot every frame over float noise.
+		if (Vector3.DistanceBetween(lot.Centre, _Centre) < 0.01f)
+			return;
+
+		Vector3 delta = _Centre - lot.Centre;
+
+		lot.Centre = _Centre;
+
+		foreach (int nodeId in lot.Openings)
+		{
+			if (FindNode(nodeId) is not { } node)
+				continue;
+
+			node.Position += delta;
+			RefreshTangentsAround(nodeId);
+		}
+
+		SnapOpenings(lot);
+		MarkDirty();
+	}
+
+
+
+	/// <summary>
 	/// Removes a lot. Its opening nodes stay where they are, with their roads; they are simply no longer openings.
 	/// </summary>
 	public void RemoveLot(int _LotId)
