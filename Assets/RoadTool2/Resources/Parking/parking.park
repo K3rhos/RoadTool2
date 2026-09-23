@@ -1,0 +1,19 @@
+{
+  "BayWidth": 150,
+  "BayDepth": 260,
+  "BayAngle": 0,
+  "EdgeBays": true,
+  "CentreRows": true,
+  "AisleWidth": 600,
+  "Line": {
+    "Enabled": true,
+    "Material": null,
+    "Width": 8,
+    "DashLength": 0,
+    "GapLength": 0,
+    "DoubleSpacing": 0
+  },
+  "BackLine": false,
+  "__references": [],
+  "__version": 0
+}

@@ -289,10 +289,21 @@ internal static class RoadTerrainConformer
 			}
 		}
 
-		// The junction surfaces and the pavements round them: whatever the roads nearby asked for, the ground has
-		// to stay under them.
+		// The junction and parking lot surfaces and the pavements round them: the ground is held under them and
+		// brought up to meet their kerbs, the same way a road holds it.
 		foreach (var (centre, polygon, pavementReach, pavementTop) in _Network.GetJunctionPolygons())
-			RasteriseJunction(caps, _Terrain, terrainTransform, networkTransform, resolution, cell, centre, polygon, pavementReach, pavementTop, _Sink);
+		{
+			road.Clear();
+			RasteriseArea(road, caps, _Terrain, terrainTransform, networkTransform, resolution, cell, centre, polygon, pavementReach, pavementTop, _Falloff, _Sink);
+
+			foreach (var (index, pull) in road)
+			{
+				if (entries.TryGetValue(index, out var existing))
+					entries[index] = new Entry(MathF.Min(existing.Distance, pull.Distance), existing.Distance <= pull.Distance ? existing.Anchor : pull.Anchor, existing.Remaining * pull.Remaining);
+				else
+					entries[index] = pull;
+			}
+		}
 
 		if (entries.Count == 0 && caps.Count == 0)
 			return 0;
@@ -483,12 +494,12 @@ internal static class RoadTerrainConformer
 	/// Keeps every height sample under a junction's surface (a fan from its centre to its outline) below it, and
 	/// every sample under the pavement round the outline just under the pavement's top.
 	/// </summary>
-	private static void RasteriseJunction(Dictionary<int, float> _Caps, Terrain _Terrain, in Transform _TerrainTransform, in Transform _NetworkTransform, int _Resolution, float _Cell,
-		Vector3 _Centre, IReadOnlyList<Vector3> _Polygon, float _PavementReach, float _PavementTop, float _Sink)
+	private static void RasteriseArea(Dictionary<int, Entry> _Area, Dictionary<int, float> _Caps, Terrain _Terrain, in Transform _TerrainTransform, in Transform _NetworkTransform, int _Resolution, float _Cell,
+		Vector3 _Centre, IReadOnlyList<Vector3> _Polygon, float _PavementReach, float _PavementTop, float _Falloff, float _Sink)
 	{
 		var centre = _NetworkTransform.PointToWorld(_Centre);
 		var vertices = new Vector3[_Polygon.Count];
-		float localReach = _PavementReach / _TerrainTransform.Scale.x;
+		float localReach = (_PavementReach + _Falloff) / _TerrainTransform.Scale.x;
 		float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
 
 		for (int i = 0; i < _Polygon.Count; i++)
@@ -513,26 +524,42 @@ internal static class RoadTerrainConformer
 			{
 				Vector3 world = _TerrainTransform.PointToWorld(new Vector3((x + 0.5f) * _Cell, (y + 0.5f) * _Cell, 0.0f));
 				var point = new Vector2(world.x, world.y);
-				float cap;
+				float distance;
+				float edge;
 
 				if (FanHeight(centre, vertices, point) is { } height)
 				{
-					cap = height - _Sink;
-				}
-				else if (_PavementReach > 0.0f && OutlineDistance(vertices, point, out float edgeHeight) <= _PavementReach)
-				{
-					// Flush with the pavement, a hair under, like the border along a road.
-					cap = edgeHeight + _PavementTop - 0.5f;
+					// Under the surface itself.
+					distance = 0.0f;
+					edge = height;
 				}
 				else
 				{
-					continue;
+					distance = OutlineDistance(vertices, point, out edge);
+
+					if (distance > _PavementReach + _Falloff)
+						continue;
 				}
+
+				// Under the surface the ground is kept below it; under the pavement it comes up to meet its outer
+				// edge; beyond that it is held there and let go over the falloff.
+				float anchor = _PavementReach > 0.0f
+					? MathX.Lerp(edge - _Sink, edge + _PavementTop - 0.5f, Math.Clamp(distance / _PavementReach, 0.0f, 1.0f))
+					: (distance <= 0.0f ? edge - _Sink : edge - 1.0f);
 
 				int index = x + y * _Resolution;
 
-				if (!_Caps.TryGetValue(index, out float existingCap) || cap < existingCap)
-					_Caps[index] = cap;
+				if (distance <= _PavementReach && (!_Caps.TryGetValue(index, out float existingCap) || anchor < existingCap))
+					_Caps[index] = anchor;
+
+				float beyond = MathF.Max(0.0f, distance - _PavementReach);
+				float release = _Falloff > 0.0f ? Math.Clamp(beyond / _Falloff, 0.0f, 1.0f) : (beyond > 0.0f ? 1.0f : 0.0f);
+				release = release * release * (3.0f - 2.0f * release);
+
+				if (_Area.TryGetValue(index, out var existing) && existing.Distance <= distance)
+					continue;
+
+				_Area[index] = new Entry(distance, anchor, release);
 			}
 		}
 	}

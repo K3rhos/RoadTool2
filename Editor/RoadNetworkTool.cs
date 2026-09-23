@@ -28,6 +28,7 @@ public class RoadNetworkTool : EditorTool
 		yield return new RoadDrawTool();
 		yield return new RoadSelectTool();
 		yield return new RoadLaneTool();
+		yield return new RoadLotTool();
 		yield return new RoadTerrainTool();
 	}
 

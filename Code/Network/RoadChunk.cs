@@ -48,6 +48,11 @@ public sealed class RoadChunk : Component
 	/// </summary>
 	[Property, ReadOnly] public int NodeId { get; set; } = -1;
 
+	/// <summary>
+	/// The parking lot this chunk is a piece of, or -1 for anything else.
+	/// </summary>
+	[Property, ReadOnly] public int LotId { get; set; } = -1;
+
 	[Property, ReadOnly] public RoadChunkKind Kind { get; set; } = RoadChunkKind.Surface;
 
 	[Property, ReadOnly] public int ChunkIndex { get; set; }
@@ -83,6 +88,8 @@ public sealed class RoadChunk : Component
 	public BorderDebug Debug { get; set; }
 
 	public bool IsJunction => NodeId >= 0;
+
+	public bool IsLot => LotId >= 0;
 
 
 

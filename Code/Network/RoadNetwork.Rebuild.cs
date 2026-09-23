@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 34;
+	private const int GeneratorVersion = 38;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -57,7 +57,7 @@ public sealed partial class RoadNetwork
 	/// chunks were built with; <see cref="ArmCrossings"/>, for its crossings piece, the crossing centre of each
 	/// arm that gets one. All keyed by segment.
 	/// </summary>
-	private readonly record struct RebuildJob(int SegmentId, int NodeId, RoadChunkKind Kind, long GroupSignature, ChunkPlan Plan, RoadCurveTable Table, RoadWidth Width, RoadProfile Profile, RoadJunctionLayout Junction, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> ArmBlends, Dictionary<int, SegmentBorderTapers> ArmTapers, Dictionary<int, float> ArmCrossings);
+	private readonly record struct RebuildJob(int SegmentId, int NodeId, RoadChunkKind Kind, long GroupSignature, ChunkPlan Plan, RoadCurveTable Table, RoadWidth Width, RoadProfile Profile, RoadJunctionLayout Junction, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> ArmBlends, Dictionary<int, SegmentBorderTapers> ArmTapers, Dictionary<int, float> ArmCrossings, RoadLot Lot);
 
 	private bool m_IsDirty;
 	private readonly Queue<RebuildJob> m_Jobs = new();
@@ -163,11 +163,24 @@ public sealed partial class RoadNetwork
 	{
 		PruneCurveTables();
 
+		// A lot's entrances belong to its edge, wherever the lot has been moved to since.
+		SnapAllOpenings();
+
 		var segmentChunks = new Dictionary<int, List<RoadChunk>>();
 		var junctionChunks = new Dictionary<(int NodeId, RoadChunkKind Kind), RoadChunk>();
+		var lotChunks = new Dictionary<(int LotId, RoadChunkKind Kind), RoadChunk>();
 
 		foreach (var chunk in GetChunks())
 		{
+			if (chunk.IsLot)
+			{
+				if (lotChunks.TryGetValue((chunk.LotId, chunk.Kind), out var duplicate))
+					duplicate.GameObject.Destroy();
+
+				lotChunks[(chunk.LotId, chunk.Kind)] = chunk;
+				continue;
+			}
+
 			if (chunk.IsJunction)
 			{
 				// Two pieces for one junction can only be leftovers; keep one, the reconcile sorts out whether it is current.
@@ -204,8 +217,9 @@ public sealed partial class RoadNetwork
 			liveSegments.Add(segment.Id);
 
 			var profile = ProfileOf(segment);
-			float trimStart = layouts.GetValueOrDefault(segment.StartNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f;
-			float trimEnd = layouts.GetValueOrDefault(segment.EndNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f;
+			// A road opening into a parking lot starts where the lot's surface stops covering it.
+			float trimStart = MathF.Max(layouts.GetValueOrDefault(segment.StartNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f, LotTrimAt(segment.StartNodeId));
+			float trimEnd = MathF.Max(layouts.GetValueOrDefault(segment.EndNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f, LotTrimAt(segment.EndNodeId));
 			var caps = ComputeBorderCaps(segment, layouts);
 			var blends = ComputeBorderBlends(segment, table, layouts);
 			var taper = ComputeBorderTaper(segment, table);
@@ -277,6 +291,8 @@ public sealed partial class RoadNetwork
 				marking.GameObject.Destroy();
 		}
 
+		ReconcileLots(lotChunks);
+
 		// Whatever no longer belongs to anything in the graph goes, locked or not.
 		foreach (var (segmentId, chunks) in segmentChunks)
 		{
@@ -311,7 +327,7 @@ public sealed partial class RoadNetwork
 		if (m_PendingJunctions.TryGetValue(key, out var pending) && pending.Signature == _Signature)
 			return;
 
-		m_Jobs.Enqueue(new RebuildJob(-1, _NodeId, _Kind, _Signature, default, null, RoadWidth.Uniform(0.0f), null, _Layout, _ArmBlends, _ArmTapers, _ArmCrossings));
+		m_Jobs.Enqueue(new RebuildJob(-1, _NodeId, _Kind, _Signature, default, null, RoadWidth.Uniform(0.0f), null, _Layout, _ArmBlends, _ArmTapers, _ArmCrossings, null));
 		m_PendingJunctions[key] = new PendingGroup(_Signature, 1);
 	}
 
@@ -570,6 +586,15 @@ public sealed partial class RoadNetwork
 	/// </summary>
 	public IEnumerable<(Vector3 Centre, IReadOnlyList<Vector3> Polygon, float PavementReach, float PavementTop)> GetJunctionPolygons()
 	{
+		// A parking lot is a junction as far as the ground under it is concerned.
+		foreach (var lot in Lots)
+		{
+			var profile = ProfileOf(lot);
+			bool pavement = profile.Border == RoadBorderStyle.Sidewalk;
+
+			yield return (lot.Centre, RoadLotOutline.Build(lot, OpeningsOf(lot)).Points, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f);
+		}
+
 		foreach (var layout in ComputeJunctionLayouts().Values)
 		{
 			if (layout.Polygon.Count < 3)
@@ -952,6 +977,15 @@ public sealed partial class RoadNetwork
 	private bool IsBorderOpen(RoadSegment _Segment, int _NodeId, bool _AtStart, Dictionary<int, RoadJunctionLayout> _Layouts, out bool _Left, out bool _Right)
 	{
 		int degree = GetDegree(_NodeId);
+
+		// A road opening into a lot runs into the lot's own kerb, which closes it off; two caps in one place
+		// would only fight each other.
+		if (LotAtOpening(_NodeId) is { } lot && ProfileOf(lot).Border == ProfileOf(_Segment).Border)
+		{
+			_Left = false;
+			_Right = false;
+			return false;
+		}
 
 		if (degree <= 1)
 		{
@@ -1435,7 +1469,7 @@ public sealed partial class RoadNetwork
 		}
 
 		foreach (var plan in _Plans)
-			m_Jobs.Enqueue(new RebuildJob(_Segment.Id, -1, plan.Kind, _GroupSignature, plan, _Table, new RoadWidth(_Segment, _Table.Length), _Profile, null, null, null, null));
+			m_Jobs.Enqueue(new RebuildJob(_Segment.Id, -1, plan.Kind, _GroupSignature, plan, _Table, new RoadWidth(_Segment, _Table.Length), _Profile, null, null, null, null, null));
 
 		m_PendingSegments[_Segment.Id] = new PendingGroup(_GroupSignature, _Plans.Count);
 	}
@@ -1449,6 +1483,21 @@ public sealed partial class RoadNetwork
 		while (budget > 0 && m_Jobs.Count > 0)
 		{
 			var job = m_Jobs.Dequeue();
+
+			if (job.Lot is not null)
+			{
+				var lotKey = (job.Lot.Id, job.Kind);
+
+				// Superseded by a newer version of the same lot, or the lot is gone.
+				if (!m_PendingLots.TryGetValue(lotKey, out var pendingLot) || pendingLot.Signature != job.GroupSignature)
+					continue;
+
+				BuildLotPiece(job);
+				budget--;
+
+				m_PendingLots.Remove(lotKey);
+				continue;
+			}
 
 			if (job.NodeId >= 0)
 			{
@@ -1664,7 +1713,7 @@ public sealed partial class RoadNetwork
 
 
 
-	private GameObject CreateChunkObject(string _Name, int _SegmentId, int _NodeId, RoadChunkKind _Kind, int _Index, int _Count, long _Signature, PolygonMesh _Mesh, BorderDebug _Debug)
+	private GameObject CreateChunkObject(string _Name, int _SegmentId, int _NodeId, RoadChunkKind _Kind, int _Index, int _Count, long _Signature, PolygonMesh _Mesh, BorderDebug _Debug, int _LotId = -1)
 	{
 		var child = new GameObject(GameObject, true, _Name);
 		child.Tags.Add(ChunkTag);
@@ -1672,6 +1721,7 @@ public sealed partial class RoadNetwork
 		var chunk = child.AddComponent<RoadChunk>();
 		chunk.SegmentId = _SegmentId;
 		chunk.NodeId = _NodeId;
+		chunk.LotId = _LotId;
 		chunk.Kind = _Kind;
 		chunk.ChunkIndex = _Index;
 		chunk.ChunkCount = _Count;

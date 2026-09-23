@@ -223,9 +223,9 @@ public sealed class RoadPropSet : GameResource
 	{
 		base.PostReload();
 
-		var scene = Game.ActiveScene;
+		var scene = Application.Editor.Scene;
 
-		if (scene is null)
+		if (!scene.IsValid())
 			return;
 
 		foreach (var network in scene.GetAllComponents<RoadNetwork>())

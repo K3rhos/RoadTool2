@@ -209,6 +209,20 @@ internal static class RoadBorderBuilder
 
 
 	/// <summary>
+	/// A border along a path that is not a road's edge: the rim of a parking lot, where the points and the way out
+	/// of the surface come from the caller. No taper, no corner lifts; just the profile's cross-section swept along.
+	/// </summary>
+	public static void BuildPath(PolygonMesh _Mesh, RoadProfile _Profile, IReadOnlyList<PathPoint> _Path, bool _CapStart, bool _CapEnd, BorderDebug _Debug = null)
+	{
+		if (!_Profile.HasBorder || _Path.Count < 2)
+			return;
+
+		Sweep(_Mesh, new ProfileShape(_Profile, default, 1.0f), _Path, _CapStart, _CapEnd, _Debug, BorderDebug.ArmColor, "lot");
+	}
+
+
+
+	/// <summary>
 	/// A profile as swept along one segment: the profile itself, plus the taper at the segment's ends and the
 	/// segment's length the taper is measured against.
 	/// </summary>
@@ -389,10 +403,16 @@ internal static class RoadBorderBuilder
 		// vertex blend weights, which need a material that mixes gravel in by them.
 		var blendMaterial = profile.Border == RoadBorderStyle.Sidewalk ? profile.BlendMaterial : null;
 
-		// One winding for the whole run, from which side of its path the border lies on. Deciding it per quad from
-		// the quad's own normal goes wrong on thin or folded quads, and a quad wound against its neighbours makes
-		// the mesh builder drop whichever face comes second: a hole.
-		bool flip = Vector3.Dot(Vector3.Cross(path[^1].Position - path[0].Position, path[0].Outward), Vector3.Up) > 0.0f;
+		// One winding for the whole run, from which side of its path the border lies on, summed over every step of
+		// the path: the first and last points alone say nothing on a run that comes back round on itself (the rim
+		// of a parking lot). Deciding it per quad from the quad's own normal goes wrong on thin or folded quads,
+		// and a quad wound against its neighbours makes the mesh builder drop whichever face comes second: a hole.
+		float winding = 0.0f;
+
+		for (int i = 0; i < path.Count - 1; i++)
+			winding += Vector3.Dot(Vector3.Cross(path[i + 1].Position - path[i].Position, path[i].Outward), Vector3.Up);
+
+		bool flip = winding > 0.0f;
 
 		_Debug?.Note($"RUN name=\"{_DebugName}\" rows={path.Count} (given {_Path.Count}) capStart={(_CapStart ? 1 : 0)} capEnd={(_CapEnd ? 1 : 0)} flip={(flip ? 1 : 0)}");
 

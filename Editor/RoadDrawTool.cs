@@ -35,11 +35,17 @@ public class RoadDrawTool : EditorTool
 		public readonly RoadNode Node;
 		public readonly RoadSegmentPick? Road;
 
-		public Target(Vector3 _World, RoadNode _Node, RoadSegmentPick? _Road)
+		/// <summary>
+		/// The parking lot the point opens into, when the cursor is over one: the road starts or ends on its edge.
+		/// </summary>
+		public readonly RoadLot Lot;
+
+		public Target(Vector3 _World, RoadNode _Node, RoadSegmentPick? _Road, RoadLot _Lot = null)
 		{
 			World = _World;
 			Node = _Node;
 			Road = _Road;
+			Lot = _Lot;
 		}
 	}
 
@@ -165,12 +171,16 @@ public class RoadDrawTool : EditorTool
 			}
 			else if (target.Road is null)
 			{
-				// The snapped end landing on a node joins it, like clicking the node would.
+				// The snapped end landing on a node joins it, like clicking the node would; landing on a parking
+				// lot opens into it, where the snapped line crosses its edge.
 				var joined = network.FindNearestNode(network.WorldTransform.PointToLocal(snappedWorld), SnapRadius);
 
-				target = joined is not null && joined.Id != m_LastNodeId
-					? new Target(network.WorldTransform.PointToWorld(joined.Position), joined, null)
-					: new Target(snappedWorld, null, null);
+				if (joined is not null && joined.Id != m_LastNodeId)
+					target = new Target(network.WorldTransform.PointToWorld(joined.Position), joined, null);
+				else if (LotUnder(network, network.WorldTransform.PointToLocal(snappedWorld)) is { } snappedLot)
+					target = new Target(EdgeWorld(network, snappedLot, snappedWorld), null, null, snappedLot);
+				else
+					target = new Target(snappedWorld, null, null);
 
 				m_SnappedAngle = angle;
 			}
@@ -522,6 +532,10 @@ public class RoadDrawTool : EditorTool
 		if (road is { } pick)
 			return new Target(transform.PointToWorld(pick.LocalPoint), null, pick);
 
+		// Over a parking lot: the road meets it on the nearest point of its edge.
+		if (LotUnder(_Network, transform.PointToLocal(_CursorWorld)) is { } lot)
+			return new Target(EdgeWorld(_Network, lot, _CursorWorld), null, null, lot);
+
 		return new Target(_CursorWorld, null, null);
 	}
 
@@ -569,6 +583,11 @@ public class RoadDrawTool : EditorTool
 			{
 				node = network.SplitSegment(pick.Segment.Id, pick.T, MinEndDistance);
 			}
+			else if (_Target.Lot is { } lot)
+			{
+				// A new way into the lot, on its edge where the cursor was.
+				node = network.AddOpening(lot.Id, network.WorldTransform.PointToLocal(_Target.World));
+			}
 			else
 			{
 				node = network.AddNode(network.WorldTransform.PointToLocal(_Target.World));
@@ -599,6 +618,37 @@ public class RoadDrawTool : EditorTool
 
 			m_LastNodeId = node.Id;
 		}
+	}
+
+
+
+	/// <summary>
+	/// Where on a lot's edge a point over it belongs, in world space.
+	/// </summary>
+	private static Vector3 EdgeWorld(RoadNetwork _Network, RoadLot _Lot, Vector3 _World)
+	{
+		var transform = _Network.WorldTransform;
+		int edge = _Lot.NearestEdge(transform.PointToLocal(_World), out float along);
+
+		return transform.PointToWorld(_Lot.EdgePoint(edge, along));
+	}
+
+
+
+	/// <summary>
+	/// The parking lot a point in the network's space lies on, or just outside: a road drawn there opens into it.
+	/// </summary>
+	private static RoadLot LotUnder(RoadNetwork _Network, Vector3 _Local)
+	{
+		foreach (var lot in _Network.Lots)
+		{
+			Vector2 local = lot.Local(_Local);
+
+			if (MathF.Abs(local.x) <= lot.HalfWidth && MathF.Abs(local.y) <= lot.HalfDepth)
+				return lot;
+		}
+
+		return null;
 	}
 
 

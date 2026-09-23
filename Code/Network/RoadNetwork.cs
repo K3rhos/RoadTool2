@@ -539,6 +539,13 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 		Vector3 startHandle = _Segment.StartTangent;
 		Vector3 endHandle = _Segment.EndTangent;
 
+		// A road opening into a parking lot leaves its edge square on, so the two surfaces butt together.
+		if (TryLotOutward(_Segment.StartNodeId, out Vector3 startOutward))
+			startHandle = startOutward * startHandle.Length;
+
+		if (TryLotOutward(_Segment.EndNodeId, out Vector3 endOutward))
+			endHandle = endOutward * endHandle.Length;
+
 		// A ramp's end at a junction is moved to the side of the road it runs off, and turned to run along it.
 		if (_Segment.Ramp)
 		{
