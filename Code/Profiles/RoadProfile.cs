@@ -187,20 +187,31 @@ public sealed class RoadProfile : GameResource
 	[Group("Markings"), Range(-100.0f, 100.0f)] public float EdgeLineMargin { get; set { field = value.Clamp(-1000.0f, 1000.0f); } } = -10.0f;
 
 	/// <summary>
-	/// Pedestrian crossings across every arm of a junction, just outside the junction, as decals projected onto
-	/// the road. Roads can still turn theirs off end by end.
+	/// Pedestrian crossings across every arm of a junction, just outside the junction: a row of painted stripes
+	/// laid on the road, as many as its width has room for. Roads can still turn theirs off end by end.
 	/// </summary>
 	[Group("Crossings")] public bool Crossings { get; set; } = false;
 
 	/// <summary>
-	/// The decal a crossing is drawn with. Empty uses the tool's zebra stripes.
+	/// The paint a crossing's stripes are made of. Empty uses the tool's own.
 	/// </summary>
-	[Group("Crossings"), ShowIf(nameof(Crossings), true)] public DecalDefinition CrossingDecal { get; set; }
+	[Group("Crossings"), ShowIf(nameof(Crossings), true)] public Material CrossingMaterial { get; set; }
 
 	/// <summary>
-	/// How far along the road the crossing reaches.
+	/// How far along the road the crossing reaches: the length of each of its stripes.
 	/// </summary>
 	[Group("Crossings"), ShowIf(nameof(Crossings), true), Range(20.0f, 500.0f)] public float CrossingDepth { get; set { field = value.Clamp(1.0f, 10000.0f); } } = 120.0f;
+
+	/// <summary>
+	/// How wide one stripe of a crossing is, across the road.
+	/// </summary>
+	[Group("Crossings"), ShowIf(nameof(Crossings), true), Range(5.0f, 200.0f)] public float CrossingStripeWidth { get; set { field = value.Clamp(1.0f, 10000.0f); } } = 40.0f;
+
+	/// <summary>
+	/// The gap left between one stripe and the next. How many stripes a crossing gets follows from this and the
+	/// width of the road it is painted on.
+	/// </summary>
+	[Group("Crossings"), ShowIf(nameof(Crossings), true), Range(5.0f, 200.0f)] public float CrossingStripeGap { get; set { field = value.Clamp(1.0f, 10000.0f); } } = 40.0f;
 
 	/// <summary>
 	/// Gap between the crossing and the road's edges on each side.
@@ -230,7 +241,7 @@ public sealed class RoadProfile : GameResource
 	/// </summary>
 	[Hide, JsonIgnore] public bool BorderWanders => Border == RoadBorderStyle.CountrySide && Chaos > 0.0f && ChaosScale > 0.0f;
 
-	[Hide, JsonIgnore] public DecalDefinition ResolvedCrossingDecal => CrossingDecal ?? ResourceLibrary.Get<DecalDefinition>("roadtool2/resources/decals/crossing.decal");
+	[Hide, JsonIgnore] public Material ResolvedCrossingMaterial => CrossingMaterial ?? Material.Load("roadtool2/materials/crossingstrip.vmat");
 
 
 
@@ -240,8 +251,10 @@ public sealed class RoadProfile : GameResource
 	public void AddCrossingsToHash(ref StableHash _Hash)
 	{
 		_Hash.Add(Crossings ? 1 : 0);
-		_Hash.Add(CrossingDecal?.ResourcePath);
+		_Hash.Add(CrossingMaterial?.ResourcePath);
 		_Hash.Add(CrossingDepth);
+		_Hash.Add(CrossingStripeWidth);
+		_Hash.Add(CrossingStripeGap);
 		_Hash.Add(CrossingInset);
 		_Hash.Add(CrossingClearance);
 	}

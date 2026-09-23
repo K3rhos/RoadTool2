@@ -327,6 +327,49 @@ internal static class RoadMarkingBuilder
 
 
 	/// <summary>
+	/// Paints a pedestrian crossing over a stretch of the road: stripes laid along the way traffic runs, side by
+	/// side across the road, as many as the road's width has room for. Each one is built exactly as a solid line
+	/// is, so it sits on the surface the way the rest of the paint does.
+	/// </summary>
+	public static void BuildCrossing(PolygonMesh _Mesh, RoadCurveTable _Table, IReadOnlyList<float> _RoadRows, float _From, float _To, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset)
+	{
+		if (_To - _From < 1.0f || _RoadRows.Count < 2)
+			return;
+
+		var material = _Profile.ResolvedCrossingMaterial;
+
+		if (material is null)
+			return;
+
+		float stripe = MathF.Max(1.0f, _Profile.CrossingStripeWidth);
+		float pitch = stripe + MathF.Max(0.0f, _Profile.CrossingStripeGap);
+
+		// The band the stripes fill: the road as it is halfway through the crossing, less the margin its ends keep
+		// from the kerbs.
+		float middle = (_From + _To) * 0.5f;
+		float left = -_Width.LeftAt(middle) + _Profile.CrossingInset;
+		float right = _Width.RightAt(middle) - _Profile.CrossingInset;
+		float usable = right - left;
+
+		if (usable < stripe)
+			return;
+
+		// As many as fit, spread about the middle of the band, so a wider road simply gets more of them and a
+		// narrower one fewer without anything being said about the number.
+		int count = Math.Max(1, (int)MathF.Floor((usable + pitch - stripe) / pitch));
+		float span = count * pitch - (pitch - stripe);
+		float first = left + (usable - span) * 0.5f + stripe * 0.5f;
+
+		var surface = new Surface(_Table, _RoadRows, _Width, _SurfaceOffset + Lift);
+		var style = new RoadLineStyle { Width = stripe };
+
+		for (int i = 0; i < count; i++)
+			BuildStrip(_Mesh, surface, _From, _To, new Line(first + i * pitch, 0, 0.0f, 0, 0.0f, style, material), _Width);
+	}
+
+
+
+	/// <summary>
 	/// The lines a road is due, from its lanes: between lanes going the same way a lane line, where the direction
 	/// changes the centre line, and along both edges the edge line. A road that only ever grows (extras of zero or
 	/// more) keeps its lanes on the base width and takes each side's extra as a lane of its own, with a lane line

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Sandbox;
@@ -460,7 +460,7 @@ public sealed partial class RoadNetwork
 		if (m_PendingLots.TryGetValue(key, out var pending) && pending.Signature == _Signature)
 			return;
 
-		m_Jobs.Enqueue(new RebuildJob(-1, -1, _Kind, _Signature, default, null, RoadWidth.Uniform(0.0f), null, null, null, null, null, _Lot));
+		m_Jobs.Enqueue(new RebuildJob(-1, -1, _Kind, _Signature, default, null, RoadWidth.Uniform(0.0f), null, null, null, null, _Lot));
 		m_PendingLots[key] = new PendingGroup(_Signature, 1);
 	}
 

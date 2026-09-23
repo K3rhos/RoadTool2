@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Sandbox;
@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 48;
+	private const int GeneratorVersion = 49;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -47,17 +47,16 @@ public sealed partial class RoadNetwork
 	/// border's run-out into a different road type at either end; <see cref="Bridge"/> is the whole built range
 	/// and the ends of a bridge piece; the other kinds ignore them.
 	/// </summary>
-	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature, LineRange Lines = default, SegmentBorderTapers Taper = default, RoadBridgeBuilder.BridgeSpan Bridge = default, RoadPropBuilder.PropSpan Props = default, RoadMarkingBuilder.DashPhase Dash = default);
+	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature, LineRange Lines = default, SegmentBorderTapers Taper = default, RoadBridgeBuilder.BridgeSpan Bridge = default, RoadPropBuilder.PropSpan Props = default, RoadMarkingBuilder.DashPhase Dash = default, SegmentCrossings Crossings = default);
 
 	private readonly record struct PendingGroup(long Signature, int Remaining);
 
 	/// <summary>
 	/// One piece to (re)build: a chunk of a segment, or, when <see cref="NodeId"/> is set, a piece of a junction.
 	/// <see cref="ArmBlends"/> and <see cref="ArmTapers"/> carry, for a junction's border piece, what each arm's
-	/// chunks were built with; <see cref="ArmCrossings"/>, for its crossings piece, the crossing centre of each
-	/// arm that gets one. All keyed by segment.
+	/// chunks were built with, keyed by segment.
 	/// </summary>
-	private readonly record struct RebuildJob(int SegmentId, int NodeId, RoadChunkKind Kind, long GroupSignature, ChunkPlan Plan, RoadCurveTable Table, RoadWidth Width, RoadProfile Profile, RoadJunctionLayout Junction, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> ArmBlends, Dictionary<int, SegmentBorderTapers> ArmTapers, Dictionary<int, float> ArmCrossings, RoadLot Lot);
+	private readonly record struct RebuildJob(int SegmentId, int NodeId, RoadChunkKind Kind, long GroupSignature, ChunkPlan Plan, RoadCurveTable Table, RoadWidth Width, RoadProfile Profile, RoadJunctionLayout Junction, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> ArmBlends, Dictionary<int, SegmentBorderTapers> ArmTapers, RoadLot Lot);
 
 	private bool m_IsDirty;
 	private readonly Queue<RebuildJob> m_Jobs = new();
@@ -212,7 +211,6 @@ public sealed partial class RoadNetwork
 		var liveSegments = new HashSet<int>();
 		var segmentBlends = new Dictionary<int, RoadBorderBuilder.SegmentBorderBlends>();
 		var segmentTapers = new Dictionary<int, SegmentBorderTapers>();
-		var segmentCrossings = new Dictionary<int, SegmentCrossings>();
 
 		foreach (var segment in Segments)
 		{
@@ -234,12 +232,11 @@ public sealed partial class RoadNetwork
 			var lines = ComputeLineRange(table, profile, trimStart, trimEnd, crossings);
 			var dash = dashPhases.GetValueOrDefault(segment.Id);
 
-			var plans = PlanChunks(segment, table, trimStart, trimEnd, profile, caps, blends, taper, ComputeSurfaceSignature(segment, table.Curve, profile), lines, dash);
+			var plans = PlanChunks(segment, table, trimStart, trimEnd, profile, caps, blends, taper, ComputeSurfaceSignature(segment, table.Curve, profile), lines, dash, crossings);
 			long groupSignature = CombineSignatures(plans);
 
 			segmentBlends[segment.Id] = blends;
 			segmentTapers[segment.Id] = taper;
-			segmentCrossings[segment.Id] = crossings;
 			segmentChunks.TryGetValue(segment.Id, out var existing);
 
 			if (IsSegmentUpToDate(existing, plans))
@@ -278,23 +275,9 @@ public sealed partial class RoadNetwork
 				border.GameObject.Destroy();
 			}
 
-			// The junction's crossings: one decal per arm that gets one at this end.
-			var armCrossings = new Dictionary<int, float>();
-
-			foreach (var arm in layout.Arms)
-			{
-				if (!segmentCrossings.TryGetValue(arm.Segment.Id, out var crossing))
-					continue;
-
-				if (arm.AtStart && crossing.AtStart)
-					armCrossings[arm.Segment.Id] = crossing.StartCentre;
-				else if (!arm.AtStart && crossing.AtEnd)
-					armCrossings[arm.Segment.Id] = crossing.EndCentre;
-			}
-
-			if (armCrossings.Count > 0)
-				ReconcileJunctionPiece(nodeId, layout, RoadChunkKind.Marking, ComputeJunctionMarkingSignature(layout, armCrossings), junctionChunks, null, null, armCrossings);
-			else if (junctionChunks.TryGetValue((nodeId, RoadChunkKind.Marking), out var marking))
+			// Crossings used to be decals hung on the junction; the roads paint their own now, so anything left
+			// here from then goes.
+			if (junctionChunks.TryGetValue((nodeId, RoadChunkKind.Marking), out var marking))
 				marking.GameObject.Destroy();
 		}
 
@@ -324,7 +307,7 @@ public sealed partial class RoadNetwork
 
 
 
-	private void ReconcileJunctionPiece(int _NodeId, RoadJunctionLayout _Layout, RoadChunkKind _Kind, long _Signature, Dictionary<(int NodeId, RoadChunkKind Kind), RoadChunk> _Existing, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> _ArmBlends, Dictionary<int, SegmentBorderTapers> _ArmTapers = null, Dictionary<int, float> _ArmCrossings = null)
+	private void ReconcileJunctionPiece(int _NodeId, RoadJunctionLayout _Layout, RoadChunkKind _Kind, long _Signature, Dictionary<(int NodeId, RoadChunkKind Kind), RoadChunk> _Existing, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> _ArmBlends, Dictionary<int, SegmentBorderTapers> _ArmTapers = null)
 	{
 		var key = (_NodeId, _Kind);
 
@@ -334,7 +317,7 @@ public sealed partial class RoadNetwork
 		if (m_PendingJunctions.TryGetValue(key, out var pending) && pending.Signature == _Signature)
 			return;
 
-		m_Jobs.Enqueue(new RebuildJob(-1, _NodeId, _Kind, _Signature, default, null, RoadWidth.Uniform(0.0f), null, _Layout, _ArmBlends, _ArmTapers, _ArmCrossings, null));
+		m_Jobs.Enqueue(new RebuildJob(-1, _NodeId, _Kind, _Signature, default, null, RoadWidth.Uniform(0.0f), null, _Layout, _ArmBlends, _ArmTapers, null));
 		m_PendingJunctions[key] = new PendingGroup(_Signature, 1);
 	}
 
@@ -1087,7 +1070,7 @@ public sealed partial class RoadNetwork
 	/// segment rather than to the trimmed length means a junction change at one end only touches the chunk next
 	/// to it.
 	/// </summary>
-	private List<ChunkPlan> PlanChunks(RoadSegment _Segment, RoadCurveTable _Table, float _TrimStart, float _TrimEnd, RoadProfile _Profile, BorderCaps _Caps, in RoadBorderBuilder.SegmentBorderBlends _Blends, in SegmentBorderTapers _Taper, long _SurfaceSignature, in LineRange _Lines, in RoadMarkingBuilder.DashPhase _Dash)
+	private List<ChunkPlan> PlanChunks(RoadSegment _Segment, RoadCurveTable _Table, float _TrimStart, float _TrimEnd, RoadProfile _Profile, BorderCaps _Caps, in RoadBorderBuilder.SegmentBorderBlends _Blends, in SegmentBorderTapers _Taper, long _SurfaceSignature, in LineRange _Lines, in RoadMarkingBuilder.DashPhase _Dash, in SegmentCrossings _Crossings)
 	{
 		float length = _Table.Length;
 		int count = Math.Max(1, (int)MathF.Ceiling(length / ChunkLength));
@@ -1146,7 +1129,8 @@ public sealed partial class RoadNetwork
 			propSignature = propHash.Value;
 		}
 
-		bool markings = RoadMarkingBuilder.HasMarkings(_Segment, _Profile);
+		// A road with no lines of its own still needs the piece when it has a crossing to paint.
+		bool markings = RoadMarkingBuilder.HasMarkings(_Segment, _Profile) || _Crossings.AtStart || _Crossings.AtEnd;
 		var markingHash = StableHash.Create();
 		markingHash.Add(_SurfaceSignature);
 		markingHash.Add(_Segment.LaneCount);
@@ -1154,6 +1138,9 @@ public sealed partial class RoadNetwork
 		_Lines.AddToHash(ref markingHash);
 		_Dash.AddToHash(ref markingHash);
 		_Profile.AddMarkingsToHash(ref markingHash);
+		_Profile.AddCrossingsToHash(ref markingHash);
+		markingHash.Add(_Crossings.AtStart ? _Crossings.StartCentre : -1.0f);
+		markingHash.Add(_Crossings.AtEnd ? _Crossings.EndCentre : -1.0f);
 		long markingSignature = markingHash.Value;
 
 		for (int r = 0; r < ranges.Count; r++)
@@ -1178,7 +1165,7 @@ public sealed partial class RoadNetwork
 				hash.Add(start);
 				hash.Add(end);
 
-				plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Marking, BorderCaps.None, default, hash.Value, _Lines, Dash: _Dash));
+				plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Marking, BorderCaps.None, default, hash.Value, _Lines, Dash: _Dash, Crossings: _Crossings));
 			}
 
 			if (bridge is not null)
@@ -1439,97 +1426,6 @@ public sealed partial class RoadNetwork
 
 
 	/// <summary>
-	/// Everything the junction's crossings depend on: where each arm's trim is, its width and road type, and
-	/// whether it wants one.
-	/// </summary>
-	private long ComputeJunctionMarkingSignature(RoadJunctionLayout _Layout, Dictionary<int, float> _ArmCrossings)
-	{
-		var hash = StableHash.Create();
-
-		hash.Add(GeneratorVersion);
-		hash.Add(_Layout.Node.Id);
-		hash.Add(SurfaceOffset);
-
-		foreach (var arm in _Layout.Arms)
-		{
-			hash.Add(arm.Segment.Id);
-
-			if (!_ArmCrossings.TryGetValue(arm.Segment.Id, out float centre))
-			{
-				hash.Add(-1);
-				continue;
-			}
-
-			hash.Add(centre);
-			hash.Add(arm.AtStart ? 1 : 0);
-			arm.Widths.AddToHash(ref hash);
-			hash.Add(arm.Table.Curve.P0);
-			hash.Add(arm.Table.Curve.P1);
-			hash.Add(arm.Table.Curve.P2);
-			hash.Add(arm.Table.Curve.P3);
-			ProfileOf(arm.Segment).AddCrossingsToHash(ref hash);
-		}
-
-		return hash.Value;
-	}
-
-
-
-	/// <summary>
-	/// The junction's crossings piece: a marker object holding one decal per arm that gets a crossing at this
-	/// end, projected down onto the road, spanning it between its edges.
-	/// </summary>
-	private void CreateJunctionCrossings(RoadJunctionLayout _Layout, long _Signature, Dictionary<int, float> _ArmCrossings)
-	{
-		var piece = new GameObject(GameObject, true, $"Junction {_Layout.Node.Id} crossings");
-		piece.Tags.Add(ChunkTag);
-
-		var chunk = piece.AddComponent<RoadChunk>();
-		chunk.SegmentId = -1;
-		chunk.NodeId = _Layout.Node.Id;
-		chunk.Kind = RoadChunkKind.Marking;
-		chunk.ChunkIndex = 0;
-		chunk.ChunkCount = 1;
-		chunk.Signature = _Signature;
-
-		var transform = WorldTransform;
-
-		foreach (var arm in _Layout.Arms)
-		{
-			if (_ArmCrossings is null || !_ArmCrossings.TryGetValue(arm.Segment.Id, out float curveDistance))
-				continue;
-
-			var profile = ProfileOf(arm.Segment);
-			var definition = profile.ResolvedCrossingDecal;
-
-			if (definition is null || definition.Width <= 0.0f || definition.Height <= 0.0f)
-				continue;
-
-			// Centred between the road's edges at the crossing's place along it, projected straight down.
-			RoadSurfaceBuilder.CrossSection(arm.Table, curveDistance, arm.Widths, SurfaceOffset, out Vector3 leftEdge, out Vector3 rightEdge);
-
-			Vector3 position = transform.PointToWorld((leftEdge + rightEdge) * 0.5f);
-			Vector3 along = transform.NormalToWorld(arm.Table.TangentAt(curveDistance) * (arm.AtStart ? 1.0f : -1.0f));
-			float span = MathF.Max(1.0f, arm.Widths.WidthAt(curveDistance) - 2.0f * profile.CrossingInset);
-
-			var holder = new GameObject(piece, true, $"Crossing {arm.Segment.Id}");
-			holder.Tags.Add(ChunkTag);
-			holder.WorldPosition = position;
-			holder.WorldRotation = Rotation.LookAt(Vector3.Down, along);
-
-			var decal = holder.AddComponent<Decal>();
-			decal.Decals = new List<DecalDefinition> { definition };
-			decal.Size = new Vector2(span / definition.Width, profile.CrossingDepth / definition.Height);
-			decal.Scale = new ParticleFloat(1.0f, 1.0f);
-			decal.Rotation = new ParticleFloat(0.0f, 0.0f);
-			decal.Depth = 16.0f;
-			decal.AttenuationAngle = 1.0f;
-		}
-	}
-
-
-
-	/// <summary>
 	/// A junction's surface takes after its main road: the widest arm.
 	/// </summary>
 	private RoadProfile JunctionSurfaceProfile(RoadJunctionLayout _Layout)
@@ -1561,7 +1457,7 @@ public sealed partial class RoadNetwork
 		}
 
 		foreach (var plan in _Plans)
-			m_Jobs.Enqueue(new RebuildJob(_Segment.Id, -1, plan.Kind, _GroupSignature, plan, _Table, new RoadWidth(_Segment, _Table.Length), _Profile, null, null, null, null, null));
+			m_Jobs.Enqueue(new RebuildJob(_Segment.Id, -1, plan.Kind, _GroupSignature, plan, _Table, new RoadWidth(_Segment, _Table.Length), _Profile, null, null, null, null));
 
 		m_PendingSegments[_Segment.Id] = new PendingGroup(_GroupSignature, _Plans.Count);
 	}
@@ -1706,6 +1602,13 @@ public sealed partial class RoadNetwork
 				RoadMarkingBuilder.Build(mesh, _Job.Table, roadRows, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
 			}
 
+			// The crossings at this road's ends, wherever one falls in this chunk's stretch.
+			if (plan.Crossings.AtStart)
+				BuildCrossing(mesh, _Job, plan, plan.Crossings.StartCentre, roadRows);
+
+			if (plan.Crossings.AtEnd)
+				BuildCrossing(mesh, _Job, plan, plan.Crossings.EndCentre, roadRows);
+
 			name = $"Road {_Job.SegmentId} markings [{plan.Index + 1}/{plan.Count}]";
 		}
 		else
@@ -1723,6 +1626,24 @@ public sealed partial class RoadNetwork
 		existing?.GameObject.Destroy();
 
 		return true;
+	}
+
+
+
+	/// <summary>
+	/// Paints one crossing into a marking chunk, clipped to the chunk's own stretch of road (a crossing sits well
+	/// inside one, but a road barely longer than its two crossings need not).
+	/// </summary>
+	private void BuildCrossing(PolygonMesh _Mesh, in RebuildJob _Job, in ChunkPlan _Plan, float _Centre, IReadOnlyList<float> _RoadRows)
+	{
+		float half = _Job.Profile.CrossingDepth * 0.5f;
+		float from = MathF.Max(_Plan.Start, _Centre - half);
+		float to = MathF.Min(_Plan.End, _Centre + half);
+
+		if (to - from < 1.0f)
+			return;
+
+		RoadMarkingBuilder.BuildCrossing(_Mesh, _Job.Table, _RoadRows, from, to, _Job.Width, _Job.Profile, SurfaceOffset);
 	}
 
 
@@ -1776,13 +1697,6 @@ public sealed partial class RoadNetwork
 		PolygonMesh mesh;
 		string name;
 		BorderDebug debug = null;
-
-		if (_Job.Kind == RoadChunkKind.Marking)
-		{
-			CreateJunctionCrossings(_Job.Junction, _Job.GroupSignature, _Job.ArmCrossings);
-			existing?.GameObject.Destroy();
-			return;
-		}
 
 		if (_Job.Kind == RoadChunkKind.Border)
 		{

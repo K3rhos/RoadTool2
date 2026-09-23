@@ -7,6 +7,7 @@
   "Simplify": true,
   "SimplifyAngle": 1,
   "SimplifyDeviation": 2,
+  "RoundedEnds": true,
   "Border": "Sidewalk",
   "BorderMaterial": {
     "Id": "3ad71a9b-5dad-4540-9ba5-fb04f0c4e6e8",
@@ -53,10 +54,12 @@
   },
   "EdgeLineMargin": 10,
   "Crossings": true,
-  "CrossingDecal": null,
+  "CrossingMaterial": null,
   "CrossingDepth": 120,
-  "CrossingInset": 10,
-  "CrossingClearance": 150,
+  "CrossingStripeWidth": 50,
+  "CrossingStripeGap": 5,
+  "CrossingInset": 0,
+  "CrossingClearance": 100,
   "__references": [],
   "__version": 0
 }
