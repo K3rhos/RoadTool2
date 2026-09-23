@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 49;
+	private const int GeneratorVersion = 51;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -827,8 +827,17 @@ public sealed partial class RoadNetwork
 		if (clear < depth || (!wantStart && !wantEnd))
 			return default;
 
-		float startCentre = _TrimStart + depth * 0.5f;
-		float endCentre = _Table.Length - _TrimEnd - depth * 0.5f;
+		// A ladder of stripes is laid on the road outside the junction; two lines mark the walk across the
+		// junction's own mouth, so that kind is pulled in far enough to put its outer line on the pavement's
+		// corner instead of a crossing's depth short of it.
+		bool inside = profile.CrossingStyle == RoadCrossingStyle.Lines;
+		float startCentre = inside
+			? MathF.Max(depth * 0.5f, _TrimStart - depth * 0.5f)
+			: _TrimStart + depth * 0.5f;
+
+		float endCentre = inside
+			? MathF.Min(_Table.Length - depth * 0.5f, _Table.Length - _TrimEnd + depth * 0.5f)
+			: _Table.Length - _TrimEnd - depth * 0.5f;
 
 		if (wantStart && wantEnd)
 		{
@@ -1159,13 +1168,20 @@ public sealed partial class RoadNetwork
 			if (markings)
 			{
 				hash = StableHash.Create();
+				// A crossing belongs to one piece: the outermost, since its band may lie clear of every piece's
+				// own stretch of road.
+				var owned = new SegmentCrossings(_Crossings.AtStart && r == 0, _Crossings.StartCentre,
+					_Crossings.AtEnd && r == ranges.Count - 1, _Crossings.EndCentre);
+
 				hash.Add(markingSignature);
 				hash.Add(index);
 				hash.Add(count);
 				hash.Add(start);
 				hash.Add(end);
+				hash.Add(owned.AtStart ? 1 : 0);
+				hash.Add(owned.AtEnd ? 1 : 0);
 
-				plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Marking, BorderCaps.None, default, hash.Value, _Lines, Dash: _Dash, Crossings: _Crossings));
+				plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Marking, BorderCaps.None, default, hash.Value, _Lines, Dash: _Dash, Crossings: owned));
 			}
 
 			if (bridge is not null)
@@ -1602,12 +1618,13 @@ public sealed partial class RoadNetwork
 				RoadMarkingBuilder.Build(mesh, _Job.Table, roadRows, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
 			}
 
-			// The crossings at this road's ends, wherever one falls in this chunk's stretch.
+			// The crossings this piece owns. They carry their own rows, because a crossing painted across a
+			// junction's mouth lies where the road's pieces have already stopped.
 			if (plan.Crossings.AtStart)
-				BuildCrossing(mesh, _Job, plan, plan.Crossings.StartCentre, roadRows);
+				RoadMarkingBuilder.BuildCrossing(mesh, _Job.Table, plan.Crossings.StartCentre, _Job.Width, _Job.Profile, SampleSpacing, SurfaceOffset);
 
 			if (plan.Crossings.AtEnd)
-				BuildCrossing(mesh, _Job, plan, plan.Crossings.EndCentre, roadRows);
+				RoadMarkingBuilder.BuildCrossing(mesh, _Job.Table, plan.Crossings.EndCentre, _Job.Width, _Job.Profile, SampleSpacing, SurfaceOffset);
 
 			name = $"Road {_Job.SegmentId} markings [{plan.Index + 1}/{plan.Count}]";
 		}
@@ -1626,24 +1643,6 @@ public sealed partial class RoadNetwork
 		existing?.GameObject.Destroy();
 
 		return true;
-	}
-
-
-
-	/// <summary>
-	/// Paints one crossing into a marking chunk, clipped to the chunk's own stretch of road (a crossing sits well
-	/// inside one, but a road barely longer than its two crossings need not).
-	/// </summary>
-	private void BuildCrossing(PolygonMesh _Mesh, in RebuildJob _Job, in ChunkPlan _Plan, float _Centre, IReadOnlyList<float> _RoadRows)
-	{
-		float half = _Job.Profile.CrossingDepth * 0.5f;
-		float from = MathF.Max(_Plan.Start, _Centre - half);
-		float to = MathF.Min(_Plan.End, _Centre + half);
-
-		if (to - from < 1.0f)
-			return;
-
-		RoadMarkingBuilder.BuildCrossing(_Mesh, _Job.Table, _RoadRows, from, to, _Job.Width, _Job.Profile, SurfaceOffset);
 	}
 
 

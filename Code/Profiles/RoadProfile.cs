@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using Sandbox;
 
 namespace RedSnail.RoadTool2;
@@ -22,6 +22,23 @@ public enum RoadBorderStyle
 	/// A shoulder of road material that drops onto an uneven verge falling away into the terrain.
 	/// </summary>
 	CountrySide
+}
+
+/// <summary>
+/// What a pedestrian crossing is painted as.
+/// </summary>
+public enum RoadCrossingStyle
+{
+	/// <summary>
+	/// A ladder of stripes running the way traffic does, laid on the road outside the junction.
+	/// </summary>
+	Stripes,
+
+	/// <summary>
+	/// Two lines across the road, marking the walk over the junction's mouth: the outer one on the corner of the
+	/// pavement, the inner one a crossing's depth further in.
+	/// </summary>
+	Lines
 }
 
 /// <summary>
@@ -193,6 +210,12 @@ public sealed class RoadProfile : GameResource
 	[Group("Crossings")] public bool Crossings { get; set; } = false;
 
 	/// <summary>
+	/// What a crossing looks like: a ladder of stripes laid outside the junction, or the two lines across the
+	/// junction's mouth used in much of the US.
+	/// </summary>
+	[Group("Crossings"), ShowIf(nameof(Crossings), true), Title("Style")] public RoadCrossingStyle CrossingStyle { get; set; } = RoadCrossingStyle.Stripes;
+
+	/// <summary>
 	/// The paint a crossing's stripes are made of. Empty uses the tool's own.
 	/// </summary>
 	[Group("Crossings"), ShowIf(nameof(Crossings), true)] public Material CrossingMaterial { get; set; }
@@ -203,7 +226,7 @@ public sealed class RoadProfile : GameResource
 	[Group("Crossings"), ShowIf(nameof(Crossings), true), Range(20.0f, 500.0f)] public float CrossingDepth { get; set { field = value.Clamp(1.0f, 10000.0f); } } = 120.0f;
 
 	/// <summary>
-	/// How wide one stripe of a crossing is, across the road.
+	/// How wide one stripe of a crossing is, across the road; in the two-line style, how thick each line is.
 	/// </summary>
 	[Group("Crossings"), ShowIf(nameof(Crossings), true), Range(5.0f, 200.0f)] public float CrossingStripeWidth { get; set { field = value.Clamp(1.0f, 10000.0f); } } = 40.0f;
 
@@ -251,6 +274,7 @@ public sealed class RoadProfile : GameResource
 	public void AddCrossingsToHash(ref StableHash _Hash)
 	{
 		_Hash.Add(Crossings ? 1 : 0);
+		_Hash.Add((int)CrossingStyle);
 		_Hash.Add(CrossingMaterial?.ResourcePath);
 		_Hash.Add(CrossingDepth);
 		_Hash.Add(CrossingStripeWidth);

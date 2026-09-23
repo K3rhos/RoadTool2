@@ -54,6 +54,7 @@
   },
   "EdgeLineMargin": 10,
   "Crossings": true,
+  "CrossingStyle": "Stripes",
   "CrossingMaterial": null,
   "CrossingDepth": 120,
   "CrossingStripeWidth": 50,

@@ -331,40 +331,104 @@ internal static class RoadMarkingBuilder
 	/// side across the road, as many as the road's width has room for. Each one is built exactly as a solid line
 	/// is, so it sits on the surface the way the rest of the paint does.
 	/// </summary>
-	public static void BuildCrossing(PolygonMesh _Mesh, RoadCurveTable _Table, IReadOnlyList<float> _RoadRows, float _From, float _To, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset)
+	public static void BuildCrossing(PolygonMesh _Mesh, RoadCurveTable _Table, float _Centre, in RoadWidth _Width, RoadProfile _Profile, float _Spacing, float _SurfaceOffset)
 	{
-		if (_To - _From < 1.0f || _RoadRows.Count < 2)
-			return;
-
 		var material = _Profile.ResolvedCrossingMaterial;
 
 		if (material is null)
 			return;
 
-		float stripe = MathF.Max(1.0f, _Profile.CrossingStripeWidth);
-		float pitch = stripe + MathF.Max(0.0f, _Profile.CrossingStripeGap);
+		float half = _Profile.CrossingDepth * 0.5f;
+		float from = MathF.Max(0.0f, _Centre - half);
+		float to = MathF.Min(_Table.Length, _Centre + half);
 
-		// The band the stripes fill: the road as it is halfway through the crossing, less the margin its ends keep
-		// from the kerbs.
-		float middle = (_From + _To) * 0.5f;
-		float left = -_Width.LeftAt(middle) + _Profile.CrossingInset;
-		float right = _Width.RightAt(middle) - _Profile.CrossingInset;
-		float usable = right - left;
-
-		if (usable < stripe)
+		if (to - from < 1.0f)
 			return;
 
-		// As many as fit, spread about the middle of the band, so a wider road simply gets more of them and a
-		// narrower one fewer without anything being said about the number.
-		int count = Math.Max(1, (int)MathF.Floor((usable + pitch - stripe) / pitch));
-		float span = count * pitch - (pitch - stripe);
-		float first = left + (usable - span) * 0.5f + stripe * 0.5f;
+		// Rows of its own: a crossing may be painted over the junction's mouth, where the road's own chunks have
+		// stopped, and it still wants the surface read the way the road reads it.
+		var rows = RoadRows.Build(_Table, from, to, _Spacing, _Width, _Profile.Simplification);
 
-		var surface = new Surface(_Table, _RoadRows, _Width, _SurfaceOffset + Lift);
-		var style = new RoadLineStyle { Width = stripe };
+		if (rows.Count < 2)
+			return;
+
+		var surface = new Surface(_Table, rows, _Width, _SurfaceOffset + Lift);
+		float thickness = MathF.Max(1.0f, _Profile.CrossingStripeWidth);
+
+		// The band the paint fills: the road as it is halfway through the crossing, less the margin its ends keep
+		// from the kerbs.
+		float middle = (from + to) * 0.5f;
+		float left = -_Width.LeftAt(middle) + _Profile.CrossingInset;
+		float right = _Width.RightAt(middle) - _Profile.CrossingInset;
+
+		if (right - left < thickness)
+			return;
+
+		if (_Profile.CrossingStyle == RoadCrossingStyle.Lines)
+		{
+			// Two lines across the road, one at each end of the band.
+			BuildAcross(_Mesh, surface, from + thickness * 0.5f, thickness, left, right, material);
+			BuildAcross(_Mesh, surface, to - thickness * 0.5f, thickness, left, right, material);
+
+			return;
+		}
+
+		float pitch = thickness + MathF.Max(0.0f, _Profile.CrossingStripeGap);
+		float usable = right - left;
+
+		// As many stripes as fit, spread about the middle of the band, so a wider road simply gets more of them
+		// and a narrower one fewer without anything being said about the number.
+		int count = Math.Max(1, (int)MathF.Floor((usable + pitch - thickness) / pitch));
+		float span = count * pitch - (pitch - thickness);
+		float first = left + (usable - span) * 0.5f + thickness * 0.5f;
+		var style = new RoadLineStyle { Width = thickness };
 
 		for (int i = 0; i < count; i++)
-			BuildStrip(_Mesh, surface, _From, _To, new Line(first + i * pitch, 0, 0.0f, 0, 0.0f, style, material), _Width);
+			BuildStrip(_Mesh, surface, from, to, new Line(first + i * pitch, 0, 0.0f, 0, 0.0f, style, material), _Width);
+	}
+
+
+
+	/// <summary>
+	/// How finely a line drawn across the road is cut up, so it follows the surface over the cells it crosses.
+	/// </summary>
+	private const float AcrossStep = 40.0f;
+
+	/// <summary>
+	/// A band of paint drawn ACROSS the road at a distance along it, between two offsets. Unlike a line, which the
+	/// road's own rows cut up for it, this one is cut across instead, since that is the way it runs.
+	/// </summary>
+	private static void BuildAcross(PolygonMesh _Mesh, in Surface _Surface, float _Distance, float _Thickness, float _Left, float _Right, Material _Material)
+	{
+		float half = _Thickness * 0.5f;
+		float span = _Right - _Left;
+		int steps = Math.Max(1, (int)MathF.Ceiling(span / AcrossStep));
+
+		var near = new HalfEdgeMesh.VertexHandle[steps + 1];
+		var far = new HalfEdgeMesh.VertexHandle[steps + 1];
+		var along = new float[steps + 1];
+
+		for (int i = 0; i <= steps; i++)
+		{
+			float offset = _Left + span * i / steps;
+
+			_Surface.Place(_Distance - half, offset, out Vector3 onNear, out _);
+			_Surface.Place(_Distance + half, offset, out Vector3 onFar, out _);
+
+			var handles = _Mesh.AddVertices(onNear, onFar);
+
+			near[i] = handles[0];
+			far[i] = handles[1];
+			along[i] = (offset - _Left) / MathF.Max(_Thickness, 1.0f);
+		}
+
+		// Round the quad the way a line's own is: across the band first, then along it. Taken the other way the
+		// face looks down at the ground.
+		for (int i = 0; i < steps; i++)
+		{
+			MeshUtility.AddTexturedQuad(_Mesh, _Material, near[i], near[i + 1], far[i + 1], far[i],
+				new Vector2(0.0f, along[i]), new Vector2(0.0f, along[i + 1]), new Vector2(1.0f, along[i + 1]), new Vector2(1.0f, along[i]));
+		}
 	}
 
 
