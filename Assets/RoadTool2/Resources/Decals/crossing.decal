@@ -35,7 +35,7 @@
       "CacheToDisk": true,
       "FormatOverride": "RGBA8888"
     },
-    "compiled": null
+    "compiled": "textures/generated/imagefile/8b8e358d5887bfd6.vtex"
   },
   "NormalTexture": null,
   "RoughMetalOcclusionTexture": null,
@@ -43,6 +43,7 @@
   "EmissionEnergy": 1,
   "HeightTexture": null,
   "ParallaxStrength": 1,
+  "CoverageAmount": 1,
   "Tint": "1,1,1,1",
   "ColorMix": 1,
   "Width": 560,
