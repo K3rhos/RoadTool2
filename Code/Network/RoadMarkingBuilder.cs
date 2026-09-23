@@ -331,11 +331,11 @@ internal static class RoadMarkingBuilder
 	/// side across the road, as many as the road's width has room for. Each one is built exactly as a solid line
 	/// is, so it sits on the surface the way the rest of the paint does.
 	/// </summary>
-	public static void BuildCrossing(PolygonMesh _Mesh, RoadCurveTable _Table, float _Centre, in RoadWidth _Width, RoadProfile _Profile, float _Spacing, float _SurfaceOffset)
+	public static void BuildCrossing(PolygonMesh _Mesh, RoadCurveTable _Table, IReadOnlyList<float> _RoadRows, float _Centre, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset)
 	{
 		var material = _Profile.ResolvedCrossingMaterial;
 
-		if (material is null)
+		if (material is null || _RoadRows.Count < 2)
 			return;
 
 		float half = _Profile.CrossingDepth * 0.5f;
@@ -345,12 +345,19 @@ internal static class RoadMarkingBuilder
 		if (to - from < 1.0f)
 			return;
 
-		// Rows of its own: a crossing may be painted over the junction's mouth, where the road's own chunks have
-		// stopped, and it still wants the surface read the way the road reads it.
-		var rows = RoadRows.Build(_Table, from, to, _Spacing, _Width, _Profile.Simplification);
+		// THE ROAD'S OWN ROWS, never a set of its own: the surface is chords between these, and paint laid on
+		// chords of any other spacing sits under the road wherever the two disagree. Past them at either end lies
+		// the junction the road leaves, which its fan spans in one straight run from the node's middle out to the
+		// road's end row — so one more row at the node stands in for it.
+		var rows = new List<float>(_RoadRows.Count + 2);
 
-		if (rows.Count < 2)
-			return;
+		if (from < _RoadRows[0] - 0.01f)
+			rows.Add(0.0f);
+
+		rows.AddRange(_RoadRows);
+
+		if (to > _RoadRows[^1] + 0.01f)
+			rows.Add(_Table.Length);
 
 		var surface = new Surface(_Table, rows, _Width, _SurfaceOffset + Lift);
 		float thickness = MathF.Max(1.0f, _Profile.CrossingStripeWidth);

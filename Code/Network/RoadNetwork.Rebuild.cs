@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 51;
+	private const int GeneratorVersion = 52;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -1618,13 +1618,12 @@ public sealed partial class RoadNetwork
 				RoadMarkingBuilder.Build(mesh, _Job.Table, roadRows, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
 			}
 
-			// The crossings this piece owns. They carry their own rows, because a crossing painted across a
-			// junction's mouth lies where the road's pieces have already stopped.
+			// The crossings this piece owns, laid on the same rows as the lines and the road itself.
 			if (plan.Crossings.AtStart)
-				RoadMarkingBuilder.BuildCrossing(mesh, _Job.Table, plan.Crossings.StartCentre, _Job.Width, _Job.Profile, SampleSpacing, SurfaceOffset);
+				RoadMarkingBuilder.BuildCrossing(mesh, _Job.Table, roadRows, plan.Crossings.StartCentre, _Job.Width, _Job.Profile, SurfaceOffset);
 
 			if (plan.Crossings.AtEnd)
-				RoadMarkingBuilder.BuildCrossing(mesh, _Job.Table, plan.Crossings.EndCentre, _Job.Width, _Job.Profile, SampleSpacing, SurfaceOffset);
+				RoadMarkingBuilder.BuildCrossing(mesh, _Job.Table, roadRows, plan.Crossings.EndCentre, _Job.Width, _Job.Profile, SurfaceOffset);
 
 			name = $"Road {_Job.SegmentId} markings [{plan.Index + 1}/{plan.Count}]";
 		}
