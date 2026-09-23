@@ -473,10 +473,16 @@ public sealed class RoadLotOutline
 			return;
 		}
 
+		// Flat pulls: a road that leaves the lot on a slope would otherwise drag the curve's control points up or
+		// down with it, and the kerb would sag under the lot (or hump over the road) between its two ends. Keeping
+		// them level leaves the height a smooth run from one end to the other and nothing outside it.
+		Vector3 fromDirection = Flat(_FromDirection);
+		Vector3 toDirection = Flat(_ToDirection);
+
 		// A quarter turn's worth of pull at each end, which is what makes the curve read as an arc.
 		float pull = span * 0.39f;
-		Vector3 controlFrom = _From + _FromDirection.Normal * pull;
-		Vector3 controlTo = _To - _ToDirection.Normal * pull;
+		Vector3 controlFrom = _From + fromDirection * pull;
+		Vector3 controlTo = _To - toDirection * pull;
 		int steps = Math.Max(2, (int)MathF.Ceiling(90.0f / ArcStepDegrees));
 
 		for (int i = 0; i <= steps; i++)
@@ -489,6 +495,18 @@ public sealed class RoadLotOutline
 
 			Add(point, RoadCurve.RightOf(tangent.IsNearZeroLength ? _ToDirection : tangent));
 		}
+	}
+
+
+
+	/// <summary>
+	/// A direction with its climb taken out, as a unit vector. A direction that is pure climb keeps what it had.
+	/// </summary>
+	private static Vector3 Flat(Vector3 _Direction)
+	{
+		Vector3 flat = _Direction.WithZ(0.0f);
+
+		return flat.IsNearZeroLength ? _Direction.Normal : flat.Normal;
 	}
 
 

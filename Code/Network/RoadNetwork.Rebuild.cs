@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 38;
+	private const int GeneratorVersion = 41;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -929,16 +929,18 @@ public sealed partial class RoadNetwork
 		if (!hasStart && !hasEnd)
 			return default;
 
-		// An end with no corner on this side holds the border at road height from the segment's end.
+		// An end with no corner on this side holds the border at road height from where the border actually starts,
+		// which is past the trim: a road opening into a lot stops at the lot's flares, and a blend still running
+		// there hands the lot a pavement tilted by whatever it had left to shed while the lot's own is flat.
 		if (!hasStart)
 		{
-			startDistance = 0.0f;
+			startDistance = LotTrimAt(_Segment.StartNodeId);
 			startDelta = 0.0f;
 		}
 
 		if (!hasEnd)
 		{
-			endDistance = _Table.Length;
+			endDistance = _Table.Length - LotTrimAt(_Segment.EndNodeId);
 			endDelta = 0.0f;
 		}
 

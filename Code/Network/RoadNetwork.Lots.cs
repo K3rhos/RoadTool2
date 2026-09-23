@@ -177,7 +177,7 @@ public sealed partial class RoadNetwork
 	/// </summary>
 	private float OpeningReach(RoadLot _Lot, int _NodeId)
 	{
-		return OpeningHalfWidth(_NodeId) + LotFlare(_Lot);
+		return OpeningHalfWidth(_NodeId) + OpeningFlare(_Lot, _NodeId);
 	}
 
 
@@ -195,11 +195,24 @@ public sealed partial class RoadNetwork
 
 
 	/// <summary>
-	/// The flare a lot turns its kerb into a road with, as its own size allows it.
+	/// How far the kerb flares into one of a lot's roads: what the lot asks for, but never tighter than its own
+	/// kerb is wide (the kerb turns on the inside of that corner, and a turn tighter than the pavement folds it
+	/// over itself), never more than the lot or the road can give, and the same number everywhere so the outline
+	/// and the road's trim agree.
 	/// </summary>
-	private static float LotFlare(RoadLot _Lot)
+	public float OpeningFlare(RoadLot _Lot, int _NodeId)
 	{
-		return MathF.Max(0.0f, MathF.Min(_Lot.EntranceRadius, MathF.Min(_Lot.HalfWidth, _Lot.HalfDepth) * 0.5f));
+		float flare = MathF.Max(_Lot.EntranceRadius, ProfileOf(_Lot).FlatBorderWidth * 1.25f);
+
+		flare = MathF.Min(flare, MathF.Min(_Lot.HalfWidth, _Lot.HalfDepth) * 0.5f);
+
+		var segment = GetSegmentsAt(_NodeId).FirstOrDefault();
+		var table = segment is null ? null : GetCurveTable(segment);
+
+		if (table is not null)
+			flare = MathF.Min(flare, table.Length * 0.4f);
+
+		return MathF.Max(0.0f, flare);
 	}
 
 
@@ -212,15 +225,7 @@ public sealed partial class RoadNetwork
 	{
 		var lot = LotAtOpening(_NodeId);
 
-		if (lot is null)
-			return 0.0f;
-
-		// The same length the lot's outline was built to, so the two meet on the road's own row.
-		var segment = GetSegmentsAt(_NodeId).FirstOrDefault();
-		var table = segment is null ? null : GetCurveTable(segment);
-		float flare = LotFlare(lot);
-
-		return table is null ? flare : MathF.Min(flare, table.Length * 0.5f);
+		return lot is null ? 0.0f : OpeningFlare(lot, _NodeId);
 	}
 
 
@@ -274,7 +279,7 @@ public sealed partial class RoadNetwork
 				Edge = edge,
 				Along = along,
 				HalfWidth = OpeningHalfWidth(nodeId),
-				Flare = LotFlare(_Lot),
+				Flare = OpeningFlare(_Lot, nodeId),
 				Mouth = _Lot.EdgePoint(edge, along),
 				Outward = outward,
 				Away = outward
@@ -287,8 +292,7 @@ public sealed partial class RoadNetwork
 			if (table is not null)
 			{
 				bool atStart = segment.StartNodeId == nodeId;
-				float trim = MathF.Min(opening.Flare, table.Length * 0.5f);
-				float distance = atStart ? trim : table.Length - trim;
+				float distance = atStart ? opening.Flare : table.Length - opening.Flare;
 				var width = new RoadWidth(segment, table.Length);
 
 				RoadSurfaceBuilder.CrossSection(table, distance, width, 0.0f, out Vector3 left, out Vector3 right);
@@ -300,8 +304,13 @@ public sealed partial class RoadNetwork
 				opening.MouthTo = leftFirst ? right : left;
 				opening.Away = (table.TangentAt(distance) * (atStart ? 1.0f : -1.0f)).Normal;
 			}
-			else
+
+			// A road that doubles back over the lot, dives, or is otherwise not where a road leaving the edge
+			// should be: the flares fall back to a plain mouth square to the edge rather than tying themselves in
+			// a knot reaching for it.
+			if (!IsUsableMouth(opening, direction, outward))
 			{
+				opening.Away = outward;
 				opening.MouthFrom = opening.Mouth - direction * opening.HalfWidth + outward * opening.Flare;
 				opening.MouthTo = opening.Mouth + direction * opening.HalfWidth + outward * opening.Flare;
 			}
@@ -310,6 +319,28 @@ public sealed partial class RoadNetwork
 		}
 
 		return openings;
+	}
+
+
+
+	/// <summary>
+	/// Whether a road's first row is somewhere the lot can flare out to at all: in front of the edge, and the right
+	/// way round. A row that fails this would double the outline back over itself, so the flares fall back to a
+	/// plain square mouth instead. Anything it does pass — a steep road, a wide one — the flares follow, because
+	/// that is the point of taking the road's own row.
+	/// </summary>
+	private static bool IsUsableMouth(RoadLotOpening _Opening, Vector3 _Direction, Vector3 _Outward)
+	{
+		if (_Opening.Flare <= 0.01f || _Opening.MouthFrom.IsNearZeroLength || _Opening.MouthTo.IsNearZeroLength)
+			return false;
+
+		if (Vector3.Dot(_Opening.MouthFrom - _Opening.Mouth, _Outward) <= 1.0f)
+			return false;
+
+		if (Vector3.Dot(_Opening.MouthTo - _Opening.Mouth, _Outward) <= 1.0f)
+			return false;
+
+		return Vector3.Dot(_Opening.MouthTo - _Opening.MouthFrom, _Direction) > 1.0f;
 	}
 
 
