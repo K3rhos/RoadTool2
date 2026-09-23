@@ -443,8 +443,22 @@ internal static class RoadBorderBuilder
 
 			for (int k = 0; k < nodeCount; k++)
 			{
-				if (stalls[i][k] < 0)
-					handles[i][k] = _Mesh.AddVertices(rows[k])[0];
+				if (stalls[i][k] >= 0)
+					continue;
+
+				// Two nodes of a row standing in the same place are one vertex. It happens wherever a profile's
+				// relief has run out — a kerb flattened into a country road's shoulder has its kerb face and its
+				// outer face squeezed to nothing, and a border grown from nothing at a gore has the whole section
+				// on one point. Two vertices there would leave the faces between them as zero-area triangles,
+				// which is degenerate geometry; sharing the vertex makes the face builder drop them instead, and
+				// the quad on the other side of the seam comes out as the triangle it should be.
+				if (k > 0 && stalls[i][k - 1] < 0 && Vector3.DistanceBetween(rows[k - 1], rows[k]) < JoinDistance)
+				{
+					handles[i][k] = handles[i][k - 1];
+					continue;
+				}
+
+				handles[i][k] = _Mesh.AddVertices(rows[k])[0];
 			}
 		}
 
