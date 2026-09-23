@@ -661,45 +661,45 @@ internal static class RoadBorderBuilder
 		switch (_Profile.Border)
 		{
 			case RoadBorderStyle.Sidewalk:
-			{
-				var material = _Profile.ResolvedBorderMaterial;
-				float repeat = _Profile.BorderTextureRepeat;
-
-				// Kerb face, pavement, outer face. The pavement spans one texture repeat across, whatever its width;
-				// the kerb texture follows the slope of a bevelled kerb instead of stretching.
-				float bevelU = new Vector2(_Profile.CurbBevel, _Profile.CurbHeight).Length / repeat;
-				float heightU = _Profile.CurbHeight / repeat;
-
-				return new[]
 				{
+					var material = _Profile.ResolvedBorderMaterial;
+					float repeat = _Profile.BorderTextureRepeat;
+
+					// Kerb face, pavement, outer face. The pavement spans one texture repeat across, whatever its width;
+					// the kerb texture follows the slope of a bevelled kerb instead of stretching.
+					float bevelU = new Vector2(_Profile.CurbBevel, _Profile.CurbHeight).Length / repeat;
+					float heightU = _Profile.CurbHeight / repeat;
+
+					return new[]
+					{
 					new Face(0, 1, material, repeat, _U0: bevelU, _U1: 0.0f),
 					new Face(1, 2, material, repeat, _U0: 0.0f, _U1: 1.0f, _Blendable: true),
 					new Face(2, 3, material, repeat, _U0: 1.0f - heightU, _U1: 1.0f)
 				};
-			}
+				}
 
 			case RoadBorderStyle.CountrySide:
-			{
-				var roadMaterial = _Profile.ResolvedRoadMaterial;
-				var vergeMaterial = _Profile.ResolvedBorderMaterial;
-				float roadRepeat = _Profile.RoadTextureRepeat;
-				float vergeRepeat = _Profile.BorderTextureRepeat;
+				{
+					var roadMaterial = _Profile.ResolvedRoadMaterial;
+					var vergeMaterial = _Profile.ResolvedBorderMaterial;
+					float roadRepeat = _Profile.RoadTextureRepeat;
+					float vergeRepeat = _Profile.BorderTextureRepeat;
 
-				// Shoulder (an extension of the road, so it tiles like one) where the road type has one, the drop
-				// (the road's exposed thickness), then the slope down to the terrain.
-				int foot = DropFoot(_Profile);
-				var faces = new List<Face>();
+					// Shoulder (an extension of the road, so it tiles like one) where the road type has one, the drop
+					// (the road's exposed thickness), then the slope down to the terrain.
+					int foot = DropFoot(_Profile);
+					var faces = new List<Face>();
 
-				if (HasShoulder(_Profile))
-					faces.Add(new Face(0, 1, roadMaterial, roadRepeat, _Planar: true));
+					if (HasShoulder(_Profile))
+						faces.Add(new Face(0, 1, roadMaterial, roadRepeat, _Planar: true));
 
-				faces.Add(new Face(foot - 1, foot, roadMaterial, roadRepeat, _U0: 0.0f, _U1: _Profile.Drop / roadRepeat));
+					faces.Add(new Face(foot - 1, foot, roadMaterial, roadRepeat, _U0: 0.0f, _U1: _Profile.Drop / roadRepeat));
 
-				for (int k = 0; k < _Profile.SlopeSegments; k++)
-					faces.Add(new Face(foot + k, foot + 1 + k, vergeMaterial, vergeRepeat, _AccumulateFrom: foot));
+					for (int k = 0; k < _Profile.SlopeSegments; k++)
+						faces.Add(new Face(foot + k, foot + 1 + k, vergeMaterial, vergeRepeat, _AccumulateFrom: foot));
 
-				return faces.ToArray();
-			}
+					return faces.ToArray();
+				}
 
 			default:
 				return Array.Empty<Face>();
@@ -727,66 +727,66 @@ internal static class RoadBorderBuilder
 		switch (profile.Border)
 		{
 			case RoadBorderStyle.Sidewalk:
-			{
-				float width = tapering ? MathX.Lerp(profile.BorderWidth, targetWidth, towards) : profile.BorderWidth;
-				float height = profile.CurbHeight * relief;
+				{
+					float width = tapering ? MathX.Lerp(profile.BorderWidth, targetWidth, towards) : profile.BorderWidth;
+					float height = profile.CurbHeight * relief;
 
-				_Nodes[0] = new Vector2(0.0f, 0.0f);
-				_Nodes[1] = new Vector2(MathF.Min(profile.CurbBevel * relief, width), height);
-				_Nodes[2] = new Vector2(width, height);
-				_Nodes[3] = new Vector2(width, 0.0f);
-				break;
-			}
+					_Nodes[0] = new Vector2(0.0f, 0.0f);
+					_Nodes[1] = new Vector2(MathF.Min(profile.CurbBevel * relief, width), height);
+					_Nodes[2] = new Vector2(width, height);
+					_Nodes[3] = new Vector2(width, 0.0f);
+					break;
+				}
 
 			case RoadBorderStyle.CountrySide:
-			{
-				float scale = profile.ChaosScale;
-				float amplitude = profile.Chaos * relief;
-				float x = _Point.Position.x * scale;
-				float y = _Point.Position.y * scale;
-
-				// Noise is 0..1; centre it to roughly plus or minus the chaos amount.
-				float meanderShoulder = (Noise.Perlin(x + BandShoulder, y) - 0.5f) * 2.0f * amplitude;
-				float meanderOuter = (Noise.Perlin(x + BandOuter, y) - 0.5f) * 2.0f * amplitude;
-
-				// A shoulder that is meant to be there is floored, so a strong inward wander can never fold it back
-				// onto the road; a road type that asks for none has none at all, and its verge drops away at the
-				// road's own edge.
-				bool hasShoulder = HasShoulder(profile);
-				float shoulder = hasShoulder ? MathF.Max(1.0f, profile.BorderWidth + meanderShoulder) : 0.0f;
-				float span = MathF.Max(1.0f, profile.VergeWidth + meanderOuter);
-
-				// Towards a different road type the whole strip runs to that type's width, keeping its proportions.
-				if (tapering)
 				{
-					float total = shoulder + span;
-					float ratio = total > 0.001f ? MathX.Lerp(total, targetWidth, towards) / total : 1.0f;
+					float scale = profile.ChaosScale;
+					float amplitude = profile.Chaos * relief;
+					float x = _Point.Position.x * scale;
+					float y = _Point.Position.y * scale;
 
-					shoulder = hasShoulder ? MathF.Max(0.5f, shoulder * ratio) : 0.0f;
-					span = MathF.Max(0.5f, span * ratio);
+					// Noise is 0..1; centre it to roughly plus or minus the chaos amount.
+					float meanderShoulder = (Noise.Perlin(x + BandShoulder, y) - 0.5f) * 2.0f * amplitude;
+					float meanderOuter = (Noise.Perlin(x + BandOuter, y) - 0.5f) * 2.0f * amplitude;
+
+					// A shoulder that is meant to be there is floored, so a strong inward wander can never fold it back
+					// onto the road; a road type that asks for none has none at all, and its verge drops away at the
+					// road's own edge.
+					bool hasShoulder = HasShoulder(profile);
+					float shoulder = hasShoulder ? MathF.Max(1.0f, profile.BorderWidth + meanderShoulder) : 0.0f;
+					float span = MathF.Max(1.0f, profile.VergeWidth + meanderOuter);
+
+					// Towards a different road type the whole strip runs to that type's width, keeping its proportions.
+					if (tapering)
+					{
+						float total = shoulder + span;
+						float ratio = total > 0.001f ? MathX.Lerp(total, targetWidth, towards) / total : 1.0f;
+
+						shoulder = hasShoulder ? MathF.Max(0.5f, shoulder * ratio) : 0.0f;
+						span = MathF.Max(0.5f, span * ratio);
+					}
+
+					int foot = DropFoot(profile);
+
+					_Nodes[0] = new Vector2(0.0f, 0.0f);
+
+					if (hasShoulder)
+						_Nodes[1] = new Vector2(shoulder, 0.0f);
+
+					_Nodes[foot] = new Vector2(shoulder, -profile.Drop * relief);
+
+					for (int k = 1; k <= profile.SlopeSegments; k++)
+					{
+						float fraction = (float)k / profile.SlopeSegments;
+
+						// The roll varies along the road and across the slope, so the verge undulates in 3D.
+						float roll = (Noise.Fbm(3, x, y, BandRoll + fraction * profile.VergeWidth * scale) - 0.5f) * 2.0f * amplitude;
+
+						_Nodes[foot + k] = new Vector2(shoulder + fraction * span, (-profile.Drop - fraction * profile.VergeDepth) * relief + roll);
+					}
+
+					break;
 				}
-
-				int foot = DropFoot(profile);
-
-				_Nodes[0] = new Vector2(0.0f, 0.0f);
-
-				if (hasShoulder)
-					_Nodes[1] = new Vector2(shoulder, 0.0f);
-
-				_Nodes[foot] = new Vector2(shoulder, -profile.Drop * relief);
-
-				for (int k = 1; k <= profile.SlopeSegments; k++)
-				{
-					float fraction = (float)k / profile.SlopeSegments;
-
-					// The roll varies along the road and across the slope, so the verge undulates in 3D.
-					float roll = (Noise.Fbm(3, x, y, BandRoll + fraction * profile.VergeWidth * scale) - 0.5f) * 2.0f * amplitude;
-
-					_Nodes[foot + k] = new Vector2(shoulder + fraction * span, (-profile.Drop - fraction * profile.VergeDepth) * relief + roll);
-				}
-
-				break;
-			}
 		}
 
 		return relief;

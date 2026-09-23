@@ -234,14 +234,14 @@ internal static class RoadPropBuilder
 				return _FromEdge <= _Profile.BorderWidth + 0.01f ? _Profile.CurbHeight : 0.0f;
 
 			case RoadBorderStyle.CountrySide:
-			{
-				if (_FromEdge <= _Profile.BorderWidth)
-					return 0.0f;
+				{
+					if (_FromEdge <= _Profile.BorderWidth)
+						return 0.0f;
 
-				float fraction = Math.Clamp((_FromEdge - _Profile.BorderWidth) / MathF.Max(1.0f, _Profile.VergeWidth), 0.0f, 1.0f);
+					float fraction = Math.Clamp((_FromEdge - _Profile.BorderWidth) / MathF.Max(1.0f, _Profile.VergeWidth), 0.0f, 1.0f);
 
-				return -_Profile.Drop - fraction * _Profile.VergeDepth;
-			}
+					return -_Profile.Drop - fraction * _Profile.VergeDepth;
+				}
 
 			default:
 				return 0.0f;

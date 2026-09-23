@@ -357,7 +357,8 @@ public sealed class RoadProfile : GameResource
 	/// The width of this road type's border when flattened to the road: what a neighbouring road type's border
 	/// tapers to where the two meet.
 	/// </summary>
-	[Hide, JsonIgnore] public float FlatBorderWidth => Border switch
+	[Hide, JsonIgnore]
+	public float FlatBorderWidth => Border switch
 	{
 		RoadBorderStyle.Sidewalk => BorderWidth,
 		RoadBorderStyle.CountrySide => BorderWidth + VergeWidth,

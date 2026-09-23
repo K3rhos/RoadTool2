@@ -452,40 +452,40 @@ internal static class RoadBridgeBuilder
 		switch (_Style.Side)
 		{
 			case BridgeSideStyle.Railing:
-			{
-				float height = SideBase(_Profile) + _Style.SideHeight;
-				var material = _Style.ResolvedSideMaterial;
-				float repeat = _Style.SideTextureRepeat;
-
-				foreach (float distance in _Span.Edges(_Style.PostSpacing))
 				{
-					Frame(_Table, distance, _Width, _Lift, out Vector3 leftEdge, out Vector3 rightEdge, out Vector3 right, out Vector3 along);
+					float height = SideBase(_Profile) + _Style.SideHeight;
+					var material = _Style.ResolvedSideMaterial;
+					float repeat = _Style.SideTextureRepeat;
 
-					AddPost(_Mesh, material, repeat, leftEdge - right * centre, right, along, _Style.SideWidth, height);
-					AddPost(_Mesh, material, repeat, rightEdge + right * centre, right, along, _Style.SideWidth, height);
+					foreach (float distance in _Span.Edges(_Style.PostSpacing))
+					{
+						Frame(_Table, distance, _Width, _Lift, out Vector3 leftEdge, out Vector3 rightEdge, out Vector3 right, out Vector3 along);
+
+						AddPost(_Mesh, material, repeat, leftEdge - right * centre, right, along, _Style.SideWidth, height);
+						AddPost(_Mesh, material, repeat, rightEdge + right * centre, right, along, _Style.SideWidth, height);
+					}
+
+					AddRails(_Mesh, _Left, centre, height, material, repeat, _Style);
+					AddRails(_Mesh, _Right, centre, height, material, repeat, _Style);
+					break;
 				}
-
-				AddRails(_Mesh, _Left, centre, height, material, repeat, _Style);
-				AddRails(_Mesh, _Right, centre, height, material, repeat, _Style);
-				break;
-			}
 
 			case BridgeSideStyle.Prefab:
-			{
-				if (!_Style.SidePrefab.IsValid())
-					break;
-
-				foreach (float distance in _Span.Centres(_Style.SideSpacing))
 				{
-					Frame(_Table, distance, _Width, _Lift, out Vector3 leftEdge, out Vector3 rightEdge, out Vector3 right, out Vector3 along);
+					if (!_Style.SidePrefab.IsValid())
+						break;
 
-					// Forward along the road, right pointing away from it: on the left side that is backwards.
-					_Placements.Add(new Placement(_Style.SidePrefab, leftEdge - right * centre, Rotation.LookAt(-along, Vector3.Up)));
-					_Placements.Add(new Placement(_Style.SidePrefab, rightEdge + right * centre, Rotation.LookAt(along, Vector3.Up)));
+					foreach (float distance in _Span.Centres(_Style.SideSpacing))
+					{
+						Frame(_Table, distance, _Width, _Lift, out Vector3 leftEdge, out Vector3 rightEdge, out Vector3 right, out Vector3 along);
+
+						// Forward along the road, right pointing away from it: on the left side that is backwards.
+						_Placements.Add(new Placement(_Style.SidePrefab, leftEdge - right * centre, Rotation.LookAt(-along, Vector3.Up)));
+						_Placements.Add(new Placement(_Style.SidePrefab, rightEdge + right * centre, Rotation.LookAt(along, Vector3.Up)));
+					}
+
+					break;
 				}
-
-				break;
-			}
 		}
 	}
 
