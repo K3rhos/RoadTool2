@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using Sandbox;
@@ -113,9 +113,11 @@ internal static class RoadBorderBuilder
 
 	/// <summary>
 	/// One surface of the profile, between two of its nodes. U runs across the profile: fixed per node, or
-	/// accumulated along the cross-section from <see cref="AccumulateFrom"/> when the shape varies (verges).
-	/// Planar faces take a top-down projection instead, like the road they extend. A blendable face is the one a
-	/// neighbouring country road's gravel spills onto (the pavement), painted with blend weights where it does.
+	/// accumulated along the cross-section from <see cref="AccumulateFrom"/> when the shape varies (verges, and a
+	/// pavement whose texture keeps its size whatever its width), at <see cref="AcrossRepeat"/> units a repeat when
+	/// that is set and at <see cref="Repeat"/> otherwise. V runs along the road at <see cref="Repeat"/>. Planar faces
+	/// take a top-down projection instead, like the road they extend. A blendable face is the one a neighbouring
+	/// country road's gravel spills onto (the pavement), painted with blend weights where it does.
 	/// </summary>
 	private readonly struct Face
 	{
@@ -128,8 +130,9 @@ internal static class RoadBorderBuilder
 		public readonly float U0;
 		public readonly float U1;
 		public readonly bool Blendable;
+		public readonly float AcrossRepeat;
 
-		public Face(int _NodeA, int _NodeB, Material _Material, float _Repeat, bool _Planar = false, int _AccumulateFrom = -1, float _U0 = 0.0f, float _U1 = 1.0f, bool _Blendable = false)
+		public Face(int _NodeA, int _NodeB, Material _Material, float _Repeat, bool _Planar = false, int _AccumulateFrom = -1, float _U0 = 0.0f, float _U1 = 1.0f, bool _Blendable = false, float _AcrossRepeat = 0.0f)
 		{
 			NodeA = _NodeA;
 			NodeB = _NodeB;
@@ -140,6 +143,7 @@ internal static class RoadBorderBuilder
 			U0 = _U0;
 			U1 = _U1;
 			Blendable = _Blendable;
+			AcrossRepeat = _AcrossRepeat;
 		}
 	}
 
@@ -238,9 +242,12 @@ internal static class RoadBorderBuilder
 
 	/// <summary>
 	/// The borders round a junction: each corner path is swept in two halves, one in each neighbouring arm's
-	/// profile, so a road's border carries on round the corner in its own style. Where the two styles differ the
-	/// halves are closed off against each other. The arms' segment blends are what their chunks were built with,
-	/// so the straight stretch of each half continues the arm's border exactly.
+	/// profile, so a road's border carries on round the corner in its own style. Where two road types meet round a
+	/// corner, each arm's border has already tapered, by its trim, into the cross-section the two share, and its
+	/// taper holds that shape on past the trim, so both halves are built in it and meet flush. Where they have not
+	/// (borders of different kinds, or a road type with no transition) the halves are closed off against each other.
+	/// The arms' segment blends and tapers are what their chunks were built with, so each half continues its arm's
+	/// border exactly.
 	/// </summary>
 	public static PolygonMesh BuildJunction(RoadJunctionLayout _Layout, Func<RoadSegment, RoadProfile> _ProfileOf, Func<RoadSegment, SegmentBorderBlends> _BlendsOf, Func<RoadSegment, SegmentBorderTapers> _TaperOf, BorderDebug _Debug = null)
 	{
@@ -260,16 +267,24 @@ internal static class RoadBorderBuilder
 			var profileA = _ProfileOf(path.ArmA.Segment);
 			var profileB = _ProfileOf(path.ArmB.Segment);
 			bool differ = !SameProfile(profileA, profileB);
+
 			// The first half runs on arm A's left looking out of the node, the second on arm B's right; which side of
 			// the segment that is depends on which way the segment runs.
-			var shapeA = new ProfileShape(profileA, _TaperOf(path.ArmA.Segment).Side(path.ArmA.AtStart), path.ArmA.Length);
-			var shapeB = new ProfileShape(profileB, _TaperOf(path.ArmB.Segment).Side(!path.ArmB.AtStart), path.ArmB.Length);
+			var taperA = _TaperOf(path.ArmA.Segment).Side(path.ArmA.AtStart);
+			var taperB = _TaperOf(path.ArmB.Segment).Side(!path.ArmB.AtStart);
+			var shapeA = new ProfileShape(profileA, taperA, path.ArmA.Length);
+			var shapeB = new ProfileShape(profileB, taperB, path.ArmB.Length);
+
+			// Two borders that have both tapered into the shape they share meet flush; anything else is two
+			// different borders, closed off against each other.
+			bool meet = taperA.TapersAt(path.ArmA.AtStart) && taperB.TapersAt(path.ArmB.AtStart);
+			bool closeBetween = differ && !meet;
 
 			if (profileA.HasBorder)
-				Sweep(mesh, shapeA, HalfPath(path, true, _BlendsOf(path.ArmA.Segment)), false, differ || !profileB.HasBorder, _Debug, BorderDebug.FirstHalfColor, $"J{_Layout.Node.Id} A{path.ArmA.Segment.Id}");
+				Sweep(mesh, shapeA, HalfPath(path, true, _BlendsOf(path.ArmA.Segment)), false, closeBetween || !profileB.HasBorder, _Debug, BorderDebug.FirstHalfColor, $"J{_Layout.Node.Id} A{path.ArmA.Segment.Id}");
 
 			if (profileB.HasBorder)
-				Sweep(mesh, shapeB, HalfPath(path, false, _BlendsOf(path.ArmB.Segment)), differ || !profileA.HasBorder, false, _Debug, BorderDebug.SecondHalfColor, $"J{_Layout.Node.Id} B{path.ArmB.Segment.Id}");
+				Sweep(mesh, shapeB, HalfPath(path, false, _BlendsOf(path.ArmB.Segment)), closeBetween || !profileA.HasBorder, false, _Debug, BorderDebug.SecondHalfColor, $"J{_Layout.Node.Id} B{path.ArmB.Segment.Id}");
 		}
 
 		return mesh;
@@ -417,8 +432,12 @@ internal static class RoadBorderBuilder
 
 			reliefs[i] = EvaluateProfile(_Shape, path[i], shape, out spills[i]);
 
+			// A pavement takes its lift across the width it has at this row, which a taper may have changed: two
+			// halves of a corner meeting at a shared width then lift their outer edges alike.
+			float liftWidth = profile.Border == RoadBorderStyle.Sidewalk ? ShapeWidth(shape) : profile.BorderWidth;
+
 			for (int k = 0; k < nodeCount; k++)
-				rows[k] = NodePosition(path[i], shape[k], profile.BorderWidth);
+				rows[k] = NodePosition(path[i], shape[k], liftWidth);
 
 			shapes[i] = shape;
 			positions[i] = rows;
@@ -665,15 +684,17 @@ internal static class RoadBorderBuilder
 					var material = _Profile.ResolvedBorderMaterial;
 					float repeat = _Profile.BorderTextureRepeat;
 
-					// Kerb face, pavement, outer face. The pavement spans one texture repeat across, whatever its width;
-					// the kerb texture follows the slope of a bevelled kerb instead of stretching.
+					// Kerb face, pavement, outer face. The pavement's texture keeps its own size across, measured out
+					// from the kerb: a narrower pavement shows less of it and a wider one runs on into the next repeat,
+					// instead of the one texture being squeezed or pulled to fit. The kerb texture follows the slope of a
+					// bevelled kerb instead of stretching.
 					float bevelU = new Vector2(_Profile.CurbBevel, _Profile.CurbHeight).Length / repeat;
 					float heightU = _Profile.CurbHeight / repeat;
 
 					return new[]
 					{
 					new Face(0, 1, material, repeat, _U0: bevelU, _U1: 0.0f),
-					new Face(1, 2, material, repeat, _U0: 0.0f, _U1: 1.0f, _Blendable: true),
+					new Face(1, 2, material, repeat, _AccumulateFrom: 1, _Blendable: true, _AcrossRepeat: _Profile.BorderTextureWidth),
 					new Face(2, 3, material, repeat, _U0: 1.0f - heightU, _U1: 1.0f)
 				};
 				}
@@ -741,7 +762,8 @@ internal static class RoadBorderBuilder
 			case RoadBorderStyle.CountrySide:
 				{
 					float scale = profile.ChaosScale;
-					float amplitude = profile.Chaos * relief;
+					// A relief above 1 raises a verge to meet a deeper one; it does not make it any wilder.
+					float amplitude = profile.Chaos * MathF.Min(relief, 1.0f);
 					float x = _Point.Position.x * scale;
 					float y = _Point.Position.y * scale;
 
@@ -826,8 +848,9 @@ internal static class RoadBorderBuilder
 		if (_Face.Planar)
 			return new Vector2(_Position.x, _Position.y) / _Face.Repeat;
 
+		float across = _Face.AcrossRepeat > 0.0f ? _Face.AcrossRepeat : _Face.Repeat;
 		float u = _Face.AccumulateFrom >= 0
-			? (_Across[_Node] - _Across[_Face.AccumulateFrom]) / _Face.Repeat
+			? (_Across[_Node] - _Across[_Face.AccumulateFrom]) / across
 			: (_Node == _Face.NodeA ? _Face.U0 : _Face.U1);
 
 		return new Vector2(u, _Point.Along / _Face.Repeat);

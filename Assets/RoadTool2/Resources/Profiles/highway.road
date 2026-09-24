@@ -1,12 +1,20 @@
 {
+  "RoadMaterial": {
+    "Id": "d455ca89-b392-4406-b495-cb82f47ba3fa",
+    "Path": "roadtool2/materials/asphalt.vmat"
+  },
+  "RoadTextureRepeat": 500,
   "Simplify": true,
   "SimplifyAngle": 1,
   "SimplifyDeviation": 2,
-  "RoadMaterial": "roadtool2/materials/asphalt.vmat",
-  "RoadTextureRepeat": 500,
+  "RoundedEnds": true,
   "Border": "Sidewalk",
-  "BorderMaterial": "roadtool2/materials/sidewalk.vmat",
+  "BorderMaterial": {
+    "Id": "3ad71a9b-5dad-4540-9ba5-fb04f0c4e6e8",
+    "Path": "roadtool2/materials/sidewalk.vmat"
+  },
   "BorderTextureRepeat": 200,
+  "BorderTextureWidth": 200,
   "BorderWidth": 50,
   "CurbHeight": 2,
   "CurbBevel": 0,
@@ -44,8 +52,11 @@
   },
   "EdgeLineMargin": 10,
   "Crossings": false,
-  "CrossingDecal": null,
+  "CrossingStyle": "Stripes",
+  "CrossingMaterial": null,
   "CrossingDepth": 120,
+  "CrossingStripeWidth": 40,
+  "CrossingStripeGap": 40,
   "CrossingInset": 10,
   "CrossingClearance": 150,
   "__references": [],

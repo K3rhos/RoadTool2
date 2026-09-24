@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 52;
+	private const int GeneratorVersion = 56;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -227,7 +227,7 @@ public sealed partial class RoadNetwork
 			float trimEnd = MathF.Max(layouts.GetValueOrDefault(segment.EndNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f, LotTrimAt(segment.EndNodeId));
 			var caps = ComputeBorderCaps(segment, layouts);
 			var blends = ComputeBorderBlends(segment, table, layouts);
-			var taper = ComputeBorderTaper(segment, table);
+			var taper = ComputeBorderTaper(segment, table, layouts, trimStart, trimEnd);
 			var crossings = ComputeCrossings(segment, table, layouts, trimStart, trimEnd);
 			var lines = ComputeLineRange(table, profile, trimStart, trimEnd, crossings);
 			var dash = dashPhases.GetValueOrDefault(segment.Id);
@@ -398,9 +398,9 @@ public sealed partial class RoadNetwork
 
 
 	/// <summary>
-	/// How a segment's border runs out at each end where the road type changes at a pass-through node: over the
-	/// profile's transition length (at most half the road, so the two ends never overlap), towards the flat width
-	/// of the road type on the other side. Junctions of three roads or more and road ends do not taper.
+	/// How a segment's border runs out at each end where it meets another road type's: over the profile's transition
+	/// length, towards the cross-section the two share. Without the junction layouts only pass-through nodes are
+	/// known; the reconcile passes them, so junction corners taper too.
 	/// </summary>
 	public SegmentBorderTapers GetBorderTaper(RoadSegment _Segment)
 	{
@@ -411,7 +411,15 @@ public sealed partial class RoadNetwork
 
 
 
-	private SegmentBorderTapers ComputeBorderTaper(RoadSegment _Segment, RoadCurveTable _Table)
+	/// <summary>
+	/// One end of a border's taper: how long it is, the width and share of relief it runs to, whether a country road's
+	/// gravel spills over it, and how far from the node it ends.
+	/// </summary>
+	private readonly record struct EndTaper(float Length, float Width, float Relief, bool Spill, float Offset);
+
+
+
+	private SegmentBorderTapers ComputeBorderTaper(RoadSegment _Segment, RoadCurveTable _Table, Dictionary<int, RoadJunctionLayout> _Layouts = null, float _TrimStart = 0.0f, float _TrimEnd = 0.0f)
 	{
 		var profile = ProfileOf(_Segment);
 
@@ -419,33 +427,134 @@ public sealed partial class RoadNetwork
 			return default;
 
 		float limit = _Table.Length * 0.5f;
-		RoadBorderTaper both = default;
+		RoadBorderTaper left = default;
+		RoadBorderTaper right = default;
+
+		// A transition ends at its trim, so the two ends share the stretch BETWEEN the trims and each gets half of
+		// it; however far a junction reaches along the road (a ramp meeting a highway can trim most of it), the two
+		// never run into each other and neither is squeezed out.
+		float transitionLimit = MathF.Max(0.0f, _Table.Length - _TrimStart - _TrimEnd) * 0.5f;
 
 		if (profile.TransitionLength > 0.0f)
 		{
-			TaperAt(_Segment, _Segment.StartNodeId, profile, limit, out float startLength, out float startWidth, out bool startFlatten, out bool startSpill);
-			TaperAt(_Segment, _Segment.EndNodeId, profile, limit, out float endLength, out float endWidth, out bool endFlatten, out bool endSpill);
-
-			both = new RoadBorderTaper(startLength, startWidth, startFlatten, startSpill, endLength, endWidth, endFlatten, endSpill);
+			SideTapers(_Segment, profile, _Segment.StartNodeId, true, transitionLimit, _Layouts, ref left, ref right);
+			SideTapers(_Segment, profile, _Segment.EndNodeId, false, transitionLimit, _Layouts, ref left, ref right);
 		}
 
 		// At a nose, the border on the side facing the road this one parts from grows out of nothing instead.
-		var left = both;
-		var right = both;
-
 		if (GoreLength(_Segment, _Table, _Segment.StartNodeId, true, limit) is { } startLeft)
-			left = left with { StartLength = startLeft, StartWidth = 0.0f, StartFlatten = true, StartSpill = false, StartGore = true };
+			left = left with { StartLength = startLeft, StartWidth = 0.0f, StartRelief = 0.0f, StartSpill = false, StartGore = true, StartOffset = 0.0f };
 
 		if (GoreLength(_Segment, _Table, _Segment.StartNodeId, false, limit) is { } startRight)
-			right = right with { StartLength = startRight, StartWidth = 0.0f, StartFlatten = true, StartSpill = false, StartGore = true };
+			right = right with { StartLength = startRight, StartWidth = 0.0f, StartRelief = 0.0f, StartSpill = false, StartGore = true, StartOffset = 0.0f };
 
 		if (GoreLength(_Segment, _Table, _Segment.EndNodeId, true, limit) is { } endLeft)
-			left = left with { EndLength = endLeft, EndWidth = 0.0f, EndFlatten = true, EndSpill = false, EndGore = true };
+			left = left with { EndLength = endLeft, EndWidth = 0.0f, EndRelief = 0.0f, EndSpill = false, EndGore = true, EndOffset = 0.0f };
 
 		if (GoreLength(_Segment, _Table, _Segment.EndNodeId, false, limit) is { } endRight)
-			right = right with { EndLength = endRight, EndWidth = 0.0f, EndFlatten = true, EndSpill = false, EndGore = true };
+			right = right with { EndLength = endRight, EndWidth = 0.0f, EndRelief = 0.0f, EndSpill = false, EndGore = true, EndOffset = 0.0f };
 
 		return new SegmentBorderTapers(left, right);
+	}
+
+
+
+	/// <summary>
+	/// The tapers at one end of a segment, one per side, each towards the border across from it there. At a plain
+	/// pass-through node that is the other road on both sides. At a junction it is the road on the far side of each
+	/// corner, and the taper ends at the arm's trim, where the corner starts: the corner itself is then built in the
+	/// one cross-section both its roads have run to, so it is a clean curve rather than one border turning into
+	/// the other round the arc.
+	/// </summary>
+	private void SideTapers(RoadSegment _Segment, RoadProfile _Profile, int _NodeId, bool _AtStart, float _Limit, Dictionary<int, RoadJunctionLayout> _Layouts, ref RoadBorderTaper _Left, ref RoadBorderTaper _Right)
+	{
+		int degree = GetDegree(_NodeId);
+
+		if (degree < 2)
+			return;
+
+		RoadSegment leftNeighbour = null;
+		RoadSegment rightNeighbour = null;
+		float trim = 0.0f;
+
+		if (_Layouts is not null && _Layouts.TryGetValue(_NodeId, out var layout) && layout.FindArm(_Segment.Id) is { } arm)
+		{
+			trim = arm.Trim;
+
+			// A corner starting on this arm runs on its left looking out of the node, one ending on it on its right;
+			// looking along a segment that ends at the node swaps the two.
+			foreach (var path in layout.CornerPaths)
+			{
+				if (path.ArmA.Segment.Id == _Segment.Id)
+				{
+					if (_AtStart)
+						leftNeighbour = path.ArmB.Segment;
+					else
+						rightNeighbour = path.ArmB.Segment;
+				}
+				else if (path.ArmB.Segment.Id == _Segment.Id)
+				{
+					if (_AtStart)
+						rightNeighbour = path.ArmA.Segment;
+					else
+						leftNeighbour = path.ArmA.Segment;
+				}
+			}
+		}
+		else if (degree == 2)
+		{
+			leftNeighbour = GetSegmentsAt(_NodeId).FirstOrDefault(candidate => candidate.Id != _Segment.Id);
+			rightNeighbour = leftNeighbour;
+		}
+
+		if (SideTaper(_Profile, leftNeighbour, degree, trim, _Limit, out var leftEnd))
+			_Left = WithEnd(_Left, _AtStart, leftEnd);
+
+		if (SideTaper(_Profile, rightNeighbour, degree, trim, _Limit, out var rightEnd))
+			_Right = WithEnd(_Right, _AtStart, rightEnd);
+	}
+
+
+
+	/// <summary>
+	/// The taper one side of a border takes towards the border across from it at a node, or false when it takes none:
+	/// nothing across, a border that is already the same size, or — at a junction — a border of another kind, which
+	/// a junction still closes off against this one.
+	/// </summary>
+	private bool SideTaper(RoadProfile _Profile, RoadSegment _Neighbour, int _Degree, float _Trim, float _Limit, out EndTaper _Taper)
+	{
+		_Taper = default;
+
+		if (_Neighbour is null)
+			return false;
+
+		var other = ProfileOf(_Neighbour);
+		bool sameKind = other.Border == _Profile.Border;
+
+		if (_Degree > 2 && !sameKind)
+			return false;
+
+		if (sameKind && MathF.Abs(other.FlatBorderWidth - _Profile.FlatBorderWidth) < 0.01f && MathF.Abs(other.ReliefHeight - _Profile.ReliefHeight) < 0.01f)
+			return false;
+
+		// Held to its half of the stretch between the trims, so it never runs into the taper at the far end.
+		float length = MathF.Min(_Profile.TransitionLength, _Limit);
+
+		if (length <= 0.01f)
+			return false;
+
+		_Taper = new EndTaper(length, RoadProfile.MeetingWidth(_Profile, other), RoadProfile.MeetingRelief(_Profile, other), !sameKind && other.Border == RoadBorderStyle.CountrySide, _Trim);
+
+		return true;
+	}
+
+
+
+	private static RoadBorderTaper WithEnd(in RoadBorderTaper _Taper, bool _AtStart, in EndTaper _End)
+	{
+		return _AtStart
+			? _Taper with { StartLength = _End.Length, StartWidth = _End.Width, StartRelief = _End.Relief, StartSpill = _End.Spill, StartOffset = _End.Offset }
+			: _Taper with { EndLength = _End.Length, EndWidth = _End.Width, EndRelief = _End.Relief, EndSpill = _End.Spill, EndOffset = _End.Offset };
 	}
 
 
@@ -536,53 +645,12 @@ public sealed partial class RoadNetwork
 
 
 	/// <summary>
-	/// A different kind of border on the other side flattens this one out on the way to the node; the same kind
-	/// in another width just runs the width across. A country road on the other side spills its gravel over.
+	/// Whether two road types' borders come to one cross-section where they meet, so nothing needs closing off
+	/// between them: of a kind, and both tapering into the width and height they share.
 	/// </summary>
-	private void TaperAt(RoadSegment _Segment, int _NodeId, RoadProfile _Profile, float _Limit, out float _Length, out float _Width, out bool _Flatten, out bool _Spill)
+	private static bool MeetsFlush(RoadProfile _A, RoadProfile _B)
 	{
-		_Length = 0.0f;
-		_Width = 0.0f;
-		_Flatten = false;
-		_Spill = false;
-
-		if (GetDegree(_NodeId) != 2)
-			return;
-
-		var other = GetSegmentsAt(_NodeId).FirstOrDefault(candidate => candidate.Id != _Segment.Id);
-
-		if (other is null)
-			return;
-
-		var otherProfile = ProfileOf(other);
-		bool sameKind = otherProfile.Border == _Profile.Border;
-
-		if (sameKind && MathF.Abs(otherProfile.FlatBorderWidth - _Profile.FlatBorderWidth) < 0.01f)
-			return;
-
-		_Length = MathF.Min(_Profile.TransitionLength, _Limit);
-		_Width = MeetingWidth(_Profile, otherProfile);
-		_Flatten = !sameKind;
-		_Spill = !sameKind && otherProfile.Border == RoadBorderStyle.CountrySide;
-	}
-
-
-
-	/// <summary>
-	/// The width BOTH borders run to where two road types meet, so they line up at the node: running each one to
-	/// the other's width only swaps them over and leaves a step of the whole difference between the two. A kerb is
-	/// a built thing and keeps the width it has, so a verge on the other side is what gives; two borders of a kind
-	/// meet halfway; and a border with nothing on the other side still runs out to nothing.
-	/// </summary>
-	private static float MeetingWidth(RoadProfile _Profile, RoadProfile _Other)
-	{
-		if (!_Profile.HasBorder || !_Other.HasBorder)
-			return 0.0f;
-
-		if (_Profile.Border == _Other.Border)
-			return (_Profile.FlatBorderWidth + _Other.FlatBorderWidth) * 0.5f;
-
-		return _Profile.Border == RoadBorderStyle.Sidewalk ? _Profile.FlatBorderWidth : _Other.FlatBorderWidth;
+		return _A.HasBorder && _A.Border == _B.Border && _A.TransitionLength > 0.0f && _B.TransitionLength > 0.0f;
 	}
 
 
@@ -1059,7 +1127,8 @@ public sealed partial class RoadNetwork
 		if (degree == 2)
 		{
 			var other = GetSegmentsAt(_NodeId).FirstOrDefault(candidate => candidate.Id != _Segment.Id);
-			bool continuous = other is not null && RoadBorderBuilder.SameProfile(ProfileOf(other), ProfileOf(_Segment)) && SameEdgesAt(_Segment, other, _NodeId);
+			bool continuous = other is not null && SameEdgesAt(_Segment, other, _NodeId)
+				&& (RoadBorderBuilder.SameProfile(ProfileOf(other), ProfileOf(_Segment)) || MeetsFlush(ProfileOf(other), ProfileOf(_Segment)));
 
 			_Left = !continuous;
 			_Right = !continuous;

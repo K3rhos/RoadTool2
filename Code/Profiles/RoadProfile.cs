@@ -138,6 +138,13 @@ public sealed class RoadProfile : GameResource
 	[Group("Border"), HideIf(nameof(Border), RoadBorderStyle.None), Range(10.0f, 10000.0f)] public float BorderTextureRepeat { get; set { field = value.Clamp(1.0f, 100000.0f); } } = 200.0f;
 
 	/// <summary>
+	/// How wide one repeat of a sidewalk's texture is, across the pavement from the kerb. The texture keeps this size
+	/// whatever the pavement's width: a narrower pavement shows less of it, a wider one runs on into the next repeat,
+	/// and one tapering between the two is never squeezed or pulled to fit.
+	/// </summary>
+	[Group("Sidewalk"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk), Range(10.0f, 1000.0f)] public float BorderTextureWidth { get; set { field = value.Clamp(1.0f, 100000.0f); } } = 150.0f;
+
+	/// <summary>
 	/// Sidewalk: pavement width. Country side: width of the road-material shoulder before the drop.
 	/// </summary>
 	[Group("Border"), HideIf(nameof(Border), RoadBorderStyle.None), Range(0.0f, 500.0f)] public float BorderWidth { get; set { field = value.Clamp(0.0f, 5000.0f); } } = 150.0f;
@@ -249,6 +256,53 @@ public sealed class RoadProfile : GameResource
 	[Hide, JsonIgnore] public bool HasBorder => Border != RoadBorderStyle.None;
 
 	/// <summary>
+	/// How tall this road type's border stands at the road's edge, which is what the relief of a transition scales: a
+	/// sidewalk's kerb, a country road's drop and the verge falling away below it.
+	/// </summary>
+	[Hide, JsonIgnore] public float ReliefHeight => Border switch
+	{
+		RoadBorderStyle.Sidewalk => CurbHeight,
+		RoadBorderStyle.CountrySide => Drop + VergeDepth,
+		_ => 0.0f
+	};
+
+	/// <summary>
+	/// The width BOTH borders run to where two road types meet, so they line up there: running each one to the
+	/// other's width only swaps them over and leaves a step of the whole difference between the two. A kerb is a
+	/// built thing and keeps the width it has, so a verge on the other side is what gives; two borders of a kind
+	/// meet halfway; and a border with nothing on the other side still runs out to nothing.
+	/// </summary>
+	public static float MeetingWidth(RoadProfile _Profile, RoadProfile _Other)
+	{
+		if (!_Profile.HasBorder || !_Other.HasBorder)
+			return 0.0f;
+
+		if (_Profile.Border == _Other.Border)
+			return (_Profile.FlatBorderWidth + _Other.FlatBorderWidth) * 0.5f;
+
+		return _Profile.Border == RoadBorderStyle.Sidewalk ? _Profile.FlatBorderWidth : _Other.FlatBorderWidth;
+	}
+
+	/// <summary>
+	/// The share of its own relief a border runs to where it meets another road type's. A different kind of border
+	/// on the other side has only the road itself in common with it, so both flatten into that. Two of a kind meet
+	/// halfway in height as they do in width, so a low kerb running into a high one ramps up and the high one down,
+	/// instead of the two standing side by side with a step between them.
+	/// </summary>
+	public static float MeetingRelief(RoadProfile _Profile, RoadProfile _Other)
+	{
+		if (!_Other.HasBorder || _Other.Border != _Profile.Border)
+			return 0.0f;
+
+		float own = _Profile.ReliefHeight;
+
+		if (own <= 0.001f)
+			return 1.0f;
+
+		return (own + _Other.ReliefHeight) * 0.5f / own;
+	}
+
+	/// <summary>
 	/// How this road type's rows are thinned out, as the row sampler wants it. A verge that wanders with noise caps
 	/// how far apart the rows may be spread, because the sampler decides what it can drop by measuring the ROAD'S
 	/// EDGES and knows nothing about a border that moves between them: left to itself it drops every row on a
@@ -338,6 +392,7 @@ public sealed class RoadProfile : GameResource
 		_Hash.Add((int)Border);
 		_Hash.Add(BorderMaterial?.ResourcePath);
 		_Hash.Add(BorderTextureRepeat);
+		_Hash.Add(BorderTextureWidth);
 		_Hash.Add(BorderWidth);
 		_Hash.Add(CurbHeight);
 		_Hash.Add(CurbBevel);
