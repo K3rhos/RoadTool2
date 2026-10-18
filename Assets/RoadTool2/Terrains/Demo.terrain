@@ -1,6 +1,6 @@
 {
   "Maps": {
-    "$blob": "c813b46c-f138-8292-a43a-15149bfa2735"
+    "$blob": "bcaf438d-76f5-895a-ac09-de47968d7981"
   },
   "Resolution": 1024,
   "TerrainSize": 100000,
@@ -26,7 +26,7 @@
       "MipLodBias": 0,
       "MaxAnisotropy": 8,
       "BorderColor": "0,0,0,0",
-      "Index": 1
+      "Index": 2
     }
   },
   "ResourceVersion": 3,

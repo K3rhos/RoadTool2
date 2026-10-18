@@ -1,5 +1,8 @@
 {
-  "DeckMaterial": "roadtool2/materials/concrete.vmat",
+  "DeckMaterial": {
+    "Id": "700437a5-2c28-4713-b728-fe0723c68ab3",
+    "Path": "roadtool2/materials/concrete.vmat"
+  },
   "DeckTextureRepeat": 500,
   "DeckDepth": 50,
   "DeckOverhang": 10,
@@ -18,8 +21,8 @@
   "SupportMaterial": null,
   "PillarShape": "Round",
   "PillarLayout": "Pair",
-  "PillarSize": 100,
-  "PillarInset": 120,
+  "PillarSize": 200,
+  "PillarInset": 50,
   "PillarSegments": 16,
   "SupportSink": 50,
   "SupportFallbackHeight": 1000,

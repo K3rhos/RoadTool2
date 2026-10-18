@@ -132,7 +132,13 @@ internal static class RoadBorderBuilder
 		public readonly bool Blendable;
 		public readonly float AcrossRepeat;
 
-		public Face(int _NodeA, int _NodeB, Material _Material, float _Repeat, bool _Planar = false, int _AccumulateFrom = -1, float _U0 = 0.0f, float _U1 = 1.0f, bool _Blendable = false, float _AcrossRepeat = 0.0f)
+		/// <summary>
+		/// Which side of the face's texture is its road edge; the coordinates above are worked out for the west one
+		/// and turned to suit.
+		/// </summary>
+		public readonly RoadTextureFacing Facing;
+
+		public Face(int _NodeA, int _NodeB, Material _Material, float _Repeat, bool _Planar = false, int _AccumulateFrom = -1, float _U0 = 0.0f, float _U1 = 1.0f, bool _Blendable = false, float _AcrossRepeat = 0.0f, RoadTextureFacing _Facing = RoadTextureFacing.West)
 		{
 			NodeA = _NodeA;
 			NodeB = _NodeB;
@@ -144,6 +150,7 @@ internal static class RoadBorderBuilder
 			U1 = _U1;
 			Blendable = _Blendable;
 			AcrossRepeat = _AcrossRepeat;
+			Facing = _Facing;
 		}
 	}
 
@@ -690,12 +697,13 @@ internal static class RoadBorderBuilder
 					// bevelled kerb instead of stretching.
 					float bevelU = new Vector2(_Profile.CurbBevel, _Profile.CurbHeight).Length / repeat;
 					float heightU = _Profile.CurbHeight / repeat;
+					var facing = _Profile.BorderTextureFacing;
 
 					return new[]
 					{
-					new Face(0, 1, material, repeat, _U0: bevelU, _U1: 0.0f),
-					new Face(1, 2, material, repeat, _AccumulateFrom: 1, _Blendable: true, _AcrossRepeat: _Profile.BorderTextureWidth),
-					new Face(2, 3, material, repeat, _U0: 1.0f - heightU, _U1: 1.0f)
+					new Face(0, 1, material, repeat, _U0: bevelU, _U1: 0.0f, _Facing: facing),
+					new Face(1, 2, material, repeat, _AccumulateFrom: 1, _Blendable: true, _AcrossRepeat: _Profile.BorderTextureWidth, _Facing: facing),
+					new Face(2, 3, material, repeat, _U0: 1.0f - heightU, _U1: 1.0f, _Facing: facing)
 				};
 				}
 
@@ -843,7 +851,13 @@ internal static class RoadBorderBuilder
 
 
 
-	private static Vector2 FaceUv(in Face _Face, in PathPoint _Point, Vector3 _Position, float[] _Across, int _Node)
+	/// <summary>
+	/// A corner of a face's texture: U across the border from its road edge, V along the road (plus
+	/// <paramref name="_Ahead"/> repeats further on, for a block corner carried past its row), then turned to suit
+	/// which side of the texture is its road edge. The turn comes last, so anything added along the road is added
+	/// along the road whichever way the texture faces.
+	/// </summary>
+	private static Vector2 FaceUv(in Face _Face, in PathPoint _Point, Vector3 _Position, float[] _Across, int _Node, float _Ahead = 0.0f)
 	{
 		if (_Face.Planar)
 			return new Vector2(_Position.x, _Position.y) / _Face.Repeat;
@@ -853,7 +867,25 @@ internal static class RoadBorderBuilder
 			? (_Across[_Node] - _Across[_Face.AccumulateFrom]) / across
 			: (_Node == _Face.NodeA ? _Face.U0 : _Face.U1);
 
-		return new Vector2(u, _Point.Along / _Face.Repeat);
+		return Orient(u, _Point.Along / _Face.Repeat + _Ahead, _Face.Facing);
+	}
+
+
+
+	/// <summary>
+	/// Texture coordinates worked out for a texture whose road edge is its west side, turned for one whose road edge
+	/// is another side: a quarter turn, a half turn or three quarters, never a mirror, so whatever is painted on the
+	/// texture reads the way it was drawn. Texture V runs down the image, so north is V = 0.
+	/// </summary>
+	private static Vector2 Orient(float _U, float _V, RoadTextureFacing _Facing)
+	{
+		return _Facing switch
+		{
+			RoadTextureFacing.North => new Vector2(-_V, _U),
+			RoadTextureFacing.East => new Vector2(1.0f - _U, -_V),
+			RoadTextureFacing.South => new Vector2(_V, 1.0f - _U),
+			_ => new Vector2(_U, _V)
+		};
 	}
 
 
@@ -1037,7 +1069,7 @@ internal static class RoadBorderBuilder
 			var pointB = _Positions[t][b];
 			var cornerB = new Vector3(mitreB.x, mitreB.y, fold.ApexHeight + shape[b].y);
 			Vector2 uvB = FaceUv(face, row, pointB, _Across[t], b);
-			Vector2 uvCornerB = face.Planar ? PlanarUv(cornerB, face.Repeat) : uvB + new Vector2(0.0f, towardsCorner * Flat(pointB).Distance(Flat(cornerB)) / face.Repeat);
+			Vector2 uvCornerB = face.Planar ? PlanarUv(cornerB, face.Repeat) : FaceUv(face, row, pointB, _Across[t], b, towardsCorner * Flat(pointB).Distance(Flat(cornerB)) / face.Repeat);
 
 			if (shape[a].x < fold.Radius)
 			{
@@ -1069,7 +1101,7 @@ internal static class RoadBorderBuilder
 				continue;
 
 			Vector2 uvA = FaceUv(face, row, pointA, _Across[t], a);
-			Vector2 uvCornerA = face.Planar ? PlanarUv(cornerA, face.Repeat) : uvA + new Vector2(0.0f, towardsCorner * Flat(pointA).Distance(Flat(cornerA)) / face.Repeat);
+			Vector2 uvCornerA = face.Planar ? PlanarUv(cornerA, face.Repeat) : FaceUv(face, row, pointA, _Across[t], a, towardsCorner * Flat(pointA).Distance(Flat(cornerA)) / face.Repeat);
 
 			AddPatchQuad(_Mesh, face.Material, expected, pointA, cornerA, cornerB, pointB, uvA, uvCornerA, uvCornerB, uvB);
 

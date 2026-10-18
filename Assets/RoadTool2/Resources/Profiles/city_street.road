@@ -15,6 +15,7 @@
   },
   "BorderTextureRepeat": 200,
   "BorderTextureWidth": 200,
+  "BorderTextureFacing": "West",
   "BorderWidth": 150,
   "CurbHeight": 5,
   "CurbBevel": 0,

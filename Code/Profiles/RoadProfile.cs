@@ -25,6 +25,34 @@ public enum RoadBorderStyle
 }
 
 /// <summary>
+/// Which side of a sidewalk texture is its road edge (the kerb, where the texture meets the road), as the image is
+/// drawn. The tool lays the texture out from that edge across the pavement, so a texture drawn any way round sits
+/// the right way round on the road.
+/// </summary>
+public enum RoadTextureFacing
+{
+	/// <summary>
+	/// The road edge is the image's left side.
+	/// </summary>
+	West,
+
+	/// <summary>
+	/// The road edge is the image's top side.
+	/// </summary>
+	North,
+
+	/// <summary>
+	/// The road edge is the image's right side.
+	/// </summary>
+	East,
+
+	/// <summary>
+	/// The road edge is the image's bottom side.
+	/// </summary>
+	South
+}
+
+/// <summary>
 /// What a pedestrian crossing is painted as.
 /// </summary>
 public enum RoadCrossingStyle
@@ -142,19 +170,25 @@ public sealed class RoadProfile : GameResource
 	/// whatever the pavement's width: a narrower pavement shows less of it, a wider one runs on into the next repeat,
 	/// and one tapering between the two is never squeezed or pulled to fit.
 	/// </summary>
-	[Group("Sidewalk"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk), Range(10.0f, 1000.0f)] public float BorderTextureWidth { get; set { field = value.Clamp(1.0f, 100000.0f); } } = 150.0f;
+	[Group("Border"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk), Range(10.0f, 1000.0f)] public float BorderTextureWidth { get; set { field = value.Clamp(1.0f, 100000.0f); } } = 150.0f;
+
+	/// <summary>
+	/// Which side of the sidewalk texture is its road edge (the kerb), as the image is drawn. The texture is turned so
+	/// that edge meets the road whichever way round it was painted; turned, never mirrored.
+	/// </summary>
+	[Group("Border"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk), Title("Texture Road Edge")] public RoadTextureFacing BorderTextureFacing { get; set; } = RoadTextureFacing.West;
 
 	/// <summary>
 	/// Sidewalk: pavement width. Country side: width of the road-material shoulder before the drop.
 	/// </summary>
 	[Group("Border"), HideIf(nameof(Border), RoadBorderStyle.None), Range(0.0f, 500.0f)] public float BorderWidth { get; set { field = value.Clamp(0.0f, 5000.0f); } } = 150.0f;
 
-	[Group("Sidewalk"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk), Range(0.1f, 100.0f)] public float CurbHeight { get; set { field = value.Clamp(0.1f, 1000.0f); } } = 5.0f;
+	[Group("Border"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk), Range(0.1f, 100.0f)] public float CurbHeight { get; set { field = value.Clamp(0.1f, 1000.0f); } } = 5.0f;
 
 	/// <summary>
 	/// Pushes the top of the kerb outward, turning the vertical kerb face into a slope. 0 is a vertical kerb.
 	/// </summary>
-	[Group("Sidewalk"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk), Range(0.0f, 100.0f)] public float CurbBevel { get; set { field = value.Clamp(0.0f, 1000.0f); } } = 0.0f;
+	[Group("Border"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk), Range(0.0f, 100.0f)] public float CurbBevel { get; set { field = value.Clamp(0.0f, 1000.0f); } } = 0.0f;
 
 	/// <summary>
 	/// How far the verge steps down from the shoulder: the exposed thickness of the road.
@@ -187,7 +221,7 @@ public sealed class RoadProfile : GameResource
 	/// the gravel, mixed per vertex (solid gravel at the node, pavement again by the end of the transition, with a
 	/// ragged edge between). Empty keeps the pavement plain up to the node.
 	/// </summary>
-	[Group("Sidewalk"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk)] public Material BlendMaterial { get; set; }
+	[Group("Border"), ShowIf(nameof(Border), RoadBorderStyle.Sidewalk)] public Material BlendMaterial { get; set; }
 
 	/// <summary>
 	/// Between two lanes running the same way.
@@ -393,6 +427,7 @@ public sealed class RoadProfile : GameResource
 		_Hash.Add(BorderMaterial?.ResourcePath);
 		_Hash.Add(BorderTextureRepeat);
 		_Hash.Add(BorderTextureWidth);
+		_Hash.Add((int)BorderTextureFacing);
 		_Hash.Add(BorderWidth);
 		_Hash.Add(CurbHeight);
 		_Hash.Add(CurbBevel);

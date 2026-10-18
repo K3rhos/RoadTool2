@@ -1,0 +1,61 @@
+{
+  "RoadMaterial": {
+    "Id": "700437a5-2c28-4713-b728-fe0723c68ab3",
+    "Path": "roadtool2/materials/concrete.vmat"
+  },
+  "RoadTextureRepeat": 500,
+  "Simplify": true,
+  "SimplifyAngle": 1,
+  "SimplifyDeviation": 2,
+  "RoundedEnds": false,
+  "Border": "None",
+  "BorderMaterial": null,
+  "BorderTextureRepeat": 200,
+  "BorderTextureWidth": 150,
+  "BorderWidth": 150,
+  "CurbHeight": 5,
+  "CurbBevel": 0,
+  "Drop": 8,
+  "VergeWidth": 200,
+  "VergeDepth": 60,
+  "SlopeSegments": 3,
+  "Chaos": 30,
+  "ChaosScale": 0.02,
+  "TransitionLength": 300,
+  "BlendMaterial": null,
+  "LaneLine": {
+    "Enabled": false,
+    "Material": null,
+    "Width": 14,
+    "DashLength": 200,
+    "GapLength": 300,
+    "DoubleSpacing": 0
+  },
+  "CentreLine": {
+    "Enabled": false,
+    "Material": null,
+    "Width": 14,
+    "DashLength": 0,
+    "GapLength": 0,
+    "DoubleSpacing": 0
+  },
+  "EdgeLine": {
+    "Enabled": false,
+    "Material": null,
+    "Width": 10,
+    "DashLength": 0,
+    "GapLength": 0,
+    "DoubleSpacing": 0
+  },
+  "EdgeLineMargin": 10,
+  "Crossings": false,
+  "CrossingStyle": "Stripes",
+  "CrossingMaterial": null,
+  "CrossingDepth": 120,
+  "CrossingStripeWidth": 40,
+  "CrossingStripeGap": 40,
+  "CrossingInset": 10,
+  "CrossingClearance": 40,
+  "__references": [],
+  "__version": 0
+}
