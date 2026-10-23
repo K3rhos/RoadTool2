@@ -736,7 +736,7 @@
           "Flags": 0,
           "Generation": 1,
           "Heights": "",
-          "HeightSamples": 46148,
+          "HeightSamples": 45541,
           "HeightTiles": [
             {
               "Index": 44,
@@ -846,17 +846,17 @@
             {
               "Index": 106,
               "Count": 2136,
-              "Data": "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"
+              "Data": "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"
             },
             {
               "Index": 107,
-              "Count": 1535,
-              "Data": "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"
+              "Count": 1376,
+              "Data": "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"
             },
             {
               "Index": 108,
-              "Count": 1671,
-              "Data": "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"
+              "Count": 1669,
+              "Data": "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"
             },
             {
               "Index": 109,
@@ -886,17 +886,12 @@
             {
               "Index": 122,
               "Count": 1444,
-              "Data": "Au2Xb2iVZRjGf/fzvsedzbPp1qw1e5dlllmsfItWSfbHdNOdnbSZlCskSyqDApX+IWpUikWUI4cpJVRGX8woWQVGUUiSX4rsQ2VF1AfBvhT0Pyme6+EdR3QzthP0YS+Hs53nXOe+7vt+7vt+ruelsfQvO5jjf/0MuNcAUyGFmdABd8Ia6DXYEVeI6gyYeMzi5TBy+znIw8lwJrTK/ZLW9zn4yODLHERgwzIey3hwsh0uOvrbBpgPzTKe02tolhjG6N0dE8J4OT8HrtHHejgddsewxeBwHk4dlv/I8hpYrR0eLITxcAtsMmg7kbmCUlyEacr4JJkYA1V6r9OrBmbDWlgJW50i+3aErfC6wR8OnjbZPm4Up8AuB+84SP6FyQJcK99CJS6E86EWZsAC5dugU/83KbzaCT7y5yP4aQgn2mFjBB+6lBcMeiP4y2DWIPBu+NvB3lH4aGZGi+BERdAXwW9DdFMnbIg8PPEdPZLnLYMtEbwyRKufC0cc/OgS+iMdMsN7auAZg1cNLhl8RlfBuw72Rwnrw7wd3lOARk1pNzhXATb7yKKEQ5XSMOfAlONxNcIRgyfjhL7/Ti8FriZ42+CzynPVakdipa4pkwVr4c84YV0FqWphAlRnVBdK7ZwGt8LPccLBSuk1YLJO1CoVSqAqwtnQA9/FCQcqSNWm87Y6o2rNBMZd8GmccKhSVPU63SeWUU0TVStsMHgxTuiv1Gb1QJe4xupjQbkrSmXv8LI0StgTROPwnnwmtW7Q3OuSYqyWaqmBs8TVAW8afBAl/OJGwFWAFbDVFEwIbHJGlpcOLMLN8I3Bzijx+JE8i+A9B98bLBHZFBGbJOYkka2Apxz87lL/5ccO3ndKxXWaNONkZ4xaY15QjfsdvOFSXwC9LujSvIxfoK4K8rxZ8JnwuY/EpV79rXPQ53TFGEDnZLxJin0e7PXF41LugB+86HPagC5N13E6GWL9fo4mwy6DbS7lfvjC4HEHF8vxtjJ0o9TpIthmPtSUjQb7DB51cFUGPylzpVGLN8JjBo84/7Ppfn23Bf1ZlDtXiCCUQaPinI93+leD7TbdL/tj1uvbxaK4Uj2TU7c0SCaXtH7YB2zTva8+t4cMliv9V2c+xSrPS8U8A77yl0lLeQC+NvyfngxcrQAKOvyKcB58Iuspt8MBg4dkebYmXxiyddnkS0Lut1vK9SE9q6XY2wUOJ/LA7BoXpv9zlvrU7gngrgwcDtQ63QJKCmGnwbOW+iBeC260w9wycJgfJWVnu8FmS/2vXza4TyJlbtkIrdENrBQOV7+nlvrG8U21SonuFDjkOq9pUVLSnzA/nVJfmz7X92gbO+VG2Mm8qq2kClsLD1vqN3e96SJ/WYatOhrbjK+/B1N/91sNS1VOAy4EVTJJyBa4F1amPjer1OZtSlvgD862qJJaYBncnfoQl6t4AzJUhMvat6T3JXCbkEu1EpD12aaVI2+CHiEXa6KFiOqzy3ZeTR7Yu6FbyIVqh9lKVTmyRV01VVxdQnao7hZIzdWKPfjZokmdysisfwA="
+              "Data": "Au2XbWxURRSGn5l7292WbUtr0Vq9axVQRFPt1VgEBQmWFru7gkWiVCWCREWjCRK/0giKQsAQlUhViDbxK8YEMWqqJhCNhmjCH42Y+IH6Q3800T+a+C3RzDu5mzXYYrZr4o9ONpu7s++d95wz55x559lJDK8+VMX/eqSShwycAu0wCy6CHNwMd8K+oEJMJ8MJR0zOhnDcK6egGprhRJghB2bDfUbmbzXwWAgBmLIWDyGdGNkN5/z93yZYDK1avEqfsVlCmRqCPcKFDJwKF8A0WZuCGngxhOcNfJ6G48uyH5gM98CAgjOaC5PhanjEQOfRlstAjxJkplKmTUtUJ6mUgXo9z4NV4vvEwjWwsZhq5Y1XDPxm4WEDXaN4cRzssbDPQvQvlszAxcp5n4lL4Uyog/NhkR4COTAf5oqhaYrz6qkAfhjDiG7YEsB7NuZpA9sD+MPAglHgffCnhf0T8InITCTB0ZJgMIBfxqimXtgcOHjkKno84w0DjwfwwhilfjoctvC9jRgO1C7KG7XwqIGXDJw3eo9OwVsWDgQRm4r9toyR0WFZr0NoNK4M7HCeBREjlZIwp8H0f+JqhsMGtoURg/+dXPJcLfCmgY8rz1WnHQkVupZEFqyH38OIDRWkqoMp0gae6mwoSPlcCz+GEYfGr6eKY6pO1JQSxVPlJFL64esw4mAFqTqlb2oSqvZEYNwIH4URI5WiaoQ5EqJFqpmiaofNBp4JI4YrtVn9kBfXJP30Ai8HMTznNF0QsdeLxvJGWkVcC5er7+XhJPllNDlNXD3wuoF3g4if7Di4MrAWdho54x2bmpClpQNzcBV8ZWB3EDn8eMYyeNvCNwZWiGy6iI2EZpvI1sJDFn61sfvzAwvvWIXiUnWaBq1TrdK4xKvGAxZetbFLgO0WdlqZnoezVFVenrcKPhc+dZ7YmCWwwcKghWNL0FVavAUW6oX9LnlszPXwnRN9VhuQV3dt0MkQ6v2F6gx7DOyyMXfAZwa2WjhXhneWoJulTpfBLuNcjdli4H0D91td0Tz8mMSUZk1eAQ8Y2Gjdax1u/jXj9WdO5lwoAp8GzfJzMc7onw0MmQ437Y5Zp2+Xi2KeaqZK1dIkmVzQ/LfOYdPhbHWxHTGwRuGfn9gUKj1niXkOfGFc2sfuUvalv5v1J+AaOZDR4ZeDM+BDrR5zHRw0cLdW7lLn8022Pul8kY/9kIm5zIdnALdn3QL7E7nYuxp893/SxC60ez04n4D9gVqvW0BBLuw28ISJnRMvezO6dTUogn3/KCg6QwZ2mNi97a5st0ukLCppobW6gRX84er21MSucFxRrVOgewX2sU6rWxQU9AeN606xy00X61u0jb0yw+9kWtlWUIath3tN7DZ3k4EbdJvpLTG5iG3F5d9dsbv7DcBKpVPRBK9K2oTMwq1wW+xis05l3qmweX5vbFaZlIXVcFPsXFyj5PVInxE2Kd+CvlfAKiFXasYjG5NNK0VeCf1CLldH8x41JpfttIrcs/dBn5BLVQ5dClUpMquqmiGuvJA9yrslUnP+zuftzKpTx1pkwV8="
             },
             {
               "Index": 123,
-              "Count": 424,
-              "Data": "AlXUX4hVVRQG8N/e594599w/apr9H82SkJJKSTICk0KQHiJEcnov6aEnnyQiLHwQkZgHExERCYlBxAwiZLBBzExkFBHxQURKbBLpQSqmMJU4e98rE3wH1tn3rLW+71tr37HCd+9v6XI8cCGwLTId2BqZiOyPjEVuRMYjJyL3Imcik5FtRY7r51Tkn/53RyJ/hZy/M3I5cCdwKvBz4EhgIrCz7hnYHviQ99jICOt4i9d5ieUsZQlPJjzGQ8xhFkMUhBTMTYf5/A3uNvi04tcOX/f4YXFmsCtyKHI8crLgXGRfZE9kNLI9sqVWErgVuBm40X/q+I/A7ZpxZHfkcN+VS32XrhdcKjhfnwX2BlYmEWsT1idlb7Iq6VvFiyweiHsi4cGEWbRpUNKcgaH006yB1jX83eCXNewJ7A6M9h39mE3J1HdSx9XJzud5NmFpYrU68dnIZ4EvA6dDFl+bNBW5UnCk4nabUy12NbkQORD4hPMhT7zempDYLxk0eCrJ6KbRzB2Q7iZVRVJV0hkEGcVA3pyU8sU6FqQqOafHozzNcyxjBa/wcgqWpcNF6YPZiUo35S7n7WTDvpAHUg/6QMmVNndaHGzmFU1rWHC05FCLeyU7Sk422VvwTOI1N9WNaRB571rpNdOvkqBqBu7PLiu7u4F5zE+Yx+xH6uRNeb3GCq412D/ExZJbLaYqxtocaDNZsbPF78184XLtTtI7PwX5tUpGdQao/u9vsdg3I3m8VxvcHmK6xXib8Q7XOhzscKfiQsm+Rtqa+cnYxxkeODx7RpdqZv0lfhzJd+Jyk6MtzrfZ3uVKl6NdRjtcbbGnyQcsTHNblAY7zAMzCmfvwlJ/bmC8wXSZyx3rMtbj8x5THb6qmGzyUapyH8ODWjWxF3w/wpn6L6vkUjsTutjjWC8TnKi42GTzID/zephyubMjjBZMlFxrc6vLzR6ne+yolfUpbE45Cxle4d8RthacKLnZZrrLVL/hvdrpinPN+rau9NO7eQFP9utf7zLZY3+PG51X/bY21zpccqzNt93XnF3wHw=="
-            },
-            {
-              "Index": 124,
-              "Count": 200,
-              "Data": "AmXR22vPcRzH8cdvv9N3v4Od7Beb0DZabeS3/WTFxURilBvZcs2t/8CFcsocLtAUWWsXa2q5YdkFS9QWRpTJBcXNJKe1OeWC+khZ3r0un69er1fvyZjRA0+b+JHjeJbeiAuJjc7s5E6Ww3lG8jzJ8SXDYMRMosN0DxuYSjAcMZthJMdEjtmIuymGypnIrvdxD4spsIQKBuL0JTkd50UZA2leV3K2nplCu3vdxEgFvo7lQduCdzf9CeYqudHI1Io2t7stuAwraWA1zZToK+NZDQ9a27zvXEgLQYtCVjNt7ONokrEGXq4tur3nP0OCiFxY1UwXtXyq5Vqp6OKOhXBZ0B++Oli66OFJBXPtRV83h2H/8qm//KLA72IvPyvoLRUd2cLSkFhD/u+AKMCVNLGdFn4VuFUqOrmVz0kmY1SFqDxp4mHHMtaxn+EU3xoZWVN0v4XvOaazvMkwn+JqjFXBVRZKddIfZ6jAeGubDxnelfMqy2ie87VcruRmiuux0OwQz5Ocq2GwifH6kocx3iY5kWO+wJVqHkXhZxNpnlfRX8el6g4HORZxKs0mxlI8jn4D"
+              "Count": 178,
+              "Data": "AmXQvUvVcRQG8M85l3t9ITUqh+xlKMitsampsamhsaGhFmnoT4imBhclKkIcQnohCZG4NcjFmiIiyEKqIcJBIiQkwqE34/e7X9AKngOHc57n8DxnPrTPr/QzHcwGneB58D5YDb4FP4MryWRyM7mV3E3mkodJO1lIOqUWS3XK/HHhVPzZZCaZTq4m48nlZCNYa3Cvlx+HuT864kb/lqe14EPwKbrcS0Vb3ZgqNz8m89v8LGzz8jT5/o+nL8VPlWU5uVb21e0Hye0gedfiyV5eje7zNrde9Ka8aaXY+hysl/q6rV8vu9XCrWIsBy+DZ8Fi0A7mgplgKpgMxnt4UcVrstHgAteTR31sDvP64H6/GozVm4t/Y6zGOc5yhtOc4iQnOM4xjnKEQ4ywhx301mHLq5ea/G6xFEy0mBhkc+iAO8FOdjFYi7q6Vi1NGjTpoY8BhmrsrjH8H7rzLmeglrT+AA=="
             },
             {
               "Index": 125,
@@ -1629,12 +1624,6 @@
               "Id": 501,
               "Position": "3790.44824,-26475.3125,490.460175",
               "AutoTangents": false,
-              "CornerRadius": 150
-            },
-            {
-              "Id": 586,
-              "Position": "25786.8477,-5377.10986,1364.86792",
-              "AutoTangents": true,
               "CornerRadius": 150
             }
           ],
@@ -4174,7 +4163,7 @@
               "StartNodeId": 236,
               "EndNodeId": 454,
               "StartTangent": "1254.52734,0,-19.9306641",
-              "EndTangent": "-1353.25037,-177.283051,-137.251602",
+              "EndTangent": "-1349.14648,24.5144844,-246.489014",
               "Width": 500,
               "LeftExtraStart": 0,
               "LeftExtraEnd": 0,
@@ -4474,29 +4463,6 @@
               "EndNodeId": 474,
               "StartTangent": "397.571289,-710.701172,9.15527344E-05",
               "EndTangent": "-620.108337,525.87384,-4.42104538E-05",
-              "Width": 500,
-              "LeftExtraStart": 0,
-              "LeftExtraEnd": 0,
-              "RightExtraStart": 0,
-              "RightExtraEnd": 0,
-              "Ramp": false,
-              "Profile": null,
-              "Bridge": null,
-              "Props": null,
-              "LaneCount": 2,
-              "ForwardLanes": 1,
-              "CrossingAtStart": true,
-              "CrossingAtEnd": true,
-              "ConformTerrain": true,
-              "BackwardLanes": 1,
-              "IsOneWay": false
-            },
-            {
-              "Id": 587,
-              "StartNodeId": 454,
-              "EndNodeId": 586,
-              "StartTangent": "1361.77051,178.399216,138.115738",
-              "EndTangent": "-1328.11194,-375.249634,-25.0483398",
               "Width": 500,
               "LeftExtraStart": 0,
               "LeftExtraEnd": 0,
@@ -46761,7 +46727,7 @@
           "Children": []
         },
         {
-          "__guid": "bf92bc48-4c24-42ab-86e1-e96ce6ba5ea3",
+          "__guid": "a87919cc-8425-4ebc-9f61-86a287c28371",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 238 [1/1]",
@@ -46778,7 +46744,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "408e1347-5d13-40dd-b86a-7cbb24ef4dd1",
+              "__guid": "d4d14245-1e0a-4f98-b019-e91777a4ffa4",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46794,11 +46760,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 238,
-              "Signature": -3183606836095310086
+              "Signature": -1781045873078918084
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "43173489-ffe3-462f-a09d-51388b7caeff",
+              "__guid": "6eaae55d-dcc1-46ae-92a5-32c7b23f5c12",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46810,7 +46776,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "4499f492-d261-86c5-9662-156bbefbe438"
+                  "$blob": "7c633a35-5dad-8afa-b36f-9283038086be"
                 },
                 "Materials": [
                   "roadtool2/materials/asphalt.vmat"
@@ -46837,7 +46803,7 @@
           "Children": []
         },
         {
-          "__guid": "d23549c0-3b42-4e33-8ee7-994505719370",
+          "__guid": "6a770077-7d5d-41cb-9540-904be721e0f3",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 238 markings [1/1]",
@@ -46854,7 +46820,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "69178648-dc62-4893-b40c-b2dbff29ed82",
+              "__guid": "67a518a9-00e2-4fd2-bc5e-214feafba1b1",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46870,11 +46836,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 238,
-              "Signature": -1748341313000065814
+              "Signature": 2649890586062029547
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "436866ed-26fc-4fca-b045-4c44490cc846",
+              "__guid": "bb7e017b-eda0-4fe7-8abc-cb9873c8e29b",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46886,7 +46852,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "6e63f7f5-39ec-80a8-ba73-e5af5545eb46"
+                  "$blob": "b6317640-74aa-8edb-a10a-8750f7e76867"
                 },
                 "Materials": [
                   "roadtool2/materials/lineyellow.vmat",
@@ -46914,7 +46880,7 @@
           "Children": []
         },
         {
-          "__guid": "21ce7e57-c129-44c3-9d13-d32775b0137e",
+          "__guid": "3966b515-0c86-4171-b349-beb9c187d7ef",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 238 border [1/1]",
@@ -46931,7 +46897,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "54eb8b86-ddd2-4289-884a-f38be2595538",
+              "__guid": "0eddcab3-c9f3-40bb-9669-554170a4cf21",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46947,11 +46913,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 238,
-              "Signature": 8300104395280526503
+              "Signature": -7450148728158124120
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "7dc112c3-c508-49c4-8652-fec7ff6574b9",
+              "__guid": "48b6b70b-edd8-4665-8d69-d1a2471211ca",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46963,7 +46929,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "31e31490-fa1a-8aba-8190-9be13aad03d2"
+                  "$blob": "498a5f84-df40-841b-a7e3-01c4e745b1f4"
                 },
                 "Materials": [
                   "roadtool2/materials/sidewalk.vmat"
@@ -46990,7 +46956,7 @@
           "Children": []
         },
         {
-          "__guid": "54e08a6d-ab97-46f8-a2bc-968c107ef820",
+          "__guid": "16e520e7-a77f-4b79-b87d-f82f348e171f",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 [1/1]",
@@ -47007,7 +46973,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "f6a19faf-bcff-4c26-ac8d-6803e321f2ee",
+              "__guid": "6b0fee6b-ab17-40c7-a53c-5b7ad3140ae0",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47023,11 +46989,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 455,
-              "Signature": 6884174865005618926
+              "Signature": 7017988515721507370
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "002e7503-ef2c-4491-8a72-81c3bde4aaa2",
+              "__guid": "661a0fcd-2559-4f7b-8591-56c03c63c436",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47039,7 +47005,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "f6924e07-3323-830f-abd0-993919c166bd"
+                  "$blob": "d395ca17-c6b0-80bd-8647-cda85c8f4a7d"
                 },
                 "Materials": [
                   "roadtool2/materials/asphalt.vmat"
@@ -47066,7 +47032,7 @@
           "Children": []
         },
         {
-          "__guid": "5a2e3183-0f8b-47b0-bcfe-dcd317682ac6",
+          "__guid": "9a5550d3-10d1-4a37-9d97-d197967614ee",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 markings [1/1]",
@@ -47083,7 +47049,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "f822b597-8aa5-4248-b899-40d0ba6d69d7",
+              "__guid": "9376c0e9-6dfb-4c00-86cb-491b47e0dd68",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47099,11 +47065,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 455,
-              "Signature": -7731095504907879095
+              "Signature": -2639980671117086850
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "90afaf55-5a93-4e52-9c55-7822fe9b9481",
+              "__guid": "044a72b3-0d62-4f83-8ae0-0e45cbe3b5d3",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47115,7 +47081,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "b9dc34fe-0042-89af-8219-bcc64bf63ce6"
+                  "$blob": "6cb80451-936e-8e68-97ad-368c804aac8e"
                 },
                 "Materials": [
                   "roadtool2/materials/lineyellow.vmat",
@@ -47143,7 +47109,7 @@
           "Children": []
         },
         {
-          "__guid": "8409ad73-d97b-4376-9f3a-d6883f8e6cb5",
+          "__guid": "a6314071-c08b-47a0-9952-c22e85f1f15a",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 border [1/1]",
@@ -47160,7 +47126,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "77b789c2-af7a-4255-9091-58a137ad0b07",
+              "__guid": "fc626a60-2aa6-4f7c-86f3-cb26cbc31027",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47176,11 +47142,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 455,
-              "Signature": -8512954663211382094
+              "Signature": 456081122285268654
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "124f7985-186f-42d5-b6ba-35369330d6f6",
+              "__guid": "8452e456-2c8f-4c5d-aa2a-fb6256272472",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47192,7 +47158,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "e7ef6e9c-9601-84ab-903e-7d99686d78b4"
+                  "$blob": "04731dfd-8ce4-8f68-9bb6-a6cd7ccb9b78"
                 },
                 "Materials": [
                   "roadtool2/materials/sidewalk.vmat"
@@ -47219,10 +47185,10 @@
           "Children": []
         },
         {
-          "__guid": "b6c445fe-8acc-48e1-8ab3-83ba4841b4ea",
+          "__guid": "11f8d1b3-335b-4174-af4c-1feda9bc8c20",
           "__version": 2,
           "Flags": 0,
-          "Name": "Road 587 [1/1]",
+          "Name": "Road 455 end cap",
           "Position": "0,0,0",
           "Rotation": "0,0,0,1",
           "Scale": "1,1,1",
@@ -47236,235 +47202,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "1b749b84-ab77-4f55-976e-310e7cbcb1a9",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Surface",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 587,
-              "Signature": -7842566387879952457
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "82fbe1d5-8e83-49be-8941-44913f0a2bca",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "47246bd7-bc9a-8161-accf-c6d10fcb4dec"
-                },
-                "Materials": [
-                  "roadtool2/materials/asphalt.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "d92ed289-76d8-43f4-96bf-c1b00daecbc5",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 587 markings [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "18222c94-327e-4eae-bcdd-223f721b5a96",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Marking",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 587,
-              "Signature": 6933123634587116128
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "6f82a8e7-e7ac-411a-927f-01397cd1f99c",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "None",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "a40ef6b3-2545-8abe-8eea-31bafb802e98"
-                },
-                "Materials": [
-                  "roadtool2/materials/lineyellow.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "Off",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": false,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "0e17d0e8-0208-41cb-bbe6-08b3773d5a1e",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 587 border [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "d5ef3083-94a5-4a24-91a5-b3e50d349de5",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Border",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 587,
-              "Signature": 6199046352378575744
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "8cd415cd-7fcb-4062-b4d6-97d21fcfb273",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "541837ef-9122-803d-b15c-3aef4ce4aade"
-                },
-                "Materials": [
-                  "roadtool2/materials/sidewalk.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "5b27b3e9-9fae-4400-9e9f-d3acb88ee0c7",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 587 end cap",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "20d1096d-eabf-4a94-a99e-4aea19152538",
+              "__guid": "1398f371-46fc-47e0-afd2-e84a4163446f",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 2,
@@ -47479,12 +47217,12 @@
               "OnComponentFixedUpdate": null,
               "OnComponentStart": null,
               "OnComponentUpdate": null,
-              "SegmentId": 587,
-              "Signature": 9082404949086622942
+              "SegmentId": 455,
+              "Signature": 5229532714760851616
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "6042a59f-8246-46e9-b202-9b474f1f8a54",
+              "__guid": "1655da62-78ad-454a-9459-df717c75c52b",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47496,7 +47234,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "46922293-5d29-8f5a-ac7e-7d3237b39cd4"
+                  "$blob": "4294ddba-fba1-8215-98a4-8d076f2f6bd3"
                 },
                 "Materials": [
                   "roadtool2/materials/asphalt.vmat",
@@ -47524,7 +47262,7 @@
           "Children": []
         },
         {
-          "__guid": "051125ef-ee15-4e04-9c27-dbbc1ecc0431",
+          "__guid": "5381ae94-f554-4cbb-98ab-56949e0cc748",
           "__version": 2,
           "Flags": 0,
           "Name": "Junction 231 border",
@@ -47541,7 +47279,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "8a9322c5-4388-4e8f-b513-55de041943e8",
+              "__guid": "792fd632-d758-4743-b3d2-ce8524842d55",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47557,11 +47295,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": -1,
-              "Signature": 4525057182550265824
+              "Signature": -5725139745138003280
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "e391abec-0065-427b-97a0-cd9c71139838",
+              "__guid": "669ce006-4088-4bfc-9288-1d445f81567f",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47600,7 +47338,7 @@
           "Children": []
         },
         {
-          "__guid": "44f093be-9d9b-4dec-8689-1b7695bb42ff",
+          "__guid": "b7c1e1aa-e515-457d-97aa-f974fa39f927",
           "__version": 2,
           "Flags": 0,
           "Name": "Junction 236",
@@ -47617,7 +47355,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "8ef1ab64-75ed-4502-8d87-a48f49f0440b",
+              "__guid": "10237552-789a-44cb-a4dd-1a2c8417df09",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47633,11 +47371,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": -1,
-              "Signature": -1657406409406220111
+              "Signature": -2280462684681889658
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "95abe606-b259-447d-9b3f-204401144817",
+              "__guid": "5246cfdb-8915-45b0-9cfe-9afb5ba25798",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47649,7 +47387,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "8f7cde74-54ff-8f4f-88a6-e9745419cce2"
+                  "$blob": "300c4dad-59cc-81ca-a11e-a54c65b16c2f"
                 },
                 "Materials": [
                   "roadtool2/materials/asphalt.vmat"
@@ -47676,7 +47414,7 @@
           "Children": []
         },
         {
-          "__guid": "d4caf77e-5ece-4a8d-849d-3d8e8c1ee9c1",
+          "__guid": "b8992d97-8f31-4a7f-9f56-3259e9a031df",
           "__version": 2,
           "Flags": 0,
           "Name": "Junction 236 border",
@@ -47693,7 +47431,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "556de66b-359e-4d3e-9bcd-5d118959abb7",
+              "__guid": "18d879a9-edd3-42cb-acda-5674b064c229",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47709,11 +47447,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": -1,
-              "Signature": 6026359035351020622
+              "Signature": -7462112892097224979
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "1f83c2e2-d6d1-41c7-96c6-7c5fce88bd93",
+              "__guid": "8a192173-0716-4c33-b1f4-1312fe6e1cd9",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47725,7 +47463,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "7f79459e-9afa-8c0d-b7d3-686f810feaa7"
+                  "$blob": "f41302ab-b45a-8a30-87dd-223029eef6c4"
                 },
                 "Materials": [
                   "roadtool2/materials/sidewalk.vmat"
