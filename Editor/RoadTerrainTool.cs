@@ -9,7 +9,9 @@ namespace RedSnail.RoadTool2.Editor;
 /// <summary>
 /// Terrain and roads, both ways: shape the terrain to the roads (the ground is cut and filled to meet the road
 /// surface and its borders, blending back into the landscape over a falloff), or drop the road nodes onto the
-/// ground. Both are explicit and undoable; nothing happens on its own while roads are being laid out.
+/// ground. Both are explicit and undoable; nothing happens on its own while roads are being laid out. What the roads
+/// shape and paint goes through each terrain's road layer (see <see cref="RoadTerrainLayers"/>), so it can be done
+/// again as often as the roads change, and taken back out.
 /// </summary>
 [Title("Terrain")]
 [Icon("landscape")]
@@ -90,14 +92,19 @@ public class RoadTerrainTool : EditorTool
 
 
 
-	public void ConformTerrain()
+	/// <summary>
+	/// Where the road layer on each terrain stands, for the sidebar.
+	/// </summary>
+	public string LayerStatus => RoadTerrainLayers.Describe(RoadTerrainLayers.TerrainsIn(Scene));
+
+
+
+	/// <summary>
+	/// Takes the terrain as it is now as the ground the roads are laid over, once the user has confirmed it.
+	/// </summary>
+	public void StartRoadLayer()
 	{
-		var network = Network;
-
-		if (!network.IsValid())
-			return;
-
-		var terrains = Scene.GetAllComponents<Terrain>().Where(terrain => terrain.IsValid() && terrain.Storage is not null).ToList();
+		var terrains = RoadTerrainLayers.TerrainsIn(Scene);
 
 		if (terrains.Count == 0)
 		{
@@ -105,12 +112,89 @@ public class RoadTerrainTool : EditorTool
 			return;
 		}
 
-		int texels = 0;
+		string question = RoadTerrainLayers.HeldBy(terrains) > 0
+			? "The road layer already remembers the ground under the roads. Starting it again takes the terrain as it is now, roads and all, as the new ground, and what the roads did so far can no longer be taken out. Press Remove Road Layer first to take it out.\n\nStart the road layer again anyway?"
+			: "Are you sure you want to take a snapshot of the current terrain? It becomes the baseline the road layer remembers, under everything the roads shape and paint from now on.";
+
+		Dialog.AskConfirm(() =>
+		{
+			var valid = terrains.Where(terrain => terrain.IsValid() && terrain.Storage is not null).ToList();
+
+			RoadTerrainLayers.Start(valid);
+			Report(valid.Count == 1 ? "Road layer started: the terrain as it is now is the ground under the roads." : $"Road layer started on {valid.Count} terrains: each as it is now is the ground under the roads.");
+		}, question, "Start Road Layer", "Start", "Cancel");
+	}
+
+
+
+	/// <summary>
+	/// Gives the ground back everywhere the roads shaped or painted it, once the user has confirmed it.
+	/// </summary>
+	public void RemoveRoadLayer()
+	{
+		var terrains = RoadTerrainLayers.TerrainsIn(Scene);
+
+		if (RoadTerrainLayers.HeldBy(terrains) == 0)
+		{
+			Report("The road layer holds nothing to take out.");
+			return;
+		}
+
+		Dialog.AskConfirm(() =>
+		{
+			var undo = new RoadTerrainUndo();
+			int changed = RoadTerrainLayers.Remove(terrains.Where(terrain => terrain.IsValid() && terrain.Storage is not null).ToList(), undo, out string problem);
+
+			undo.Push("Remove Road Layer");
+			Report($"Roads taken out of the terrain: {changed:N0} samples are back on their ground.", problem);
+		}, "Take the roads back out of the terrain? Every sample they shaped or painted gets its ground back, keeping your own sculpting and painting there. The roads themselves stay where they are.", "Remove Road Layer", "Remove", "Cancel");
+	}
+
+
+
+	public void ConformTerrain()
+	{
+		var network = Network;
+
+		if (!network.IsValid())
+			return;
+
+		var terrains = RoadTerrainLayers.TerrainsIn(Scene);
+
+		if (terrains.Count == 0)
+		{
+			Report("No terrain in the scene.");
+			return;
+		}
+
+		var undo = new RoadTerrainUndo();
+		int changed = 0;
+		int held = 0;
+		bool laid = false;
+		string problem = null;
 
 		foreach (var terrain in terrains)
-			texels += RoadTerrainConformer.Conform(terrain, network, Falloff, Sink);
+		{
+			var layer = RoadTerrainLayers.LayerOf(terrain, out string reason);
 
-		Report(texels > 0 ? $"Terrain shaped under the roads ({texels:N0} height samples)." : "No road lies over a terrain.");
+			if (layer is not null)
+			{
+				changed += RoadTerrainConformer.Conform(terrain, layer, network, Falloff, Sink, undo, out int samples, out reason);
+				held += samples;
+				laid |= reason is null;
+			}
+
+			problem ??= reason;
+		}
+
+		undo.Push("Conform Terrain To Roads");
+
+		if (!laid)
+			Report(problem ?? "No road lies over a terrain.");
+		else if (changed > 0)
+			Report($"Terrain shaped under the roads: {changed:N0} height samples changed, {held:N0} held by the road layer.", problem);
+		else
+			Report(held > 0 ? $"The terrain already matches the roads ({held:N0} height samples held by the road layer)." : "No road lies over a terrain.", problem);
 	}
 
 
@@ -128,7 +212,7 @@ public class RoadTerrainTool : EditorTool
 			return;
 		}
 
-		var terrains = Scene.GetAllComponents<Terrain>().Where(terrain => terrain.IsValid() && terrain.Storage is not null).ToList();
+		var terrains = RoadTerrainLayers.TerrainsIn(Scene);
 
 		if (terrains.Count == 0)
 		{
@@ -136,16 +220,34 @@ public class RoadTerrainTool : EditorTool
 			return;
 		}
 
-		int texels = 0;
+		var undo = new RoadTerrainUndo();
+		int changed = 0;
+		int held = 0;
+		bool laid = false;
 		string problem = null;
 
 		foreach (var terrain in terrains)
 		{
-			texels += RoadTerrainPainter.Paint(terrain, network, PaintMaterial, PaintMargin, PaintFade, out string reason);
+			var layer = RoadTerrainLayers.LayerOf(terrain, out string reason);
+
+			if (layer is not null)
+			{
+				changed += RoadTerrainPainter.Paint(terrain, layer, network, PaintMaterial, PaintMargin, PaintFade, undo, out int texels, out reason);
+				held += texels;
+				laid |= reason is null;
+			}
+
 			problem ??= reason;
 		}
 
-		Report(texels > 0 ? $"Terrain painted along the roads ({texels:N0} texels)." : problem ?? "No road lies over a terrain.");
+		undo.Push("Paint Terrain Along Roads");
+
+		if (!laid)
+			Report(problem ?? "No road lies over a terrain.");
+		else if (changed > 0)
+			Report($"Terrain painted along the roads: {changed:N0} texels changed, {held:N0} held by the road layer.", problem);
+		else
+			Report(held > 0 ? $"The terrain is already painted along the roads ({held:N0} texels held by the road layer)." : "No road lies over a terrain.", problem);
 	}
 
 
@@ -209,11 +311,14 @@ public class RoadTerrainTool : EditorTool
 
 
 
-	private void Report(string _Message)
+	/// <summary>
+	/// Shows the outcome of an operation, followed by what kept part of it from being done, if anything did.
+	/// </summary>
+	private void Report(string _Message, string _Problem = null)
 	{
-		LastResult = _Message;
+		LastResult = _Problem is null ? _Message : $"{_Message} {_Problem}";
 		ResultVersion++;
-		Log.Info($"Road Tool 2: {_Message}");
+		Log.Info($"Road Tool 2: {LastResult}");
 	}
 }
 
@@ -264,10 +369,16 @@ internal static class RoadTerrainConformer
 
 
 	/// <summary>
-	/// Shapes one terrain, records an undo step, and returns how many height samples changed.
+	/// Shapes one terrain through its road layer and returns how many height samples changed: every sample within
+	/// reach of a road is set from its ground (never from what an earlier conform left there), and every sample the
+	/// roads held before but no longer reach gets its ground back. <paramref name="_Held"/> is how many samples the
+	/// roads hold afterwards.
 	/// </summary>
-	public static int Conform(Terrain _Terrain, RoadNetwork _Network, float _Falloff, float _Sink)
+	public static int Conform(Terrain _Terrain, RoadTerrainLayer _Layer, RoadNetwork _Network, float _Falloff, float _Sink, RoadTerrainUndo _Undo, out int _Held, out string _Problem)
 	{
+		_Held = 0;
+		_Problem = null;
+
 		var storage = _Terrain.Storage;
 		int resolution = storage.Resolution;
 
@@ -357,60 +468,33 @@ internal static class RoadTerrainConformer
 			}
 		}
 
-		if (entries.Count == 0 && caps.Count == 0)
-			return 0;
+		// Every sample a road reaches is shaped from its ground; the layer gives the rest it held their ground back.
+		var reached = new HashSet<int>(entries.Keys);
 
-		// The touched rectangle, for the undo snapshot and the collider update.
-		int left = int.MaxValue, top = int.MaxValue, right = int.MinValue, bottom = int.MinValue;
+		reached.UnionWith(caps.Keys);
 
-		foreach (int index in entries.Keys.Concat(caps.Keys))
-		{
-			int x = index % resolution;
-			int y = index / resolution;
-
-			left = Math.Min(left, x);
-			right = Math.Max(right, x);
-			top = Math.Min(top, y);
-			bottom = Math.Max(bottom, y);
-		}
-
-		var region = new RectInt(left, top, right - left + 1, bottom - top + 1);
-		ushort[] before = CopyRegion(storage.HeightMap, resolution, region);
 		float heightScale = ushort.MaxValue / storage.TerrainHeight;
-		float originalScale = storage.TerrainHeight / ushort.MaxValue;
-		int changed = 0;
+		float groundScale = storage.TerrainHeight / ushort.MaxValue;
 
-		foreach (int index in entries.Keys.Concat(caps.Keys).Distinct())
+		return RoadTerrainLayers.Lay(_Terrain, _Layer, RoadLayerMap.Heights, reached, Shape, _Undo, out _Held, out _Problem);
+
+		uint Shape(int _Index, uint _Ground)
 		{
-			int x = index % resolution;
-			int y = index / resolution;
+			// What the roads round this sample pull it to from its ground, capped by every road surface lying over
+			// it: a sample under one road and in another's falloff is still under a road.
+			var sample = new Vector3((_Index % resolution + 0.5f) * cell, (_Index / resolution + 0.5f) * cell, 0.0f);
+			Vector3 world = terrainTransform.PointToWorld(sample);
+			float ground = terrainTransform.PointToWorld(sample.WithZ(_Ground * groundScale)).z;
+			float target = entries.TryGetValue(_Index, out var entry) ? MathX.Lerp(entry.Anchor, ground, entry.Remaining) : ground;
 
-			// What the roads round this sample pull it to, capped by every road surface lying over it: a sample
-			// under one road and in another's falloff is still under a road.
-			Vector3 worldCentre = terrainTransform.PointToWorld(new Vector3((x + 0.5f) * cell, (y + 0.5f) * cell, 0.0f));
-			float original = terrainTransform.PointToWorld(new Vector3(0.0f, 0.0f, storage.HeightMap[index] * originalScale)).z;
-			float target = entries.TryGetValue(index, out var entry) ? MathX.Lerp(entry.Anchor, original, entry.Remaining) : original;
-
-			if (caps.TryGetValue(index, out float cap))
+			if (caps.TryGetValue(_Index, out float cap))
 				target = MathF.Min(target, cap);
 
 			// The target is a world height; the map stores heights above the terrain's own origin.
-			float local = terrainTransform.PointToLocal(worldCentre.WithZ(target)).z;
+			float local = terrainTransform.PointToLocal(world.WithZ(target)).z;
 
-			storage.HeightMap[index] = (ushort)Math.Clamp(MathF.Round(local * heightScale), 0.0f, ushort.MaxValue);
-			changed++;
+			return (uint)Math.Clamp(MathF.Round(local * heightScale), 0.0f, ushort.MaxValue);
 		}
-
-		ushort[] after = CopyRegion(storage.HeightMap, resolution, region);
-
-		_Terrain.SyncGPUTexture();
-		_Terrain.UpdateCollision(Terrain.SyncFlags.Height, region);
-
-		SceneEditorSession.Active.UndoSystem.Insert("Conform Terrain To Roads",
-			() => RestoreRegion(_Terrain, before, region),
-			() => RestoreRegion(_Terrain, after, region));
-
-		return changed;
 	}
 
 
@@ -745,47 +829,13 @@ internal static class RoadTerrainConformer
 
 		return edge;
 	}
-
-
-
-	private static ushort[] CopyRegion(ushort[] _Data, int _Stride, RectInt _Region)
-	{
-		var region = new ushort[_Region.Width * _Region.Height];
-
-		for (int y = 0; y < _Region.Height; y++)
-		{
-			for (int x = 0; x < _Region.Width; x++)
-				region[x + y * _Region.Width] = _Data[_Region.Left + x + (_Region.Top + y) * _Stride];
-		}
-
-		return region;
-	}
-
-
-
-	private static void RestoreRegion(Terrain _Terrain, ushort[] _Region, RectInt _Rect)
-	{
-		if (!_Terrain.IsValid() || _Terrain.Storage is null)
-			return;
-
-		int stride = _Terrain.Storage.Resolution;
-
-		for (int y = 0; y < _Rect.Height; y++)
-		{
-			for (int x = 0; x < _Rect.Width; x++)
-				_Terrain.Storage.HeightMap[_Rect.Left + x + (_Rect.Top + y) * stride] = _Region[x + y * _Rect.Width];
-		}
-
-		_Terrain.SyncGPUTexture();
-		_Terrain.UpdateCollision(Terrain.SyncFlags.Height, _Rect);
-	}
 }
 
 /// <summary>
 /// Paints a terrain material along the roads. Every texel under a road and its border, and out by a margin from
-/// there, takes the chosen material as its overlay layer — at full strength inside that band, fading to nothing
-/// over the fade beyond it. Give a country road's verge the same texture and the two merge into each other; a
-/// street gets a worn band round it.
+/// there, takes the chosen material — at full strength inside that band, fading to nothing over the fade beyond
+/// it, mixed into whatever the ground is painted with. Give a country road's verge the same texture and the two
+/// merge into each other; a street gets a worn band round it.
 /// </summary>
 internal static class RoadTerrainPainter
 {
@@ -795,11 +845,14 @@ internal static class RoadTerrainPainter
 	private const int MaxMaterials = 32;
 
 	/// <summary>
-	/// Paints one terrain, records an undo step, and returns how many texels changed. <paramref name="_Problem"/>
-	/// is set when nothing could be painted for a reason the user needs telling about.
+	/// Paints one terrain through its road layer and returns how many texels changed: every texel along a road is
+	/// painted over its ground, and every texel the roads painted before but no longer reach gets its ground back.
+	/// <paramref name="_Held"/> is how many texels the roads hold afterwards; <paramref name="_Problem"/> is set when
+	/// the terrain could not be painted for a reason the user needs telling about.
 	/// </summary>
-	public static int Paint(Terrain _Terrain, RoadNetwork _Network, TerrainMaterial _Material, float _Margin, float _Fade, out string _Problem)
+	public static int Paint(Terrain _Terrain, RoadTerrainLayer _Layer, RoadNetwork _Network, TerrainMaterial _Material, float _Margin, float _Fade, RoadTerrainUndo _Undo, out int _Held, out string _Problem)
 	{
+		_Held = 0;
 		_Problem = null;
 
 		var storage = _Terrain.Storage;
@@ -866,57 +919,47 @@ internal static class RoadTerrainPainter
 		foreach (var (centre, polygon, pavementReach, _) in _Network.GetJunctionPolygons())
 			RasteriseArea(coverage, terrainTransform, networkTransform, resolution, cell, centre, polygon, pavementReach + _Margin, _Fade);
 
-		if (coverage.Count == 0)
-			return 0;
+		// Every texel along a road is painted over its ground; the layer gives the rest it held their ground back.
+		var reached = new HashSet<int>(coverage.Keys);
 
-		// The touched rectangle, for the undo snapshot and the collider update.
-		int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+		return RoadTerrainLayers.Lay(_Terrain, _Layer, RoadLayerMap.Paint, reached, Texel, _Undo, out _Held, out _Problem);
 
-		foreach (int index in coverage.Keys)
+		uint Texel(int _Index, uint _Ground)
 		{
-			int x = index % resolution;
-			int y = index / resolution;
+			// A texel blends two materials, a base and an overlay over it, and the ground's own mix is kept as far as
+			// two can hold it: where the ground already carries the material, its share grows; anywhere else it goes
+			// on as the overlay, over whichever of the ground's two shows the most, so the band's edge is a blend
+			// rather than a cut. Where it would show less than the material it pushes out, the ground is left alone.
+			var texel = new CompactTerrainMaterial(_Ground);
+			float strength = coverage[_Index];
+			float overlay = texel.BlendFactor / 255.0f;
 
-			minX = Math.Min(minX, x);
-			maxX = Math.Max(maxX, x);
-			minY = Math.Min(minY, y);
-			maxY = Math.Max(maxY, y);
-		}
-
-		var region = new RectInt(minX, minY, maxX - minX + 1, maxY - minY + 1);
-		uint[] before = CopyRegion(storage.ControlMap, resolution, region);
-		int changed = 0;
-
-		foreach (var (index, strength) in coverage)
-		{
-			// The material goes on as the OVERLAY, so whatever the ground was painted with stays underneath it as
-			// the base and the band's edge is a blend rather than a cut.
-			var texel = new CompactTerrainMaterial(storage.ControlMap[index])
+			if (texel.BaseTextureId == id)
 			{
-				OverlayTextureId = (byte)id,
-				BlendFactor = (byte)Math.Clamp(MathF.Round(strength * 255.0f), 0.0f, 255.0f)
-			};
+				overlay *= 1.0f - strength;
+			}
+			else if (texel.OverlayTextureId == id)
+			{
+				overlay = 1.0f - (1.0f - overlay) * (1.0f - strength);
+			}
+			else
+			{
+				float pushedOut = MathF.Min(overlay, 1.0f - overlay);
 
-			if (storage.ControlMap[index] == texel.Packed)
-				continue;
+				if (strength < (1.0f - strength) * pushedOut)
+					return _Ground;
 
-			storage.ControlMap[index] = texel.Packed;
-			changed++;
+				if (overlay > 0.5f)
+					texel.BaseTextureId = texel.OverlayTextureId;
+
+				texel.OverlayTextureId = (byte)id;
+				overlay = strength;
+			}
+
+			texel.BlendFactor = (byte)Math.Clamp(MathF.Round(overlay * 255.0f), 0.0f, 255.0f);
+
+			return texel.Packed;
 		}
-
-		if (changed == 0)
-			return 0;
-
-		uint[] after = CopyRegion(storage.ControlMap, resolution, region);
-
-		_Terrain.SyncGPUTexture();
-		_Terrain.UpdateCollision(Terrain.SyncFlags.Control, region);
-
-		SceneEditorSession.Active.UndoSystem.Insert("Paint Terrain Along Roads",
-			() => RestoreRegion(_Terrain, before, region),
-			() => RestoreRegion(_Terrain, after, region));
-
-		return changed;
 	}
 
 
@@ -1041,40 +1084,6 @@ internal static class RoadTerrainPainter
 
 		return 1.0f - beyond * beyond * (3.0f - 2.0f * beyond);
 	}
-
-
-
-	private static uint[] CopyRegion(uint[] _Data, int _Stride, RectInt _Region)
-	{
-		var region = new uint[_Region.Width * _Region.Height];
-
-		for (int y = 0; y < _Region.Height; y++)
-		{
-			for (int x = 0; x < _Region.Width; x++)
-				region[x + y * _Region.Width] = _Data[_Region.Left + x + (_Region.Top + y) * _Stride];
-		}
-
-		return region;
-	}
-
-
-
-	private static void RestoreRegion(Terrain _Terrain, uint[] _Region, RectInt _Rect)
-	{
-		if (!_Terrain.IsValid() || _Terrain.Storage is null)
-			return;
-
-		int stride = _Terrain.Storage.Resolution;
-
-		for (int y = 0; y < _Rect.Height; y++)
-		{
-			for (int x = 0; x < _Rect.Width; x++)
-				_Terrain.Storage.ControlMap[_Rect.Left + x + (_Rect.Top + y) * stride] = _Region[x + y * _Rect.Width];
-		}
-
-		_Terrain.SyncGPUTexture();
-		_Terrain.UpdateCollision(Terrain.SyncFlags.Control, _Rect);
-	}
 }
 
 
@@ -1082,6 +1091,7 @@ internal static class RoadTerrainPainter
 file class RoadTerrainToolWidget : ToolSidebarWidget
 {
 	private readonly RoadTerrainTool m_Tool;
+	private Label m_LayerStatus;
 	private Label m_Result;
 	private int m_ShownVersion = -1;
 
@@ -1094,11 +1104,18 @@ file class RoadTerrainToolWidget : ToolSidebarWidget
 		AddTitle("Terrain", "landscape");
 
 		var serialized = _Tool.GetSerialized();
+		var layer = AddGroup("Road Layer");
+
+		layer.Add(new Label("Remembers the ground under everything the roads shape and paint, so both can be done again whenever the roads change, and taken back out. Start it once, on the terrain before any road is shaped into it.") { WordWrap = true });
+		m_LayerStatus = layer.Add(new Label("") { WordWrap = true });
+		layer.Add(new Button("Start Road Layer", "layers") { Clicked = m_Tool.StartRoadLayer });
+		layer.Add(new Button("Remove Road Layer", "layers_clear") { Clicked = m_Tool.RemoveRoadLayer });
+
 		var settings = AddGroup("Shaping");
 
 		SidebarRows.Add(settings, serialized.GetProperty(nameof(RoadTerrainTool.Falloff)));
 		SidebarRows.Add(settings, serialized.GetProperty(nameof(RoadTerrainTool.Sink)));
-		settings.Add(new Label("The ground is cut and filled to meet every road and its border, then blends back over the falloff. Roads themselves do not move.") { WordWrap = true });
+		settings.Add(new Label("The ground is cut and filled to meet every road and its border, then blends back over the falloff. Roads themselves do not move. Press it again whenever the roads change: it always starts from the road layer's ground.") { WordWrap = true });
 		settings.Add(new Button("Conform Terrain To Roads", "landscape") { Clicked = m_Tool.ConformTerrain });
 
 		var painting = AddGroup("Painting");
@@ -1126,6 +1143,11 @@ file class RoadTerrainToolWidget : ToolSidebarWidget
 	[EditorEvent.Frame]
 	public void Frame()
 	{
+		string status = m_Tool.LayerStatus;
+
+		if (status != m_LayerStatus.Text)
+			m_LayerStatus.Text = status;
+
 		if (m_Tool.ResultVersion == m_ShownVersion)
 			return;
 
