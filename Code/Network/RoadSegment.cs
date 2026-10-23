@@ -81,6 +81,12 @@ public sealed class RoadSegment
 
 	public bool CrossingAtEnd { get; set; } = true;
 
+	/// <summary>
+	/// Whether Conform Terrain To Roads shapes the ground to this road. Off for a road whose surroundings are built
+	/// by hand — one on top of a dam, along a quay, through a model of its own — where the ground is left alone.
+	/// </summary>
+	public bool ConformTerrain { get; set; } = true;
+
 	public const int MinLanes = 1;
 	public const int MaxLanes = 6;
 

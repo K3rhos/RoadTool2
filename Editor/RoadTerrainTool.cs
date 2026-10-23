@@ -79,7 +79,7 @@ public class RoadTerrainTool : EditorTool
 
 			foreach (var segment in network.Segments)
 			{
-				if (segment.Bridge is not null || !network.TryGetCurve(segment, out var curve))
+				if (segment.Bridge is not null || !segment.ConformTerrain || !network.TryGetCurve(segment, out var curve))
 					continue;
 
 				float reach = network.WidthOf(segment).MaxHalf * 2.0f + 2.0f * (RoadTerrainConformer.BorderWidth(network.ProfileOf(segment)) + Falloff);
@@ -285,7 +285,8 @@ internal static class RoadTerrainConformer
 		{
 			var table = _Network.GetCurveTable(segment);
 
-			if (table is null)
+			// A road set to leave the ground alone (one on a dam, a quay, a model of its own) shapes nothing.
+			if (table is null || !segment.ConformTerrain)
 				continue;
 
 			var profile = _Network.ProfileOf(segment);
@@ -342,7 +343,7 @@ internal static class RoadTerrainConformer
 
 		// The junction and parking lot surfaces and the pavements round them: the ground is held under them and
 		// brought up to meet their kerbs, the same way a road holds it.
-		foreach (var (centre, polygon, pavementReach, pavementTop) in _Network.GetJunctionPolygons())
+		foreach (var (centre, polygon, pavementReach, pavementTop) in _Network.GetJunctionPolygons(segment => segment.ConformTerrain))
 		{
 			road.Clear();
 			RasteriseArea(road, caps, _Terrain, terrainTransform, networkTransform, resolution, cell, centre, polygon, pavementReach, pavementTop, _Falloff, _Sink);

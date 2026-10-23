@@ -407,6 +407,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			LaneCount = segment.LaneCount,
 			ForwardLanes = segment.ForwardLanes,
 			CrossingAtEnd = crossingAtEnd,
+			ConformTerrain = segment.ConformTerrain,
 			StartTangent = second.P1 - second.P0,
 			EndTangent = second.P2 - second.P3
 		});
@@ -650,6 +651,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			ForwardLanes = mainSameWay ? main.ForwardLanes : main.LaneCount - main.ForwardLanes,
 			CrossingAtStart = first.CrossingAt(startId),
 			CrossingAtEnd = second.CrossingAt(endId),
+			ConformTerrain = main.ConformTerrain,
 			StartTangent = GetHandle(first, startId) * (firstLength > 0.0f ? total / firstLength : 1.0f),
 			EndTangent = GetHandle(second, endId) * (secondLength > 0.0f ? total / secondLength : 1.0f)
 		};

@@ -659,9 +659,10 @@ public sealed partial class RoadNetwork
 	/// The filled area of every junction, in network space (lifted to the road surface): its centre and its
 	/// outline, which the junction surface fans between, plus how far a pavement reaches out from the outline
 	/// round it and how far above the outline that pavement's top sits (nothing when no arm has a sidewalk). For
-	/// tools that need to know where road is.
+	/// tools that need to know where road is. <paramref name="_Include"/> leaves out the rounded ends of the roads it
+	/// turns down, which belong to their road alone.
 	/// </summary>
-	public IEnumerable<(Vector3 Centre, IReadOnlyList<Vector3> Polygon, float PavementReach, float PavementTop)> GetJunctionPolygons()
+	public IEnumerable<(Vector3 Centre, IReadOnlyList<Vector3> Polygon, float PavementReach, float PavementTop)> GetJunctionPolygons(Func<RoadSegment, bool> _Include = null)
 	{
 		// A parking lot is a junction as far as the ground under it is concerned.
 		foreach (var lot in Lots)
@@ -677,7 +678,7 @@ public sealed partial class RoadNetwork
 		{
 			var table = GetCurveTable(segment);
 
-			if (table is null || segment.Bridge is not null)
+			if (table is null || segment.Bridge is not null || (_Include is not null && !_Include(segment)))
 				continue;
 
 			var profile = ProfileOf(segment);
