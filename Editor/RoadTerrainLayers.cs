@@ -27,6 +27,15 @@ internal enum RoadLayerMap
 
 
 /// <summary>
+/// Where one of the things the roads lay into a terrain can reach, in plan and in world space, and a signature that
+/// changes whenever anything deciding what it does there does. Live Update compares them to find the patch of
+/// terrain to redo.
+/// </summary>
+internal readonly record struct RoadTerrainFootprint(Vector2 Min, Vector2 Max, long Signature);
+
+
+
+/// <summary>
 /// Laying the roads into a terrain through its <see cref="RoadTerrainLayer"/>, and taking them back out.
 ///
 /// Under every sample the roads hold, the layer keeps the ground and what the roads wrote. Each time the roads are
@@ -39,9 +48,29 @@ internal enum RoadLayerMap
 internal static class RoadTerrainLayers
 {
 	/// <summary>
-	/// Leads every packed layer, so data in a format changed later is told apart instead of misread.
+	/// The side of the squares a layer is packed in, in samples. A change to the roads only unpacks and repacks the
+	/// squares it reaches, which is what keeps Live Update cheap on a big terrain.
 	/// </summary>
-	private const byte PackVersion = 1;
+	public const int TileSize = 64;
+
+	/// <summary>
+	/// Leads every packed tile, so data in a format changed later is told apart instead of misread.
+	/// </summary>
+	private const byte PackVersion = 2;
+
+	/// <summary>
+	/// The first format: the whole layer in one string. Still read, to move it into tiles.
+	/// </summary>
+	private const byte LegacyVersion = 1;
+
+	/// <summary>
+	/// How many unpacked tiles the ground queries keep at hand. A node dragged across the ground asks for the same
+	/// few every frame.
+	/// </summary>
+	private const int RecentTiles = 16;
+
+	private static readonly List<(string Data, Dictionary<int, (uint Ground, uint Written)> Samples)> s_Recent = [];
+	private static readonly List<RoadTerrainLayerTile> s_NoTiles = [];
 
 
 
@@ -146,10 +175,13 @@ internal static class RoadTerrainLayers
 				var layer = terrain.GetComponent<RoadTerrainLayer>(true) ?? terrain.AddComponent<RoadTerrainLayer>();
 
 				layer.Resolution = terrain.Storage.Resolution;
+				layer.HeightTiles = [];
+				layer.PaintTiles = [];
 				layer.Heights = "";
 				layer.Paint = "";
 				layer.HeightSamples = 0;
 				layer.PaintTexels = 0;
+				layer.Generation++;
 			}
 		}
 	}
@@ -158,12 +190,28 @@ internal static class RoadTerrainLayers
 
 	/// <summary>
 	/// Takes the roads back out of each terrain: every sample a road layer holds gets its ground back. The layers
-	/// stay started, holding nothing, so the roads can be laid in again from that ground. Returns how many samples
-	/// changed.
+	/// stay started, holding nothing, so the roads can be laid in again from that ground. A terrain cannot follow
+	/// roads taken out of it, so Live Update goes off with them (and comes back on with an undo). Returns how many
+	/// samples changed.
 	/// </summary>
-	public static int Remove(IReadOnlyList<Terrain> _Terrains, RoadTerrainUndo _Undo, out string _Problem)
+	public static int Remove(IReadOnlyList<Terrain> _Terrains, RoadNetwork _Network, RoadTerrainUndo _Undo, out string _Problem)
 	{
 		_Problem = null;
+
+		if (_Network.IsValid() && _Network.TerrainLiveUpdate)
+		{
+			_Network.TerrainLiveUpdate = false;
+
+			_Undo.Add(() =>
+			{
+				if (_Network.IsValid())
+					_Network.TerrainLiveUpdate = true;
+			}, () =>
+			{
+				if (_Network.IsValid())
+					_Network.TerrainLiveUpdate = false;
+			});
+		}
 
 		int changed = 0;
 		var none = new HashSet<int>();
@@ -178,8 +226,8 @@ internal static class RoadTerrainLayers
 
 			if (layer is not null)
 			{
-				changed += Lay(terrain, layer, RoadLayerMap.Heights, none, null, _Undo, out _, out string heights);
-				changed += Lay(terrain, layer, RoadLayerMap.Paint, none, null, _Undo, out _, out string paint);
+				changed += Lay(terrain, layer, RoadLayerMap.Heights, null, none, null, _Undo, out _, out _, out string heights);
+				changed += Lay(terrain, layer, RoadLayerMap.Paint, null, none, null, _Undo, out _, out _, out string paint);
 				reason = heights ?? paint;
 			}
 
@@ -193,73 +241,151 @@ internal static class RoadTerrainLayers
 
 	/// <summary>
 	/// Lays the roads into one map of a terrain through its road layer, and returns how many of the map's samples
-	/// changed. Every sample the layer held gets its ground back; every sample in <paramref name="_Reached"/> is
-	/// then set to what <paramref name="_Write"/> makes of its ground; and the layer is left holding exactly the
-	/// samples that are off their ground. With nothing reached, the roads are taken out. The change is added to
-	/// <paramref name="_Undo"/>; <paramref name="_Held"/> is how many samples the layer holds after it.
+	/// changed. Every sample the layer held inside <paramref name="_Scope"/> (everywhere, without one) gets its
+	/// ground back; every sample in <paramref name="_Reached"/>, which must lie inside the scope, is then set to
+	/// what <paramref name="_Write"/> makes of its ground; and the layer is left holding exactly the samples that
+	/// are off their ground. With nothing reached, the roads are taken out. The change is added to
+	/// <paramref name="_Undo"/>; without one (Live Update) nothing is recorded, and only the changed rectangle,
+	/// <paramref name="_Changed"/>, is sent to the terrain's texture and collider. <paramref name="_Held"/> is how
+	/// many samples the layer holds after it.
 	/// </summary>
-	public static int Lay(Terrain _Terrain, RoadTerrainLayer _Layer, RoadLayerMap _Map, HashSet<int> _Reached, Func<int, uint, uint> _Write, RoadTerrainUndo _Undo, out int _Held, out string _Problem)
+	public static int Lay(Terrain _Terrain, RoadTerrainLayer _Layer, RoadLayerMap _Map, IReadOnlyList<RectInt> _Scope, HashSet<int> _Reached, Func<int, uint, uint> _Write, RoadTerrainUndo _Undo, out RectInt _Changed, out int _Held, out string _Problem)
 	{
 		var storage = _Terrain.Storage;
 		int resolution = storage.Resolution;
 		bool heights = _Map == RoadLayerMap.Heights;
-		string packed = heights ? _Layer.Heights : _Layer.Paint;
-		int heldBefore = heights ? _Layer.HeightSamples : _Layer.PaintTexels;
 
-		_Held = heldBefore;
+		_Changed = default;
+		_Held = heights ? _Layer.HeightSamples : _Layer.PaintTexels;
+		_Problem = null;
 
-		if (!TryUnpack(packed, resolution * resolution, out var held))
+		if (!TryMigrate(_Layer, _Map, resolution))
 		{
-			_Problem = $"The road layer on \"{_Terrain.GameObject.Name}\" can't be read back, so it was left alone: start the road layer again.";
+			_Problem = Unreadable(_Terrain);
 			return 0;
 		}
 
-		_Problem = null;
+		var tiles = TilesOf(_Layer, _Map);
+		var byIndex = new Dictionary<int, RoadTerrainLayerTile>(tiles.Count);
 
-		var next = new Dictionary<int, (uint Ground, uint Written)>(_Reached.Count);
+		foreach (var tile in tiles)
+		{
+			if (tile is not null)
+				byIndex[tile.Index] = tile;
+		}
+
+		// The reached samples, by the tile each falls in.
+		var reachedByTile = new Dictionary<int, List<int>>();
+
+		foreach (int index in _Reached)
+		{
+			int tile = TileOf(index, resolution);
+
+			if (!reachedByTile.TryGetValue(tile, out var list))
+			{
+				list = new List<int>();
+				reachedByTile[tile] = list;
+			}
+
+			list.Add(index);
+		}
+
+		// Every tile this pass looks at: those a reached sample falls in, and those the layer holds that the scope
+		// reaches. All are read before anything changes, so a damaged one leaves the terrain alone.
+		var touched = new HashSet<int>(reachedByTile.Keys);
+
+		foreach (int tile in byIndex.Keys)
+		{
+			if (_Scope is null || Overlaps(TileRect(tile, resolution), _Scope))
+				touched.Add(tile);
+		}
+
+		var held = new Dictionary<int, Dictionary<int, (uint Ground, uint Written)>>(touched.Count);
+
+		foreach (int tile in touched)
+		{
+			if (!TryRead(byIndex.GetValueOrDefault(tile), tile, resolution, out var samples))
+			{
+				_Problem = Unreadable(_Terrain);
+				return 0;
+			}
+
+			held[tile] = samples;
+		}
+
 		var indices = new List<int>();
 		var before = new List<uint>();
 		var after = new List<uint>();
+		var replaced = new Dictionary<int, RoadTerrainLayerTile>();
 
-		foreach (int index in _Reached)
-			Visit(index, true);
-
-		foreach (int index in held.Keys)
+		foreach (var (tile, samples) in held)
 		{
-			if (!_Reached.Contains(index))
-				Visit(index, false);
+			var next = new Dictionary<int, (uint Ground, uint Written)>(samples.Count);
+
+			// What the layer held here: outside the scope it stays as it is; inside, a sample no road reaches any
+			// more gets its ground back (those still reached are laid below).
+			foreach (var (index, sample) in samples)
+			{
+				if (_Scope is not null && !Contains(_Scope, index, resolution))
+					next[LocalIndex(index, resolution)] = sample;
+				else if (!_Reached.Contains(index))
+					Visit(index, true, sample, false, next);
+			}
+
+			if (reachedByTile.TryGetValue(tile, out var reached))
+			{
+				foreach (int index in reached)
+				{
+					bool isHeld = samples.TryGetValue(index, out var sample);
+
+					Visit(index, isHeld, sample, true, next);
+				}
+			}
+
+			var old = byIndex.GetValueOrDefault(tile);
+			string data = next.Count > 0 ? Pack(next) : "";
+
+			if ((old?.Data ?? "") != data)
+				replaced[tile] = next.Count > 0 ? new RoadTerrainLayerTile { Index = tile, Count = next.Count, Data = data } : null;
 		}
 
-		_Held = next.Count;
-
-		string packedNext = Pack(next);
-
 		// Pressed again with nothing changed since: the terrain already is what the roads make of the ground.
-		if (indices.Count == 0 && packedNext == packed)
+		if (indices.Count == 0 && replaced.Count == 0)
 			return 0;
 
+		// The layer's tiles after this pass, kept in order so the scene file only changes where the layer did. A list
+		// is never changed once made, so the one before stays as it was for the undo.
+		var nextTiles = tiles.Where(tile => tile is not null && !replaced.ContainsKey(tile.Index))
+			.Concat(replaced.Values.Where(tile => tile is not null))
+			.OrderBy(tile => tile.Index)
+			.ToList();
+
+		int heldBefore = _Held;
+		int heldAfter = nextTiles.Sum(tile => tile.Count);
 		int[] changed = indices.ToArray();
 		uint[] was = before.ToArray();
 		uint[] now = after.ToArray();
 		var region = Bounds(changed, resolution);
-		int heldAfter = next.Count;
 
-		Apply(_Terrain, _Map, resolution, changed, now, region, packedNext, heldAfter);
+		Apply(_Terrain, _Map, resolution, changed, now, region, nextTiles, heldAfter, _Undo is null);
 
-		_Undo.Add(() => Apply(_Terrain, _Map, resolution, changed, was, region, packed, heldBefore),
-			() => Apply(_Terrain, _Map, resolution, changed, now, region, packedNext, heldAfter));
+		_Undo?.Add(() => Apply(_Terrain, _Map, resolution, changed, was, region, tiles, heldBefore, false),
+			() => Apply(_Terrain, _Map, resolution, changed, now, region, nextTiles, heldAfter, false));
+
+		_Changed = region;
+		_Held = heldAfter;
 
 		return changed.Length;
 
-		void Visit(int _Index, bool _Wanted)
+		void Visit(int _Index, bool _IsHeld, (uint Ground, uint Written) _Sample, bool _Wanted, Dictionary<int, (uint Ground, uint Written)> _Next)
 		{
 			uint current = heights ? storage.HeightMap[_Index] : storage.ControlMap[_Index];
-			uint ground = held.TryGetValue(_Index, out var sample) ? GroundUnder(heights, current, sample) : current;
+			uint ground = _IsHeld ? GroundUnder(heights, current, _Sample) : current;
 			uint written = _Wanted ? _Write(_Index, ground) : ground;
 
 			// Only what the roads move off the ground is theirs to remember.
 			if (written != ground)
-				next[_Index] = (ground, written);
+				_Next[LocalIndex(_Index, resolution)] = (ground, written);
 
 			if (written == current)
 				return;
@@ -268,6 +394,158 @@ internal static class RoadTerrainLayers
 			before.Add(current);
 			after.Add(written);
 		}
+	}
+
+
+
+	/// <summary>
+	/// The ground the roads are laid over at a point in plan (world space), and how far it lies from the terrain as
+	/// the roads shaped it there, which is nothing away from them: the road layer's ground where it holds samples,
+	/// the terrain as it is everywhere else. False off the terrain, or when it has no road layer to ask.
+	/// </summary>
+	public static bool TryGetGround(Terrain _Terrain, Vector2 _Point, out float _Height, out float _Offset)
+	{
+		_Height = 0.0f;
+		_Offset = 0.0f;
+
+		var layer = LayerOf(_Terrain, out _);
+		var storage = _Terrain.Storage;
+		int resolution = storage.Resolution;
+
+		if (layer is null || storage.HeightMap is null || storage.HeightMap.Length != resolution * resolution || !TryMigrate(layer, RoadLayerMap.Heights, resolution))
+			return false;
+
+		float cell = storage.TerrainSize / resolution;
+		var transform = _Terrain.WorldTransform;
+		Vector3 local = transform.PointToLocal(new Vector3(_Point.x, _Point.y, transform.Position.z));
+
+		// Between the four samples round the point: their centres sit half a cell in from their cell's corner,
+		// where the terrain's collider puts them too.
+		float gridX = local.x / cell - 0.5f;
+		float gridY = local.y / cell - 0.5f;
+
+		if (gridX < -0.5f || gridY < -0.5f || gridX > resolution - 0.5f || gridY > resolution - 0.5f)
+			return false;
+
+		int x0 = Math.Clamp((int)MathF.Floor(gridX), 0, resolution - 1);
+		int y0 = Math.Clamp((int)MathF.Floor(gridY), 0, resolution - 1);
+		int x1 = Math.Min(x0 + 1, resolution - 1);
+		int y1 = Math.Min(y0 + 1, resolution - 1);
+		float fx = Math.Clamp(gridX - x0, 0.0f, 1.0f);
+		float fy = Math.Clamp(gridY - y0, 0.0f, 1.0f);
+
+		var tiles = TilesOf(layer, RoadLayerMap.Heights);
+		float ground = 0.0f;
+		float current = 0.0f;
+
+		Take(x0, y0, (1.0f - fx) * (1.0f - fy));
+		Take(x1, y0, fx * (1.0f - fy));
+		Take(x0, y1, (1.0f - fx) * fy);
+		Take(x1, y1, fx * fy);
+
+		float scale = storage.TerrainHeight / ushort.MaxValue;
+
+		_Height = transform.PointToWorld(local.WithZ(ground * scale)).z;
+		_Offset = _Height - transform.PointToWorld(local.WithZ(current * scale)).z;
+
+		return true;
+
+		void Take(int _X, int _Y, float _Weight)
+		{
+			int index = _X + _Y * resolution;
+			uint value = storage.HeightMap[index];
+			var samples = ReadRecent(FindTile(tiles, TileOf(index, resolution)));
+
+			ground += _Weight * (samples is not null && samples.TryGetValue(LocalIndex(index, resolution), out var sample) ? GroundUnder(true, value, sample) : value);
+			current += _Weight * value;
+		}
+	}
+
+
+
+	/// <summary>
+	/// Where a trace that hit a terrain meets the ground the roads are laid over instead. Under its roads the terrain
+	/// is shaped to them (sunk below the surface, cut and filled round it), so a node dropped onto it would settle
+	/// into the shape its own road gave the ground, and sink a little more each time it is moved. Away from the
+	/// roads, and on anything other than a terrain with a road layer, the trace's own hit stands.
+	/// </summary>
+	public static Vector3 OntoGround(in SceneTraceResult _Trace, Ray _Ray)
+	{
+		var terrain = _Trace.GameObject?.Components.Get<Terrain>();
+
+		if (!terrain.IsValid() || terrain.Storage is null)
+			return _Trace.EndPosition;
+
+		Vector3 point = _Trace.EndPosition;
+
+		if (!TryGetGround(terrain, new Vector2(point.x, point.y), out float ground, out float offset) || MathF.Abs(offset) < 0.01f)
+			return point;
+
+		// The ground lies above or below the shaped terrain here, so the ray meets it a little short of the hit or
+		// further along: a few steps, each to where the ray is at the ground's height under the last point, find it.
+		for (int i = 0; i < 4 && MathF.Abs(_Ray.Forward.z) > 0.05f; i++)
+		{
+			float along = (ground - _Ray.Position.z) / _Ray.Forward.z;
+
+			if (along <= 0.0f)
+				break;
+
+			Vector3 next = _Ray.Position + _Ray.Forward * along;
+
+			if (!TryGetGround(terrain, new Vector2(next.x, next.y), out float there, out _))
+				break;
+
+			bool settled = MathF.Abs(next.x - point.x) + MathF.Abs(next.y - point.y) < 0.01f;
+
+			point = next;
+			ground = there;
+
+			if (settled)
+				break;
+		}
+
+		return point.WithZ(ground);
+	}
+
+
+
+	/// <summary>
+	/// The rectangle of a terrain's grid under a rectangle in plan (world space), a sample wider all round; null when
+	/// it misses the terrain.
+	/// </summary>
+	public static RectInt? ToGrid(Terrain _Terrain, Vector2 _Min, Vector2 _Max)
+	{
+		var storage = _Terrain.Storage;
+		int resolution = storage.Resolution;
+		float cell = storage.TerrainSize / resolution;
+		var transform = _Terrain.WorldTransform;
+		float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+
+		for (int corner = 0; corner < 4; corner++)
+		{
+			var world = new Vector3((corner & 1) == 0 ? _Min.x : _Max.x, (corner & 2) == 0 ? _Min.y : _Max.y, transform.Position.z);
+			Vector3 local = transform.PointToLocal(world);
+
+			minX = MathF.Min(minX, local.x);
+			maxX = MathF.Max(maxX, local.x);
+			minY = MathF.Min(minY, local.y);
+			maxY = MathF.Max(maxY, local.y);
+		}
+
+		int left = (int)MathF.Floor(minX / cell) - 1;
+		int top = (int)MathF.Floor(minY / cell) - 1;
+		int right = (int)MathF.Ceiling(maxX / cell) + 1;
+		int bottom = (int)MathF.Ceiling(maxY / cell) + 1;
+
+		if (right < 0 || bottom < 0 || left >= resolution || top >= resolution)
+			return null;
+
+		left = Math.Max(left, 0);
+		top = Math.Max(top, 0);
+		right = Math.Min(right, resolution - 1);
+		bottom = Math.Min(bottom, resolution - 1);
+
+		return new RectInt(left, top, right - left + 1, bottom - top + 1);
 	}
 
 
@@ -291,10 +569,11 @@ internal static class RoadTerrainLayers
 
 
 	/// <summary>
-	/// Puts samples into one of a terrain's maps and the packed samples into its road layer, then brings the
-	/// terrain's rendering and collision up to date.
+	/// Puts samples into one of a terrain's maps and the tiles into its road layer, then brings the terrain's
+	/// rendering and collision up to date: the changed rectangle alone when <paramref name="_Quick"/> (Live Update,
+	/// many times a second while a road is dragged), else the whole terrain, with everything that depends on it told.
 	/// </summary>
-	private static void Apply(Terrain _Terrain, RoadLayerMap _Map, int _Resolution, int[] _Indices, uint[] _Values, RectInt _Region, string _Packed, int _Held)
+	private static void Apply(Terrain _Terrain, RoadLayerMap _Map, int _Resolution, int[] _Indices, uint[] _Values, RectInt _Region, List<RoadTerrainLayerTile> _Tiles, int _Held, bool _Quick)
 	{
 		// A terrain deleted or resampled since has nothing these samples line up with.
 		if (!_Terrain.IsValid() || _Terrain.Storage is null || _Terrain.Storage.Resolution != _Resolution)
@@ -315,18 +594,56 @@ internal static class RoadTerrainLayers
 		{
 			if (heights)
 			{
-				layer.Heights = _Packed;
+				layer.HeightTiles = _Tiles;
 				layer.HeightSamples = _Held;
 			}
 			else
 			{
-				layer.Paint = _Packed;
+				layer.PaintTiles = _Tiles;
 				layer.PaintTexels = _Held;
 			}
 		}
 
-		if (_Indices.Length > 0)
+		if (_Indices.Length == 0)
+			return;
+
+		if (_Quick)
+			SyncRegion(_Terrain, heights, _Region);
+		else
 			_Terrain.ApplyStorageChanges(heights ? Terrain.SyncFlags.Height : Terrain.SyncFlags.Control, _Region);
+	}
+
+
+
+	/// <summary>
+	/// Sends one rectangle of a terrain's map to its texture and its collider, without sending the rest. What else
+	/// depends on the terrain (its clutter) is not told: Live Update does that once the edits settle.
+	/// </summary>
+	private static void SyncRegion(Terrain _Terrain, bool _Heights, RectInt _Region)
+	{
+		var storage = _Terrain.Storage;
+		int resolution = storage.Resolution;
+
+		if (_Heights)
+		{
+			var data = new ushort[_Region.Width * _Region.Height];
+
+			for (int y = 0; y < _Region.Height; y++)
+				Array.Copy(storage.HeightMap, _Region.Left + (_Region.Top + y) * resolution, data, y * _Region.Width, _Region.Width);
+
+			_Terrain.HeightMap?.Update<ushort>(data, _Region.Left, _Region.Top, _Region.Width, _Region.Height);
+		}
+		else
+		{
+			var data = new uint[_Region.Width * _Region.Height];
+
+			for (int y = 0; y < _Region.Height; y++)
+				Array.Copy(storage.ControlMap, _Region.Left + (_Region.Top + y) * resolution, data, y * _Region.Width, _Region.Width);
+
+			_Terrain.ControlMap?.Update<uint>(data, _Region.Left, _Region.Top, _Region.Width, _Region.Height);
+		}
+
+		_Terrain.UpdateCollision(_Heights ? Terrain.SyncFlags.Height : Terrain.SyncFlags.Control, _Region);
 	}
 
 
@@ -358,10 +675,231 @@ internal static class RoadTerrainLayers
 
 
 	/// <summary>
-	/// Packs a layer's samples for the scene. In index order, each is written as the gap since the one before, its
-	/// ground as the step from that one's ground, and how far the roads moved it off its ground as the step from how
-	/// far they moved that one, all as variable-length numbers. Along a road those are mostly zero or close to it,
-	/// which is what lets the deflate after squeeze them down.
+	/// Whether two rectangles of the grid share a sample.
+	/// </summary>
+	public static bool Overlap(RectInt _A, RectInt _B)
+	{
+		return _A.Left < _B.Left + _B.Width && _B.Left < _A.Left + _A.Width && _A.Top < _B.Top + _B.Height && _B.Top < _A.Top + _A.Height;
+	}
+
+
+
+	/// <summary>
+	/// Whether a rectangle of the grid shares a sample with any of some others.
+	/// </summary>
+	public static bool Overlaps(RectInt _Rect, IReadOnlyList<RectInt> _Scope)
+	{
+		foreach (var rect in _Scope)
+		{
+			if (Overlap(_Rect, rect))
+				return true;
+		}
+
+		return false;
+	}
+
+
+
+	private static bool Contains(IReadOnlyList<RectInt> _Scope, int _Index, int _Resolution)
+	{
+		int x = _Index % _Resolution;
+		int y = _Index / _Resolution;
+
+		foreach (var rect in _Scope)
+		{
+			if (x >= rect.Left && x < rect.Left + rect.Width && y >= rect.Top && y < rect.Top + rect.Height)
+				return true;
+		}
+
+		return false;
+	}
+
+
+
+	private static int TilesAcross(int _Resolution)
+	{
+		return (_Resolution + TileSize - 1) / TileSize;
+	}
+
+
+
+	/// <summary>
+	/// The tile a sample falls in.
+	/// </summary>
+	private static int TileOf(int _Index, int _Resolution)
+	{
+		int x = _Index % _Resolution;
+		int y = _Index / _Resolution;
+
+		return x / TileSize + y / TileSize * TilesAcross(_Resolution);
+	}
+
+
+
+	/// <summary>
+	/// A tile's rectangle of the grid; the last ones across and down are cut short by the grid's edge.
+	/// </summary>
+	private static RectInt TileRect(int _Tile, int _Resolution)
+	{
+		int across = TilesAcross(_Resolution);
+		int left = _Tile % across * TileSize;
+		int top = _Tile / across * TileSize;
+
+		return new RectInt(left, top, Math.Min(TileSize, _Resolution - left), Math.Min(TileSize, _Resolution - top));
+	}
+
+
+
+	/// <summary>
+	/// Where a sample sits within its tile.
+	/// </summary>
+	private static int LocalIndex(int _Index, int _Resolution)
+	{
+		return _Index % _Resolution % TileSize + _Index / _Resolution % TileSize * TileSize;
+	}
+
+
+
+	private static List<RoadTerrainLayerTile> TilesOf(RoadTerrainLayer _Layer, RoadLayerMap _Map)
+	{
+		return (_Map == RoadLayerMap.Heights ? _Layer.HeightTiles : _Layer.PaintTiles) ?? s_NoTiles;
+	}
+
+
+
+	private static RoadTerrainLayerTile FindTile(List<RoadTerrainLayerTile> _Tiles, int _Index)
+	{
+		foreach (var tile in _Tiles)
+		{
+			if (tile is not null && tile.Index == _Index)
+				return tile;
+		}
+
+		return null;
+	}
+
+
+
+	private static string Unreadable(Terrain _Terrain)
+	{
+		return $"The road layer on \"{_Terrain.GameObject.Name}\" can't be read back, so it was left alone: start the road layer again.";
+	}
+
+
+
+	/// <summary>
+	/// Moves one map of a layer packed by the first version (all of it in one string) into tiles. False when that
+	/// data can't be read.
+	/// </summary>
+	private static bool TryMigrate(RoadTerrainLayer _Layer, RoadLayerMap _Map, int _Resolution)
+	{
+		bool heights = _Map == RoadLayerMap.Heights;
+		string legacy = heights ? _Layer.Heights : _Layer.Paint;
+
+		if (string.IsNullOrEmpty(legacy))
+			return true;
+
+		if (!TryUnpack(legacy, LegacyVersion, _Resolution * _Resolution, out var samples))
+			return false;
+
+		var byTile = new SortedDictionary<int, Dictionary<int, (uint Ground, uint Written)>>();
+
+		foreach (var (index, sample) in samples)
+		{
+			int tile = TileOf(index, _Resolution);
+
+			if (!byTile.TryGetValue(tile, out var tileSamples))
+			{
+				tileSamples = new Dictionary<int, (uint Ground, uint Written)>();
+				byTile[tile] = tileSamples;
+			}
+
+			tileSamples[LocalIndex(index, _Resolution)] = sample;
+		}
+
+		var tiles = byTile.Select(pair => new RoadTerrainLayerTile { Index = pair.Key, Count = pair.Value.Count, Data = Pack(pair.Value) }).ToList();
+
+		if (heights)
+		{
+			_Layer.HeightTiles = tiles;
+			_Layer.Heights = "";
+		}
+		else
+		{
+			_Layer.PaintTiles = tiles;
+			_Layer.Paint = "";
+		}
+
+		return true;
+	}
+
+
+
+	/// <summary>
+	/// A tile's samples by their index on the whole grid; none for a tile the layer does not hold.
+	/// </summary>
+	private static bool TryRead(RoadTerrainLayerTile _Tile, int _Index, int _Resolution, out Dictionary<int, (uint Ground, uint Written)> _Samples)
+	{
+		_Samples = new Dictionary<int, (uint Ground, uint Written)>();
+
+		if (_Tile is null || string.IsNullOrEmpty(_Tile.Data))
+			return true;
+
+		if (!TryUnpack(_Tile.Data, PackVersion, TileSize * TileSize, out var local))
+			return false;
+
+		var rect = TileRect(_Index, _Resolution);
+
+		foreach (var (index, sample) in local)
+		{
+			int x = rect.Left + index % TileSize;
+			int y = rect.Top + index / TileSize;
+
+			// A tile at the grid's edge is cut short: nothing this layer wrote lies past it.
+			if (x >= _Resolution || y >= _Resolution)
+				return false;
+
+			_Samples[x + y * _Resolution] = sample;
+		}
+
+		return true;
+	}
+
+
+
+	/// <summary>
+	/// A tile's samples by their place in the tile, for the ground queries, kept for the next few asks. A packed tile
+	/// never changes (a change makes a new one), so what was read from it stays true while it is around.
+	/// </summary>
+	private static Dictionary<int, (uint Ground, uint Written)> ReadRecent(RoadTerrainLayerTile _Tile)
+	{
+		if (_Tile is null || string.IsNullOrEmpty(_Tile.Data))
+			return null;
+
+		foreach (var (data, samples) in s_Recent)
+		{
+			if (ReferenceEquals(data, _Tile.Data))
+				return samples;
+		}
+
+		if (!TryUnpack(_Tile.Data, PackVersion, TileSize * TileSize, out var read))
+			return null;
+
+		if (s_Recent.Count >= RecentTiles)
+			s_Recent.RemoveAt(0);
+
+		s_Recent.Add((_Tile.Data, read));
+
+		return read;
+	}
+
+
+
+	/// <summary>
+	/// Packs samples for the scene. In index order, each is written as the gap since the one before, its ground as
+	/// the step from that one's ground, and how far the roads moved it off its ground as the step from how far they
+	/// moved that one, all as variable-length numbers. Along a road those are mostly zero or close to it, which is
+	/// what lets the deflate after squeeze them down.
 	/// </summary>
 	private static string Pack(Dictionary<int, (uint Ground, uint Written)> _Samples)
 	{
@@ -406,9 +944,10 @@ internal static class RoadTerrainLayers
 
 
 	/// <summary>
-	/// Reads packed samples back; false when they can't be, written in a later format or damaged.
+	/// Reads packed samples back; false when they can't be, written in another format or damaged, or naming a
+	/// sample at or past <paramref name="_Limit"/>.
 	/// </summary>
-	private static bool TryUnpack(string _Packed, int _SampleCount, out Dictionary<int, (uint Ground, uint Written)> _Samples)
+	private static bool TryUnpack(string _Packed, byte _Version, int _Limit, out Dictionary<int, (uint Ground, uint Written)> _Samples)
 	{
 		_Samples = new Dictionary<int, (uint Ground, uint Written)>();
 
@@ -421,7 +960,7 @@ internal static class RoadTerrainLayers
 		{
 			byte[] packed = Convert.FromBase64String(_Packed);
 
-			if (packed.Length == 0 || packed[0] != PackVersion)
+			if (packed.Length == 0 || packed[0] != _Version)
 				return false;
 
 			using var deflate = new DeflateStream(new MemoryStream(packed, 1, packed.Length - 1), CompressionMode.Decompress);
@@ -454,7 +993,7 @@ internal static class RoadTerrainLayers
 			long offset = previousOffset + UnZigZag(offsetStep);
 			long written = ground + offset;
 
-			if (index < 0 || index >= _SampleCount || ground < 0 || ground > uint.MaxValue || written < 0 || written > uint.MaxValue)
+			if (index < 0 || index >= _Limit || ground < 0 || ground > uint.MaxValue || written < 0 || written > uint.MaxValue)
 				return false;
 
 			_Samples[(int)index] = ((uint)ground, (uint)written);

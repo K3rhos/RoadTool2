@@ -493,7 +493,7 @@ public class RoadDrawTool : EditorTool
 		var physics = Scene.Trace.Ray(ray, reach).WithoutTags(RoadNetwork.ChunkTag).Run();
 
 		if (physics.Hit)
-			return physics.EndPosition.z;
+			return RoadTerrainLayers.OntoGround(physics, ray).z;
 
 		var meshes = Scene.Trace.Ray(ray, reach).UseRenderMeshes(true, EditorPreferences.BackfaceSelection).WithoutTags("hidden").WithoutTags(RoadNetwork.ChunkTag).UsePhysicsWorld(false).Run();
 
@@ -655,12 +655,13 @@ public class RoadDrawTool : EditorTool
 
 	private bool TryGetCursorPosition(RoadNetwork _Network, out Vector3 _WorldPosition)
 	{
-		// The road meshes are skipped so a node placed beside a road lands on the ground, not on the road's edge.
+		// The road meshes are skipped so a node placed beside a road lands on the ground, not on the road's edge; on a
+		// terrain, on the ground the roads are laid over, not in another road's cut.
 		var physics = Trace.WithoutTags(RoadNetwork.ChunkTag).Run();
 
 		if (physics.Hit)
 		{
-			_WorldPosition = physics.EndPosition;
+			_WorldPosition = RoadTerrainLayers.OntoGround(physics, Gizmo.CurrentRay);
 			return true;
 		}
 

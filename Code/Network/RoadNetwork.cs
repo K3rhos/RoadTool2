@@ -76,6 +76,39 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 	[Property(Title = "Chunks Per Frame"), Group("Generation"), Range(1, 32)] public int RebuildBudget { get; set; } = 4;
 
 	/// <summary>
+	/// How far beyond a road's border the terrain takes to blend back into the landscape when it is shaped to the
+	/// roads (the Terrain tool's Conform, and Live Update).
+	/// </summary>
+	[Property(Title = "Falloff"), Group("Terrain"), Range(0.0f, 2000.0f)] public float TerrainFalloff { get; set { field = value.Clamp(0.0f, 100000.0f); } } = 300.0f;
+
+	/// <summary>
+	/// How far below the road surface the ground is kept, so it never shows through the asphalt.
+	/// </summary>
+	[Property(Title = "Sink"), Group("Terrain"), Range(0.0f, 50.0f)] public float TerrainSink { get; set { field = value.Clamp(0.0f, 1000.0f); } } = 5.0f;
+
+	/// <summary>
+	/// The terrain material painted along the roads. Give a country road's verge the same texture and the two merge,
+	/// instead of the verge ending on a line against the landscape.
+	/// </summary>
+	[Property(Title = "Paint Material"), Group("Terrain")] public TerrainMaterial TerrainPaintMaterial { get; set; }
+
+	/// <summary>
+	/// How far past a road's border the material is painted at full strength.
+	/// </summary>
+	[Property(Title = "Paint Margin"), Group("Terrain"), Range(0.0f, 1000.0f)] public float TerrainPaintMargin { get; set { field = value.Clamp(0.0f, 100000.0f); } } = 100.0f;
+
+	/// <summary>
+	/// How far the material fades out beyond that, back into whatever the ground is painted with.
+	/// </summary>
+	[Property(Title = "Paint Fade"), Group("Terrain"), Range(0.0f, 2000.0f)] public float TerrainPaintFade { get; set { field = value.Clamp(0.0f, 100000.0f); } } = 200.0f;
+
+	/// <summary>
+	/// Keeps the terrain matching the roads while they are edited. Switched from the Terrain tool only: switching it
+	/// on there lays every road in as part of the same undo step, which setting it from anywhere else would not.
+	/// </summary>
+	[Property, Hide] public bool TerrainLiveUpdate { get; set; }
+
+	/// <summary>
 	/// Draws every border piece's rows over the scene: arm chunks green, junction corner halves red and cyan,
 	/// block corner patches yellow, caps magenta. The editor also writes the numbers behind every piece to
 	/// Libraries/RoadTool2/debug/borders.txt whenever a piece is rebuilt.
@@ -144,6 +177,12 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 
 	private int m_GraphRevision;
 	private int m_IndexRevision = -1;
+
+	/// <summary>
+	/// Bumped on every change to the graph, and to anything the roads are built from: a cheap way for the editor to
+	/// tell that the roads may have changed since it last looked (Live Update).
+	/// </summary>
+	public int GraphRevision => m_GraphRevision;
 
 	/// <summary>
 	/// Says the graph's shape changed, so the lookups below are rebuilt before they are next used. Called at the

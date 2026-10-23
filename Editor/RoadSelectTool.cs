@@ -482,15 +482,16 @@ public class RoadSelectTool : EditorTool
 
 
 	/// <summary>
-	/// Where the cursor ray meets the ground, ignoring the road meshes themselves (the node sits right on them).
-	/// Falls back to a horizontal plane through the point being dragged when nothing is under the cursor.
+	/// Where the cursor ray meets the ground, ignoring the road meshes themselves (the node sits right on them), and
+	/// on a terrain the ground the roads are laid over rather than the terrain as they shaped it. Falls back to a
+	/// horizontal plane through the point being dragged when nothing is under the cursor.
 	/// </summary>
 	private Vector3? GroundHit(RoadNetwork _Network, Vector3 _Fallback)
 	{
 		var trace = Trace.WithoutTags(RoadNetwork.ChunkTag).Run();
 
 		if (trace.Hit)
-			return trace.EndPosition;
+			return RoadTerrainLayers.OntoGround(trace, Gizmo.CurrentRay);
 
 		return new Plane(_Fallback, Vector3.Up).Trace(Gizmo.CurrentRay, true);
 	}

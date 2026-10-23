@@ -205,15 +205,16 @@ public class RoadLotTool : EditorTool
 
 
 	/// <summary>
-	/// Where the ground is under the cursor, ignoring the network's own pieces; the plane through the lot when the
-	/// cursor is over nothing at all.
+	/// Where the ground is under the cursor, ignoring the network's own pieces, and on a terrain the ground the roads
+	/// are laid over rather than the terrain as they shaped it; the plane through the lot when the cursor is over
+	/// nothing at all.
 	/// </summary>
 	private Vector3? GroundHit(Vector3 _Fallback)
 	{
 		var trace = Trace.WithoutTags(RoadNetwork.ChunkTag).Run();
 
 		if (trace.Hit)
-			return trace.EndPosition;
+			return RoadTerrainLayers.OntoGround(trace, Gizmo.CurrentRay);
 
 		return new Plane(_Fallback, Vector3.Up).Trace(Gizmo.CurrentRay, true);
 	}
