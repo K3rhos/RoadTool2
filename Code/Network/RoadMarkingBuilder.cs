@@ -49,17 +49,24 @@ internal static class RoadMarkingBuilder
 		private readonly float m_Lift;
 
 		/// <summary>
+		/// How the road's cells are cut into triangles, as the surface builder works it out from the road's own rows:
+		/// 0 for two triangles a cell, otherwise the number of fanned columns.
+		/// </summary>
+		private readonly int m_Columns;
+
+		/// <summary>
 		/// The road's two edges at each row, worked out once: every point of paint stands on one of these cells, and
 		/// re-deriving its corners per point costs four searches of the curve table each time.
 		/// </summary>
 		private readonly Vector3[] m_Left;
 		private readonly Vector3[] m_Right;
 
-		public Surface(RoadCurveTable _Table, IReadOnlyList<float> _Rows, in RoadWidth _Width, float _Lift)
+		public Surface(RoadCurveTable _Table, IReadOnlyList<float> _Rows, in RoadWidth _Width, int _Columns, float _Lift)
 		{
 			m_Table = _Table;
 			m_Rows = _Rows;
 			m_Width = _Width;
+			m_Columns = _Columns;
 			m_Lift = _Lift;
 			m_Left = new Vector3[_Rows.Count];
 			m_Right = new Vector3[_Rows.Count];
@@ -86,8 +93,8 @@ internal static class RoadMarkingBuilder
 
 		/// <summary>
 		/// The rows a stretch of paint is built on: its own two ends, every road row in between and, in each cell,
-		/// the place where the line crosses that cell's diagonal — so no part of the line spans a fold in the road
-		/// — and between those, wherever the line's own bend asks for one.
+		/// the places where the line crosses the cell's folds — so no part of the line spans a fold in the road —
+		/// and between those, wherever the line's own bend asks for one.
 		/// </summary>
 		public List<float> RowsBetween(float _From, float _To, in Line _Line)
 		{
@@ -106,8 +113,8 @@ internal static class RoadMarkingBuilder
 		}
 
 		/// <summary>
-		/// The places between two distances where the road folds under the line: its rows, and the diagonals of
-		/// the cells between them.
+		/// The places between two distances where the road folds under the line: its rows, and where the line
+		/// crosses the folds of the cells between them.
 		/// </summary>
 		private IEnumerable<float> FoldsBetween(float _From, float _To, Line _Line)
 		{
@@ -122,15 +129,38 @@ internal static class RoadMarkingBuilder
 				if (from > _From + RowMargin && from < _To - RowMargin)
 					yield return from;
 
-				// The cell is split from its near left corner to its far right one, so a line a fraction of the way
-				// across the road crosses that diagonal the same fraction of the way along the cell.
 				float middle = (from + to) * 0.5f;
 				float width = m_Width.WidthAt(middle);
 				float fraction = width > 0.001f ? Math.Clamp((_Line.OffsetAt(m_Width, middle) + m_Width.LeftAt(middle)) / width, 0.0f, 1.0f) : 0.5f;
-				float crossing = MathX.Lerp(from, to, fraction);
+				float low = MathF.Max(_From, from) + RowMargin;
+				float high = MathF.Min(_To, to) - RowMargin;
 
-				if (crossing > MathF.Max(_From, from) + RowMargin && crossing < MathF.Min(_To, to) - RowMargin)
-					yield return crossing;
+				if (m_Columns <= 0)
+				{
+					// The cell is split from its near left corner to its far right one, so a line a fraction of the way
+					// across the road crosses that diagonal the same fraction of the way along the cell.
+					float crossing = MathX.Lerp(from, to, fraction);
+
+					if (crossing > low && crossing < high)
+						yield return crossing;
+
+					continue;
+				}
+
+				// A cut-up cell folds along the spokes of each column's fan. A line some share of the column's width in
+				// from the column's nearer side meets the spoke from that side's near corner the same share of the way
+				// along the cell, and the spoke from its far corner as far short of the far end; a line on a column line
+				// meets neither.
+				float across = fraction * m_Columns;
+				float local = across - Math.Clamp(MathF.Floor(across), 0.0f, m_Columns - 1);
+				float first = MathX.Lerp(from, to, MathF.Min(local, 1.0f - local));
+				float second = MathX.Lerp(from, to, MathF.Max(local, 1.0f - local));
+
+				if (first > low && first < high)
+					yield return first;
+
+				if (second - first > RowMargin && second > low && second < high)
+					yield return second;
 			}
 		}
 
@@ -188,7 +218,7 @@ internal static class RoadMarkingBuilder
 		{
 			int index = Bracket(_Distance);
 
-			return RoadSurfaceBuilder.CellHeight(m_Left[index], m_Right[index], m_Right[index + 1], m_Left[index + 1], _Point);
+			return RoadSurfaceBuilder.CellHeight(m_Left[index], m_Right[index], m_Right[index + 1], m_Left[index + 1], m_Columns, _Point);
 		}
 
 		/// <summary>
@@ -291,13 +321,14 @@ internal static class RoadMarkingBuilder
 
 	/// <summary>
 	/// Adds the lines over one stretch of the road to the mesh. An empty or inverted stretch adds nothing.
+	/// <paramref name="_Columns"/> is how the road's cells were cut into triangles, from <paramref name="_RoadRows"/>.
 	/// </summary>
-	public static void Build(PolygonMesh _Mesh, RoadCurveTable _Table, IReadOnlyList<float> _RoadRows, float _StartDistance, float _EndDistance, RoadSegment _Segment, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset, in DashPhase _Phase)
+	public static void Build(PolygonMesh _Mesh, RoadCurveTable _Table, IReadOnlyList<float> _RoadRows, int _Columns, float _StartDistance, float _EndDistance, RoadSegment _Segment, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset, in DashPhase _Phase)
 	{
 		if (_EndDistance - _StartDistance < 1.0f || _RoadRows.Count < 2)
 			return;
 
-		var surface = new Surface(_Table, _RoadRows, _Width, _SurfaceOffset + Lift);
+		var surface = new Surface(_Table, _RoadRows, _Width, _Columns, _SurfaceOffset + Lift);
 
 		foreach (var line in CollectLines(_Segment, _Profile))
 		{
@@ -331,7 +362,7 @@ internal static class RoadMarkingBuilder
 	/// side across the road, as many as the road's width has room for. Each one is built exactly as a solid line
 	/// is, so it sits on the surface the way the rest of the paint does.
 	/// </summary>
-	public static void BuildCrossing(PolygonMesh _Mesh, RoadCurveTable _Table, IReadOnlyList<float> _RoadRows, float _Centre, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset)
+	public static void BuildCrossing(PolygonMesh _Mesh, RoadCurveTable _Table, IReadOnlyList<float> _RoadRows, int _Columns, float _Centre, in RoadWidth _Width, RoadProfile _Profile, float _SurfaceOffset)
 	{
 		var material = _Profile.ResolvedCrossingMaterial;
 
@@ -359,7 +390,7 @@ internal static class RoadMarkingBuilder
 		if (to > _RoadRows[^1] + 0.01f)
 			rows.Add(_Table.Length);
 
-		var surface = new Surface(_Table, rows, _Width, _SurfaceOffset + Lift);
+		var surface = new Surface(_Table, rows, _Width, _Columns, _SurfaceOffset + Lift);
 		float thickness = MathF.Max(1.0f, _Profile.CrossingStripeWidth);
 
 		// The band the paint fills: the road as it is halfway through the crossing, less the margin its ends keep

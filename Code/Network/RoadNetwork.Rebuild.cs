@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 57;
+	private const int GeneratorVersion = 58;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -1233,6 +1233,8 @@ public sealed partial class RoadNetwork
 			hash.Add(count);
 			hash.Add(start);
 			hash.Add(end);
+			// Where the road climbs as it turns, its cells are cut into a column per lane (or more).
+			hash.Add(_Segment.LaneCount);
 
 			plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Surface, BorderCaps.None, default, hash.Value));
 
@@ -1678,29 +1680,35 @@ public sealed partial class RoadNetwork
 			mesh = new PolygonMesh();
 
 			var roadRows = RoadRows.Build(_Job.Table, plan.Start, plan.End, SampleSpacing, _Job.Width, _Job.Profile.Simplification);
+			int columns = RoadSurfaceBuilder.Columns(_Job.Table, roadRows, _Job.Width, segment.LaneCount);
 
 			if (plan.Lines.HasGap)
 			{
-				RoadMarkingBuilder.Build(mesh, _Job.Table, roadRows, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.GapStart), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
-				RoadMarkingBuilder.Build(mesh, _Job.Table, roadRows, MathF.Max(plan.Start, plan.Lines.GapEnd), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
+				RoadMarkingBuilder.Build(mesh, _Job.Table, roadRows, columns, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.GapStart), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
+				RoadMarkingBuilder.Build(mesh, _Job.Table, roadRows, columns, MathF.Max(plan.Start, plan.Lines.GapEnd), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
 			}
 			else
 			{
-				RoadMarkingBuilder.Build(mesh, _Job.Table, roadRows, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
+				RoadMarkingBuilder.Build(mesh, _Job.Table, roadRows, columns, MathF.Max(plan.Start, plan.Lines.Start), MathF.Min(plan.End, plan.Lines.End), segment, _Job.Width, _Job.Profile, SurfaceOffset, plan.Dash);
 			}
 
 			// The crossings this piece owns, laid on the same rows as the lines and the road itself.
 			if (plan.Crossings.AtStart)
-				RoadMarkingBuilder.BuildCrossing(mesh, _Job.Table, roadRows, plan.Crossings.StartCentre, _Job.Width, _Job.Profile, SurfaceOffset);
+				RoadMarkingBuilder.BuildCrossing(mesh, _Job.Table, roadRows, columns, plan.Crossings.StartCentre, _Job.Width, _Job.Profile, SurfaceOffset);
 
 			if (plan.Crossings.AtEnd)
-				RoadMarkingBuilder.BuildCrossing(mesh, _Job.Table, roadRows, plan.Crossings.EndCentre, _Job.Width, _Job.Profile, SurfaceOffset);
+				RoadMarkingBuilder.BuildCrossing(mesh, _Job.Table, roadRows, columns, plan.Crossings.EndCentre, _Job.Width, _Job.Profile, SurfaceOffset);
 
 			name = $"Road {_Job.SegmentId} markings [{plan.Index + 1}/{plan.Count}]";
 		}
 		else
 		{
-			mesh = RoadSurfaceBuilder.Build(_Job.Table, plan.Start, plan.End, _Job.Width, SampleSpacing, _Job.Profile.Simplification, _Job.Profile.RoadTextureRepeat, SurfaceOffset, _Job.Profile.ResolvedRoadMaterial);
+			var segment = FindSegment(_Job.SegmentId);
+
+			if (segment is null)
+				return false;
+
+			mesh = RoadSurfaceBuilder.Build(_Job.Table, plan.Start, plan.End, _Job.Width, SampleSpacing, _Job.Profile.Simplification, segment.LaneCount, _Job.Profile.RoadTextureRepeat, SurfaceOffset, _Job.Profile.ResolvedRoadMaterial);
 			name = $"Road {_Job.SegmentId} [{plan.Index + 1}/{plan.Count}]";
 		}
 
