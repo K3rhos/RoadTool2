@@ -100,11 +100,11 @@ internal static class RoadPropBuilder
 		float rangeStart = _Context.Span.RangeStart;
 		float range = MathF.Max(0.0f, _Context.Span.RangeEnd - rangeStart);
 		int bays = Math.Max(1, (int)MathF.Round(range / MathF.Max(1.0f, row.Spacing)));
-		float pitch = range / bays;
+		float bay = range / bays;
 
 		for (int k = 0; k < bays; k++)
 		{
-			float distance = rangeStart + (k + row.Phase) * pitch;
+			float distance = rangeStart + (k + row.Phase) * bay;
 
 			if (!_Context.Owns(distance))
 				continue;
@@ -119,12 +119,20 @@ internal static class RoadPropBuilder
 				// Scatter shifts along the road and across it, up to the row's scatter either way.
 				float along = distance + (random.NextSingle() * 2.0f - 1.0f) * row.Scatter;
 				float across = (random.NextSingle() * 2.0f - 1.0f) * row.Scatter;
-				float yaw = row.Yaw + (row.RandomYaw ? random.NextSingle() * 360.0f : 0.0f);
+				float turn = row.RandomYaw ? random.NextSingle() * 360.0f : 0.0f;
 				float scale = MathX.Lerp(row.MinScale, row.MaxScale, random.NextSingle());
+
+				// The ranges are drawn after everything else, so a row that has none keeps the places, turns and sizes
+				// it always had; and each draws whether it is a range or not, so making one a range leaves the others'
+				// picks as they were.
+				float offset = Pick(row.Offset, random);
+				float yaw = Pick(row.Yaw, random) + turn;
+				float pitch = Pick(row.Pitch, random);
+				float roll = Pick(row.Roll, random);
 
 				along = Math.Clamp(along, _Context.Span.RangeStart, _Context.Span.RangeEnd);
 
-				_Placements.Add(Place(_Context, row.Prefab, along, left, row.Anchor, row.Offset + across, row.HeightOffset, yaw, scale, false));
+				_Placements.Add(Place(_Context, row.Prefab, along, left, row.Anchor, offset + across, row.HeightOffset, yaw, pitch, roll, scale, false));
 			}
 		}
 	}
@@ -163,7 +171,7 @@ internal static class RoadPropBuilder
 				if (random.NextSingle() > row.Chance)
 					continue;
 
-				_Placements.Add(Place(_Context, row.Prefab, distance, left, row.Anchor, row.Offset, row.HeightOffset, row.Yaw, 1.0f, atStart));
+				_Placements.Add(Place(_Context, row.Prefab, distance, left, row.Anchor, row.Offset, row.HeightOffset, row.Yaw, 0.0f, 0.0f, 1.0f, atStart));
 			}
 		}
 	}
@@ -172,9 +180,10 @@ internal static class RoadPropBuilder
 
 	/// <summary>
 	/// A prop's transform at a curve distance on one side of the road: its forward along the road (or back along
-	/// it, for a junction prop at the start end), its right away from the road, plus the yaw.
+	/// it, for a junction prop at the start end), its right away from the road, then turned by the yaw and, in that
+	/// turned frame, tipped by the pitch and leant by the roll.
 	/// </summary>
-	private static Placement Place(in Context _Context, GameObject _Prefab, float _Distance, bool _Left, PropAnchor _Anchor, float _Offset, float _HeightOffset, float _Yaw, float _Scale, bool _FaceBack)
+	private static Placement Place(in Context _Context, GameObject _Prefab, float _Distance, bool _Left, PropAnchor _Anchor, float _Offset, float _HeightOffset, float _Yaw, float _Pitch, float _Roll, float _Scale, bool _FaceBack)
 	{
 		var table = _Context.Table;
 		var profile = _Context.Profile;
@@ -196,9 +205,19 @@ internal static class RoadPropBuilder
 		if (_FaceBack)
 			forward = -forward;
 
-		var rotation = Rotation.LookAt(forward, Vector3.Up) * Rotation.FromYaw(_Yaw);
+		var rotation = Rotation.LookAt(forward, Vector3.Up) * Rotation.From(_Pitch, _Yaw, _Roll);
 
 		return new Placement(_Prefab, position, rotation, _Scale);
+	}
+
+
+
+	/// <summary>
+	/// A value from a range, from the prop's own random stream; a fixed value is itself (it still takes its draw).
+	/// </summary>
+	private static float Pick(RangedFloat _Range, Random _Random)
+	{
+		return MathX.Lerp(_Range.Min, _Range.Max, _Random.NextSingle());
 	}
 
 

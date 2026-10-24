@@ -35,7 +35,9 @@ public enum PropAnchor
 /// <summary>
 /// One kind of prop repeated along a road: a prefab at even intervals, on one or both sides, at a set distance
 /// from the road or its border. Two rows with the same spacing and different phases alternate (lamp posts with a
-/// tree halfway between each pair).
+/// tree halfway between each pair). Its offset and its turn, pitch and roll can each be a range rather than one
+/// value, so a line of poles or barriers stands a little out of true, each one its own way, and the same way every
+/// time the road is rebuilt.
 /// </summary>
 public sealed class RoadPropRow
 {
@@ -59,9 +61,10 @@ public sealed class RoadPropRow
 	public PropAnchor Anchor { get; set; } = PropAnchor.BorderEdge;
 
 	/// <summary>
-	/// How far out from the anchor line it stands; negative brings it back towards the road.
+	/// How far out from the anchor line it stands; negative brings it back towards the road. A range stands each one
+	/// somewhere between the two (poles at 85 to 125 out rather than all at 100).
 	/// </summary>
-	[Range(-500.0f, 500.0f)] public float Offset { get; set { field = value.Clamp(-100000.0f, 100000.0f); } } = -30.0f;
+	public RangedFloat Offset { get; set; } = -30.0f;
 
 	/// <summary>
 	/// Raised (or sunk) this much from where it lands: on the border within it, on the ground beyond it.
@@ -69,9 +72,21 @@ public sealed class RoadPropRow
 	[Range(-100.0f, 100.0f)] public float HeightOffset { get; set { field = value.Clamp(-100000.0f, 100000.0f); } } = 0.0f;
 
 	/// <summary>
-	/// Turned this much from facing along the road.
+	/// Turned this much from facing along the road, in degrees. A range turns each one somewhere between the two.
 	/// </summary>
-	[Range(-180.0f, 180.0f)] public float Yaw { get; set; } = 0.0f;
+	public RangedFloat Yaw { get; set; } = 0.0f;
+
+	/// <summary>
+	/// Tipped this much forward or back once turned, in degrees, about its own right; a range tips each one its own
+	/// way.
+	/// </summary>
+	public RangedFloat Pitch { get; set; } = 0.0f;
+
+	/// <summary>
+	/// Leant this much to one side or the other once turned, in degrees, about its own forward; a range leans each one
+	/// its own way.
+	/// </summary>
+	public RangedFloat Roll { get; set; } = 0.0f;
 
 	/// <summary>
 	/// The share of places that actually get one; the rest are left empty, at random but always the same way.
@@ -79,9 +94,9 @@ public sealed class RoadPropRow
 	[Group("Variation"), Range(0.0f, 1.0f)] public float Chance { get; set { field = value.Clamp(0.0f, 1.0f); } } = 1.0f;
 
 	/// <summary>
-	/// Each one turned a random way round (trees, rocks).
+	/// Each one turned any way round on top of its yaw (trees, rocks).
 	/// </summary>
-	[Group("Variation")] public bool RandomYaw { get; set; } = false;
+	[Group("Variation"), Title("Any Way Round")] public bool RandomYaw { get; set; } = false;
 
 	/// <summary>
 	/// Each one shifted up to this far from its place, along and across.
@@ -100,14 +115,27 @@ public sealed class RoadPropRow
 		_Hash.Add(Spacing);
 		_Hash.Add(Phase);
 		_Hash.Add((int)Anchor);
-		_Hash.Add(Offset);
+		AddToHash(ref _Hash, Offset);
 		_Hash.Add(HeightOffset);
-		_Hash.Add(Yaw);
+		AddToHash(ref _Hash, Yaw);
+		AddToHash(ref _Hash, Pitch);
+		AddToHash(ref _Hash, Roll);
 		_Hash.Add(Chance);
 		_Hash.Add(RandomYaw ? 1 : 0);
 		_Hash.Add(Scatter);
 		_Hash.Add(MinScale);
 		_Hash.Add(MaxScale);
+	}
+
+
+
+	/// <summary>
+	/// A range by its two ends; a fixed value's are the same.
+	/// </summary>
+	private static void AddToHash(ref StableHash _Hash, RangedFloat _Range)
+	{
+		_Hash.Add(_Range.Min);
+		_Hash.Add(_Range.Max);
 	}
 }
 
