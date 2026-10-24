@@ -49,6 +49,51 @@ public class RoadDrawTool : EditorTool
 		}
 	}
 
+	/// <summary>
+	/// The direction the road being drawn snapped to, from the node being extended, and the angle the guide shows
+	/// for it. In World space (the editor's Global/Local toggle) that is the heading round from the world X axis,
+	/// the yaw of something facing down the road. In Local space it is the angle to the road at the node it was
+	/// measured from, read like a protractor laid on the node: 90° square to that road, 180° straight on. Either
+	/// way the number is exact: the road is built at precisely that angle, not at something it rounds to.
+	/// </summary>
+	private readonly struct SnapGuide
+	{
+		public readonly Vector3 Start;
+
+		/// <summary>
+		/// Degrees round from the world X axis, in [0, 360).
+		/// </summary>
+		public readonly float Heading;
+
+		/// <summary>
+		/// The heading of the road leaving the node that the angle is measured from; null when it is measured from
+		/// the world X axis.
+		/// </summary>
+		public readonly float? Reference;
+
+		public SnapGuide(Vector3 _Start, float _Heading, float? _Reference)
+		{
+			Start = _Start;
+			Heading = _Heading;
+			Reference = _Reference;
+		}
+
+		public float Shown => Reference is { } reference ? MathF.Abs(AngleDifference(Heading, reference)) : Heading;
+
+		/// <summary>
+		/// Whether a point lies on the guide's line, ahead of the node, so a road to it runs at the guide's angle.
+		/// The tolerance only covers the rounding of the arithmetic that put a point there.
+		/// </summary>
+		public bool Holds(Vector3 _World)
+		{
+			Vector3 along = HeadingDirection(Heading);
+			var direction = new Vector2(along.x, along.y);
+			var offset = new Vector2(_World.x - Start.x, _World.y - Start.y);
+
+			return Vector2.Dot(offset, direction) > 0.0f && MathF.Abs(Cross(direction, offset)) < 0.1f;
+		}
+	}
+
 	[Property, Title("Width"), Range(50.0f, 2000.0f)] public float Width { get; set; } = 500.0f;
 
 	/// <summary>
@@ -83,8 +128,10 @@ public class RoadDrawTool : EditorTool
 	[Property, Title("Sharp Corners")] public bool SharpCorners { get; set; } = false;
 
 	/// <summary>
-	/// Snap the direction of the road being drawn to whole steps of <see cref="AngleStep"/>, measured from the
-	/// world axes and from the roads already at the node being extended. Holding Shift flips it for one placement.
+	/// Snap the direction of the road being drawn to whole steps of <see cref="AngleStep"/>: round from the world
+	/// axes in World space (the editor's Global/Local toggle), or round from the roads already at the node being
+	/// extended in Local space. The angle shown while placing is exactly the one the road is built at. Holding Shift
+	/// flips it for one placement.
 	/// </summary>
 	[Property, Title("Angle Snap")] public bool AngleSnap { get; set; } = false;
 
@@ -99,9 +146,10 @@ public class RoadDrawTool : EditorTool
 	private Vector2 m_RightPressPosition;
 
 	/// <summary>
-	/// The angle the current placement snapped to, for the guide; null when not snapping.
+	/// The direction the current placement snapped to, for the guide; null when not snapping, or when the end has
+	/// been pulled off the snapped line (onto a node beside it) and the road no longer runs at the angle.
 	/// </summary>
-	private float? m_SnappedAngle;
+	private SnapGuide? m_Snap;
 
 	/// <summary>
 	/// The node the current placement is aligned with, for the guide; null when not aligned.
@@ -157,17 +205,17 @@ public class RoadDrawTool : EditorTool
 
 		var target = ResolveTarget(network, cursorWorld);
 
-		m_SnappedAngle = null;
+		m_Snap = null;
 		m_AlignAnchor = null;
 
 		// Joining a node is explicit and wins. Otherwise the snap places the end: on bare ground, or on a road the
 		// snapped line crosses (the hovered road above all), which is split right there so the merge is straight.
-		if (target.Node is null && IsDrawing && SnapActive && TrySnapAngle(network, cursorWorld, target.Road, out Vector3 snappedWorld, out float angle, out RoadSegmentPick? split))
+		if (target.Node is null && IsDrawing && SnapActive && TrySnapAngle(network, cursorWorld, target.Road, out Vector3 snappedWorld, out SnapGuide guide, out RoadSegmentPick? split))
 		{
 			if (split is { } pick)
 			{
 				target = new Target(snappedWorld, null, pick);
-				m_SnappedAngle = angle;
+				m_Snap = guide;
 			}
 			else if (target.Road is null)
 			{
@@ -178,17 +226,27 @@ public class RoadDrawTool : EditorTool
 				if (joined is not null && joined.Id != m_LastNodeId)
 					target = new Target(network.WorldTransform.PointToWorld(joined.Position), joined, null);
 				else if (LotUnder(network, network.WorldTransform.PointToLocal(snappedWorld)) is { } snappedLot)
-					target = new Target(EdgeWorld(network, snappedLot, snappedWorld), null, null, snappedLot);
+					target = new Target(EdgeWorld(network, snappedLot, snappedWorld, guide.Start), null, null, snappedLot);
 				else
 					target = new Target(snappedWorld, null, null);
 
-				m_SnappedAngle = angle;
+				m_Snap = guide;
 			}
 			else
 			{
 				// Hovering a road the snapped line never reaches: the plain join, and no alignment guide.
 				m_AlignAnchor = null;
 			}
+		}
+
+		target = AtRoadEnd(network, target);
+
+		// The guide promises the road runs at its angle, so it goes as soon as the end leaves the line: joining a
+		// node beside it, or a split by a road's end taking that end's node.
+		if (m_Snap is { } snap && !snap.Holds(target.World))
+		{
+			m_Snap = null;
+			m_AlignAnchor = null;
 		}
 
 		DrawPreview(network, target);
@@ -200,15 +258,18 @@ public class RoadDrawTool : EditorTool
 
 
 	/// <summary>
-	/// Snaps the direction from the node being extended to the cursor onto the nearest of the snap angles: whole
-	/// steps round from the world X axis, and whole steps round from each road already leaving that node (so a
-	/// branch can be exactly square to, or straight on from, a road at any angle). The cursor's distance along the
-	/// snapped direction is kept and the point is dropped back onto the ground there.
+	/// Snaps the direction from the node being extended to the cursor onto the nearest of the snap angles. In
+	/// World space (the editor's Global/Local toggle) those are whole steps round from the world X axis, so 45° is
+	/// 45° in the world. In Local space they are whole steps round from each road already leaving that node, and
+	/// from straight on through it, so a branch is exactly square to, or straight on from, a road at any angle; a
+	/// node no road leaves yet has nothing of its own to measure from and falls back on the world axes, as the
+	/// Select tool's gizmo does. The cursor's distance along the snapped direction is kept and the point is dropped
+	/// back onto the ground there.
 	/// </summary>
-	private bool TrySnapAngle(RoadNetwork _Network, Vector3 _CursorWorld, RoadSegmentPick? _Hovered, out Vector3 _SnappedWorld, out float _Angle, out RoadSegmentPick? _Split)
+	private bool TrySnapAngle(RoadNetwork _Network, Vector3 _CursorWorld, RoadSegmentPick? _Hovered, out Vector3 _SnappedWorld, out SnapGuide _Guide, out RoadSegmentPick? _Split)
 	{
 		_SnappedWorld = _CursorWorld;
-		_Angle = 0.0f;
+		_Guide = default;
 		_Split = null;
 
 		if (!_Network.IsValid() || _Network.FindNode(m_LastNodeId) is not { } last)
@@ -223,36 +284,23 @@ public class RoadDrawTool : EditorTool
 
 		float step = MathF.Max(1.0f, AngleStep);
 		float raw = MathF.Atan2(delta.y, delta.x).RadianToDegree();
-		float best = SnapTo(raw, 0.0f, step);
+		var headings = new List<float>();
 
-		foreach (var segment in _Network.GetSegmentsAt(last.Id))
+		if (!Gizmo.Settings.GlobalSpace)
 		{
-			if (!_Network.TryGetCurve(segment, out var curve))
-				continue;
-
-			// The road's direction leaving this node, and straight on through it.
-			Vector3 tangent = segment.StartNodeId == last.Id ? curve.Tangent(0.0f) : -curve.Tangent(1.0f);
-			Vector3 worldTangent = transform.NormalToWorld(tangent);
-			var flat = new Vector2(worldTangent.x, worldTangent.y);
-
-			if (flat.Length < 0.001f)
-				continue;
-
-			float reference = MathF.Atan2(flat.y, flat.x).RadianToDegree();
-
-			foreach (float candidate in new[] { SnapTo(raw, reference, step), SnapTo(raw, reference + 180.0f, step) })
-			{
-				if (MathF.Abs(AngleDifference(candidate, raw)) < MathF.Abs(AngleDifference(best, raw)))
-					best = candidate;
-			}
+			foreach (Vector2 road in RoadDirections(_Network, last))
+				headings.Add(MathF.Atan2(road.y, road.x).RadianToDegree());
 		}
 
-		var direction = new Vector2(MathF.Cos(best.DegreeToRadian()), MathF.Sin(best.DegreeToRadian()));
+		_Guide = headings.Count > 0
+			? SnapToRoads(startWorld, raw, headings, step)
+			: new SnapGuide(startWorld, NormalizeAngle(SnapTo(raw, 0.0f, step)), null);
+
+		Vector3 along = HeadingDirection(_Guide.Heading);
+		var direction = new Vector2(along.x, along.y);
 		var start = new Vector2(startWorld.x, startWorld.y);
 		float length = MathF.Max(1.0f, Vector2.Dot(delta, direction));
 		float tolerance = AlignTolerance(_CursorWorld);
-
-		_Angle = NormalizeAngle(best);
 
 		// A road the snapped line crosses near the end splits there: the merge comes out dead straight. The road
 		// under the cursor is what the user is aiming at, so it takes the crossing from much further off.
@@ -327,13 +375,16 @@ public class RoadDrawTool : EditorTool
 
 						if (error <= allowed && error < bestError)
 						{
-							float distance = table.SampleDistance(i - 1) + u * (table.SampleDistance(i) - table.SampleDistance(i - 1));
-							float curveT = table.DistanceToT(distance);
+							// Where the road itself crosses the line, not the chord between its samples, so the split
+							// lands exactly on the line.
+							float samples = table.SampleCount - 1;
+							float curveT = CrossingT(table.Curve, transform, _Start, _Direction, (i - 1) / samples, i / samples, (i - 1 + u) / samples);
+							Vector3 local = table.Curve.Evaluate(curveT);
 
 							bestError = error;
 							found = true;
-							_Pick = new RoadSegmentPick(segment, curveT, table.Curve.Evaluate(curveT));
-							_World = Vector3.Lerp(previousWorld, currentWorld, u);
+							_Pick = new RoadSegmentPick(segment, curveT, local);
+							_World = transform.PointToWorld(local);
 						}
 					}
 				}
@@ -348,15 +399,86 @@ public class RoadDrawTool : EditorTool
 
 
 	/// <summary>
+	/// Where between two of its samples the road itself crosses a line in the plan, as a curve parameter. The
+	/// samples lie either side of the line and the road between them is all but straight, so cutting the bracket
+	/// where a straight road would cross closes in on it within a few steps. Without a bracket (the line runs
+	/// through a sample, give or take rounding) the guess is as good as it gets.
+	/// </summary>
+	private static float CrossingT(in RoadCurve _Curve, in Transform _Transform, Vector2 _Start, Vector2 _Direction, float _From, float _To, float _Guess)
+	{
+		float from = _From;
+		float to = _To;
+		float sideFrom = SideOf(_Curve, _Transform, _Start, _Direction, from);
+		float sideTo = SideOf(_Curve, _Transform, _Start, _Direction, to);
+
+		if ((sideFrom < 0.0f) == (sideTo < 0.0f))
+			return _Guess;
+
+		float t = _Guess;
+		int lastMoved = 0;
+
+		for (int i = 0; i < 8; i++)
+		{
+			t = from + (to - from) * sideFrom / (sideFrom - sideTo);
+
+			float side = SideOf(_Curve, _Transform, _Start, _Direction, t);
+
+			if (MathF.Abs(side) < 0.001f)
+				break;
+
+			// The end that has not moved for two cuts running gets half its weight (the Illinois rule): a bend keeps
+			// one end still, and the cuts would otherwise only creep up on the crossing from the other side.
+			if ((side < 0.0f) == (sideFrom < 0.0f))
+			{
+				from = t;
+				sideFrom = side;
+
+				if (lastMoved == 1)
+					sideTo *= 0.5f;
+
+				lastMoved = 1;
+			}
+			else
+			{
+				to = t;
+				sideTo = side;
+
+				if (lastMoved == -1)
+					sideFrom *= 0.5f;
+
+				lastMoved = -1;
+			}
+		}
+
+		return t;
+	}
+
+
+
+	/// <summary>
+	/// How far a point of the road is to the left of a line in the plan.
+	/// </summary>
+	private static float SideOf(in RoadCurve _Curve, in Transform _Transform, Vector2 _Start, Vector2 _Direction, float _T)
+	{
+		Vector3 world = _Transform.PointToWorld(_Curve.Evaluate(_T));
+
+		return Cross(_Direction, new Vector2(world.x - _Start.x, world.y - _Start.y));
+	}
+
+
+
+	/// <summary>
 	/// With the direction fixed, the distance along it is the one thing left to place; this snaps it to where the
 	/// road's line crosses a guide line through another node, when the cursor is close to that crossing. Guides
 	/// through a node run square to the road being drawn (the end lines up level with that node), along the world
-	/// axes, and along the roads leaving that node (the end lands on that road's line). Grids come out exact.
+	/// axes in World space, and along the roads leaving that node (the end lands on that road's line). Grids come
+	/// out exact.
 	/// </summary>
 	private bool TryAlign(RoadNetwork _Network, RoadNode _Last, Vector2 _Start, Vector2 _Direction, float _Length, float _Tolerance, out float _AlignedLength, out Vector3 _AnchorWorld)
 	{
 		var transform = _Network.WorldTransform;
 		var perpendicular = new Vector2(-_Direction.y, _Direction.x);
+		bool worldAxes = Gizmo.Settings.GlobalSpace;
 		float bestError = _Tolerance;
 		bool found = false;
 
@@ -371,7 +493,7 @@ public class RoadDrawTool : EditorTool
 			Vector3 world = transform.PointToWorld(node.Position);
 			var anchor = new Vector2(world.x, world.y);
 
-			foreach (Vector2 guide in GuidesAt(_Network, node, perpendicular))
+			foreach (Vector2 guide in GuidesAt(_Network, node, perpendicular, worldAxes))
 			{
 				float denominator = Cross(_Direction, guide);
 
@@ -401,12 +523,28 @@ public class RoadDrawTool : EditorTool
 
 
 
-	private static IEnumerable<Vector2> GuidesAt(RoadNetwork _Network, RoadNode _Node, Vector2 _Perpendicular)
+	private static IEnumerable<Vector2> GuidesAt(RoadNetwork _Network, RoadNode _Node, Vector2 _Perpendicular, bool _WorldAxes)
 	{
 		yield return _Perpendicular;
-		yield return new Vector2(1.0f, 0.0f);
-		yield return new Vector2(0.0f, 1.0f);
 
+		// The world's own axes only count in World space; in Local space everything is measured from the roads.
+		if (_WorldAxes)
+		{
+			yield return new Vector2(1.0f, 0.0f);
+			yield return new Vector2(0.0f, 1.0f);
+		}
+
+		foreach (Vector2 direction in RoadDirections(_Network, _Node))
+			yield return direction;
+	}
+
+
+
+	/// <summary>
+	/// Which way each road leaves a node, flat and in world space.
+	/// </summary>
+	private static IEnumerable<Vector2> RoadDirections(RoadNetwork _Network, RoadNode _Node)
+	{
 		var transform = _Network.WorldTransform;
 
 		foreach (var segment in _Network.GetSegmentsAt(_Node.Id))
@@ -454,6 +592,39 @@ public class RoadDrawTool : EditorTool
 
 
 	/// <summary>
+	/// The snap angle nearest to an angle among whole steps round from each road leaving the node and from straight
+	/// on through it, which differ when the step does not divide a half turn. The guide reads it out against the
+	/// road it was measured from; when two roads give the same direction, against the one it makes the smaller
+	/// angle with.
+	/// </summary>
+	private static SnapGuide SnapToRoads(Vector3 _Start, float _Angle, IReadOnlyList<float> _Headings, float _Step)
+	{
+		float best = 0.0f;
+		float bestError = float.MaxValue;
+		float reference = 0.0f;
+
+		foreach (float heading in _Headings)
+		{
+			foreach (float candidate in new[] { SnapTo(_Angle, heading, _Step), SnapTo(_Angle, heading + 180.0f, _Step) })
+			{
+				float error = MathF.Abs(AngleDifference(candidate, _Angle));
+				bool same = bestError < float.MaxValue && MathF.Abs(AngleDifference(candidate, best)) < 0.001f;
+
+				if (same ? MathF.Abs(AngleDifference(candidate, heading)) >= MathF.Abs(AngleDifference(best, reference)) : error >= bestError)
+					continue;
+
+				best = candidate;
+				bestError = error;
+				reference = heading;
+			}
+		}
+
+		return new SnapGuide(_Start, NormalizeAngle(best), reference);
+	}
+
+
+
+	/// <summary>
 	/// The signed shortest turn from one angle to the other, in (-180, 180].
 	/// </summary>
 	private static float AngleDifference(float _To, float _From)
@@ -475,6 +646,18 @@ public class RoadDrawTool : EditorTool
 		float normalized = _Angle % 360.0f;
 
 		return normalized < 0.0f ? normalized + 360.0f : normalized;
+	}
+
+
+
+	/// <summary>
+	/// The flat unit direction of a heading, in degrees round from the world X axis.
+	/// </summary>
+	private static Vector3 HeadingDirection(float _Heading)
+	{
+		float radians = _Heading.DegreeToRadian();
+
+		return new Vector3(MathF.Cos(radians), MathF.Sin(radians), 0.0f);
 	}
 
 
@@ -537,6 +720,26 @@ public class RoadDrawTool : EditorTool
 			return new Target(EdgeWorld(_Network, lot, _CursorWorld), null, null, lot);
 
 		return new Target(_CursorWorld, null, null);
+	}
+
+
+
+	/// <summary>
+	/// A split this close to a road's end reuses the end node instead (see <see cref="RoadNetwork.SplitSegment"/>),
+	/// so the target becomes that node: the preview then shows the road that will really be built.
+	/// </summary>
+	private static Target AtRoadEnd(RoadNetwork _Network, in Target _Target)
+	{
+		if (_Target.Road is not { } pick || !_Network.IsValid() || _Network.GetCurveTable(pick.Segment) is not { } table)
+			return _Target;
+
+		float distance = pick.T * table.Length;
+		int nodeId = distance <= MinEndDistance ? pick.Segment.StartNodeId : table.Length - distance <= MinEndDistance ? pick.Segment.EndNodeId : -1;
+
+		if (nodeId < 0 || _Network.FindNode(nodeId) is not { } node)
+			return _Target;
+
+		return new Target(_Network.WorldTransform.PointToWorld(node.Position), node, null);
 	}
 
 
@@ -636,14 +839,57 @@ public class RoadDrawTool : EditorTool
 
 
 	/// <summary>
-	/// Where on a lot's edge a point over it belongs, in world space.
+	/// Where on a lot's edge a point over it belongs, in world space: the nearest point of the edge, or, for a road
+	/// coming from outside the lot, where its line from there to the point crosses the edge, which keeps a snapped
+	/// road at its angle.
 	/// </summary>
-	private static Vector3 EdgeWorld(RoadNetwork _Network, RoadLot _Lot, Vector3 _World)
+	private static Vector3 EdgeWorld(RoadNetwork _Network, RoadLot _Lot, Vector3 _World, Vector3? _FromWorld = null)
 	{
 		var transform = _Network.WorldTransform;
+
+		if (_FromWorld is { } fromWorld)
+		{
+			// In the lot's own coordinates the lot is a box round the origin, with the point inside it.
+			Vector2 from = _Lot.Local(transform.PointToLocal(fromWorld));
+			Vector2 to = _Lot.Local(transform.PointToLocal(_World));
+
+			if (TryEnterBox(from, to, _Lot.HalfWidth, _Lot.HalfDepth, out Vector2 entry))
+				return transform.PointToWorld(_Lot.Point(entry.x, entry.y));
+		}
+
 		int edge = _Lot.NearestEdge(transform.PointToLocal(_World), out float along);
 
 		return transform.PointToWorld(_Lot.EdgePoint(edge, along));
+	}
+
+
+
+	/// <summary>
+	/// Where a run from a point outside a box round the origin to a point inside it crosses into the box. The run
+	/// has to be between both pairs of opposite sides at once, so it gets in as it crosses the later of the sides
+	/// it starts beyond. False when it starts inside.
+	/// </summary>
+	private static bool TryEnterBox(Vector2 _From, Vector2 _To, float _HalfX, float _HalfY, out Vector2 _Entry)
+	{
+		Vector2 run = _To - _From;
+		float enter = 0.0f;
+		bool outside = false;
+
+		if (MathF.Abs(_From.x) > _HalfX)
+		{
+			enter = MathF.Max(enter, (MathF.CopySign(_HalfX, _From.x) - _From.x) / run.x);
+			outside = true;
+		}
+
+		if (MathF.Abs(_From.y) > _HalfY)
+		{
+			enter = MathF.Max(enter, (MathF.CopySign(_HalfY, _From.y) - _From.y) / run.y);
+			outside = true;
+		}
+
+		_Entry = _From + run * enter;
+
+		return outside;
 	}
 
 
@@ -748,18 +994,27 @@ public class RoadDrawTool : EditorTool
 			Gizmo.Draw.Color = Color.White.WithAlpha(0.4f);
 			RoadGizmos.DrawCurve(curve, transform);
 
-			if (m_SnappedAngle is { } angle && _Network.FindNode(m_LastNodeId) is { } last)
+			if (m_Snap is { } snap)
 			{
 				// The snapped direction, drawn out past the target, with the angle it landed on.
-				Vector3 start = transform.PointToWorld(last.Position);
-				var direction = new Vector3(MathF.Cos(angle.DegreeToRadian()), MathF.Sin(angle.DegreeToRadian()), 0.0f);
-
 				Gizmo.Draw.LineThickness = 1.0f;
 				Gizmo.Draw.Color = Color.Cyan.WithAlpha(0.5f);
-				Gizmo.Draw.Line(start, start + direction * GuideLength);
+				Gizmo.Draw.Line(snap.Start, snap.Start + HeadingDirection(snap.Heading) * GuideLength);
 
+				// In Local space, what the angle is measured from: the road leaving the node, and an arc from it round
+				// to the new road, kept a steady size on screen and inside the road being drawn.
+				if (snap.Reference is { } reference)
+				{
+					float reach = new Vector2(_Target.World.x - snap.Start.x, _Target.World.y - snap.Start.y).Length;
+					float radius = MathF.Min(Gizmo.Camera.Position.Distance(snap.Start) * 0.06f, reach * 0.5f);
+
+					Gizmo.Draw.Line(snap.Start, snap.Start + HeadingDirection(reference) * radius * 1.25f);
+					DrawArc(snap.Start, radius, reference, snap.Heading);
+				}
+
+				// Whole degrees for a whole-degree step; decimals only show when the step has them.
 				Gizmo.Draw.Color = Color.Cyan;
-				Gizmo.Draw.ScreenText($"{angle:0}°", _Target.World, new Vector2(12.0f, -12.0f), size: 12.0f);
+				Gizmo.Draw.ScreenText($"{snap.Shown:0.##}°", _Target.World, new Vector2(12.0f, -12.0f), size: 12.0f);
 			}
 
 			if (m_AlignAnchor is { } anchor)
@@ -790,6 +1045,26 @@ public class RoadDrawTool : EditorTool
 		{
 			float end = MathF.Min(at + dash, length);
 			Gizmo.Draw.Line(_From + direction * at, _From + direction * end);
+		}
+	}
+
+
+
+	/// <summary>
+	/// A flat arc round a point, from one heading to another the short way round.
+	/// </summary>
+	private static void DrawArc(Vector3 _Centre, float _Radius, float _From, float _To)
+	{
+		float sweep = AngleDifference(_To, _From);
+		int steps = Math.Max(2, (int)MathF.Ceiling(MathF.Abs(sweep) / 5.0f));
+		Vector3 previous = _Centre + HeadingDirection(_From) * _Radius;
+
+		for (int i = 1; i <= steps; i++)
+		{
+			Vector3 point = _Centre + HeadingDirection(_From + sweep * i / steps) * _Radius;
+
+			Gizmo.Draw.Line(previous, point);
+			previous = point;
 		}
 	}
 }
