@@ -486,7 +486,7 @@
           ],
           "Children": [
             {
-              "__guid": "6938385d-387b-45b8-9374-aaa8caf88eb6",
+              "__guid": "92cf88e0-93d8-4b37-a075-10c63125c4e8",
               "__version": 2,
               "Flags": 0,
               "Name": "Clothing - y_front_pants_white",
@@ -503,7 +503,7 @@
               "Components": [
                 {
                   "__type": "Sandbox.SkinnedModelRenderer",
-                  "__guid": "9312787e-016e-491a-bb08-487f3986f680",
+                  "__guid": "b2797539-b2df-44d0-95eb-3283e479dff4",
                   "__enabled": true,
                   "Flags": 0,
                   "AnimationGraph": null,
@@ -734,7 +734,7 @@
           "__guid": "68d3b0fa-3e91-4055-86ce-becc5b393326",
           "__enabled": true,
           "Flags": 0,
-          "Generation": 1,
+          "Generation": 2,
           "Heights": "",
           "HeightSamples": 45541,
           "HeightTiles": [
@@ -1000,7 +1000,7 @@
               ]
             }
           ],
-          "NextId": 588,
+          "NextId": 594,
           "Nodes": [
             {
               "Id": 48,
@@ -46727,7 +46727,7 @@
           "Children": []
         },
         {
-          "__guid": "a87919cc-8425-4ebc-9f61-86a287c28371",
+          "__guid": "4f4849f4-44ea-4ef4-8953-a5a7dcedebe7",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 238 [1/1]",
@@ -46744,7 +46744,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "d4d14245-1e0a-4f98-b019-e91777a4ffa4",
+              "__guid": "6cce6e00-6034-4a1e-96ff-fc1cea35aa4a",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46764,7 +46764,7 @@
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "6eaae55d-dcc1-46ae-92a5-32c7b23f5c12",
+              "__guid": "ef16dde3-35a1-4d15-93ad-c8859f1d08c3",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46803,7 +46803,7 @@
           "Children": []
         },
         {
-          "__guid": "6a770077-7d5d-41cb-9540-904be721e0f3",
+          "__guid": "245f180b-d7b9-49c3-b80a-88c0da237a8c",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 238 markings [1/1]",
@@ -46820,7 +46820,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "67a518a9-00e2-4fd2-bc5e-214feafba1b1",
+              "__guid": "77703017-da6b-4b29-b749-66c708fe33dd",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46840,7 +46840,7 @@
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "bb7e017b-eda0-4fe7-8abc-cb9873c8e29b",
+              "__guid": "30a430d0-cc88-4369-ab77-7fb9232f8703",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46880,7 +46880,7 @@
           "Children": []
         },
         {
-          "__guid": "3966b515-0c86-4171-b349-beb9c187d7ef",
+          "__guid": "4af405f6-f659-48b7-965e-77d78585cc5c",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 238 border [1/1]",
@@ -46897,7 +46897,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "0eddcab3-c9f3-40bb-9669-554170a4cf21",
+              "__guid": "341ebab2-271f-4343-a6b4-838f5d581169",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46917,7 +46917,7 @@
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "48b6b70b-edd8-4665-8d69-d1a2471211ca",
+              "__guid": "4a17baf9-d64e-449f-8bfb-7ee60799fdc9",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46956,7 +46956,7 @@
           "Children": []
         },
         {
-          "__guid": "16e520e7-a77f-4b79-b87d-f82f348e171f",
+          "__guid": "56f6339b-8629-4f5d-8aca-5c75e711abaa",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 [1/1]",
@@ -46973,7 +46973,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "6b0fee6b-ab17-40c7-a53c-5b7ad3140ae0",
+              "__guid": "3a65a67a-0891-4fca-9b97-d9be84a42709",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46993,7 +46993,7 @@
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "661a0fcd-2559-4f7b-8591-56c03c63c436",
+              "__guid": "5edb2d58-c76d-4e25-8d67-944368bd1ca0",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47032,7 +47032,7 @@
           "Children": []
         },
         {
-          "__guid": "9a5550d3-10d1-4a37-9d97-d197967614ee",
+          "__guid": "88f71020-aa29-4a3a-a0b1-19a77bf8d899",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 markings [1/1]",
@@ -47049,7 +47049,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "9376c0e9-6dfb-4c00-86cb-491b47e0dd68",
+              "__guid": "7e846091-b14f-4679-8c44-f186f6420472",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47069,7 +47069,7 @@
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "044a72b3-0d62-4f83-8ae0-0e45cbe3b5d3",
+              "__guid": "8f910308-0d46-4c3b-b411-461aaa35a4f3",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47109,7 +47109,7 @@
           "Children": []
         },
         {
-          "__guid": "a6314071-c08b-47a0-9952-c22e85f1f15a",
+          "__guid": "57628168-e4ae-45ee-9061-9d24d8fb3040",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 border [1/1]",
@@ -47126,7 +47126,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "fc626a60-2aa6-4f7c-86f3-cb26cbc31027",
+              "__guid": "f311d479-d3b8-4bab-886c-f10cb2bb0adf",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47146,7 +47146,7 @@
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "8452e456-2c8f-4c5d-aa2a-fb6256272472",
+              "__guid": "449cc0cb-5cdf-4b45-bfc8-2743e30cbc63",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47185,7 +47185,7 @@
           "Children": []
         },
         {
-          "__guid": "11f8d1b3-335b-4174-af4c-1feda9bc8c20",
+          "__guid": "90b76835-97a7-41ed-819d-eb5ac09ddae7",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 end cap",
@@ -47202,7 +47202,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "1398f371-46fc-47e0-afd2-e84a4163446f",
+              "__guid": "c8acde2b-9575-4c72-9531-009d9febaf01",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 2,
@@ -47222,7 +47222,7 @@
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "1655da62-78ad-454a-9459-df717c75c52b",
+              "__guid": "44db727b-8af6-449c-8453-9d138f77f438",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47262,7 +47262,7 @@
           "Children": []
         },
         {
-          "__guid": "5381ae94-f554-4cbb-98ab-56949e0cc748",
+          "__guid": "660621b2-8a1f-4fee-aed9-bab03acd5478",
           "__version": 2,
           "Flags": 0,
           "Name": "Junction 231 border",
@@ -47279,7 +47279,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "792fd632-d758-4743-b3d2-ce8524842d55",
+              "__guid": "7dff4878-4972-431c-9c07-d89ecb19e13b",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47299,7 +47299,7 @@
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "669ce006-4088-4bfc-9288-1d445f81567f",
+              "__guid": "c9b67ca3-8e9e-4ddb-8d63-55985d5abf6d",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47338,7 +47338,7 @@
           "Children": []
         },
         {
-          "__guid": "b7c1e1aa-e515-457d-97aa-f974fa39f927",
+          "__guid": "95706fd0-7b3c-4d58-9c3a-1618c9694ee4",
           "__version": 2,
           "Flags": 0,
           "Name": "Junction 236",
@@ -47355,7 +47355,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "10237552-789a-44cb-a4dd-1a2c8417df09",
+              "__guid": "8a860084-3bc2-41be-881f-8ed7be22bf0d",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47375,7 +47375,7 @@
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "5246cfdb-8915-45b0-9cfe-9afb5ba25798",
+              "__guid": "b9953149-2b87-4b02-a215-339b9c298d78",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47414,7 +47414,7 @@
           "Children": []
         },
         {
-          "__guid": "b8992d97-8f31-4a7f-9f56-3259e9a031df",
+          "__guid": "8fbb5e10-0e90-4adc-9f26-1a94d9a128f8",
           "__version": 2,
           "Flags": 0,
           "Name": "Junction 236 border",
@@ -47431,7 +47431,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "18d879a9-edd3-42cb-acda-5674b064c229",
+              "__guid": "17cc3354-d732-48e3-9614-3e94437172c9",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47451,7 +47451,7 @@
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "8a192173-0716-4c33-b1f4-1312fe6e1cd9",
+              "__guid": "1036f1d4-8ca3-40e8-82f0-44553fa9be40",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,

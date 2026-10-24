@@ -406,7 +406,8 @@ public class RoadTerrainTool : EditorTool
 /// Shapes a terrain's heightmap to a road network. Every height sample within reach of a road takes the height
 /// of the nearest road there: below the surface under the road and its border, the border's own outer height at
 /// its edge, and a smooth blend back to the untouched terrain across the falloff. Where roads meet, the nearest
-/// one wins, which is what the junction geometry does too.
+/// one wins, which is what the junction geometry does too. A road set to leave the ground alone shapes nothing,
+/// but the others' shaping is kept from coming up through it.
 /// </summary>
 internal static class RoadTerrainConformer
 {
@@ -464,6 +465,13 @@ internal static class RoadTerrainConformer
 	{
 		public RoadProfile Profile { get; init; }
 		public bool Deck { get; init; }
+
+		/// <summary>
+		/// A road set to leave the ground alone (and a junction or rounded end all of whose roads are): it shapes
+		/// nothing, but the other roads' shaping must not bring the ground up through it.
+		/// </summary>
+		public bool Guard { get; init; }
+
 		public float Reach { get; init; }
 		public Piece[] Pieces { get; init; }
 		public Vector3 Centre { get; init; }
@@ -507,8 +515,7 @@ internal static class RoadTerrainConformer
 		{
 			var table = _Network.GetCurveTable(segment);
 
-			// A road set to leave the ground alone (one on a dam, a quay, a model of its own) shapes nothing.
-			if (table is null || table.SampleCount < 2 || !segment.ConformTerrain)
+			if (table is null || table.SampleCount < 2)
 				continue;
 
 			var profile = _Network.ProfileOf(segment);
@@ -516,11 +523,16 @@ internal static class RoadTerrainConformer
 			var width = new RoadWidth(segment, table.Length);
 			float border = BorderWidth(profile);
 
+			// A road set to leave the ground alone (one on a dam, a quay, a model of its own) shapes nothing, but it
+			// still guards its surface and its border: a road next to it shapes the ground out past its own end and
+			// sides, and would otherwise bring it up through this one.
+			bool guard = !segment.ConformTerrain;
+
 			// A bridge spans the terrain: the ground under it is not shaped to it, only kept under its deck, which
 			// is what stops it showing through the deck's ends where the bridge meets the ground.
 			bool deck = segment.Bridge is not null;
 			float overhang = deck ? profile.FlatBorderWidth + segment.Bridge.SideStripWidth + segment.Bridge.DeckOverhang : 0.0f;
-			float reach = deck ? width.MaxHalf + overhang : width.MaxHalf + border + falloff;
+			float reach = deck ? width.MaxHalf + overhang : width.MaxHalf + border + (guard ? 0.0f : falloff);
 			var pieces = new Piece[table.SampleCount - 1];
 			Vector3 previous = transform.PointToWorld(table.SamplePosition(0));
 
@@ -544,6 +556,7 @@ internal static class RoadTerrainConformer
 			var hash = StableHash.Create();
 
 			hash.Add(deck ? 1 : 0);
+			hash.Add(guard ? 1 : 0);
 			hash.Add((int)profile.Border);
 			hash.Add(profile.CurbHeight);
 			hash.Add(profile.Drop);
@@ -557,20 +570,23 @@ internal static class RoadTerrainConformer
 
 			var points = pieces.Select(piece => piece.From).Append(pieces[^1].To);
 
-			shapers.Add(new Shaper { Profile = profile, Deck = deck, Reach = reach, Pieces = pieces, Footprint = FootprintOf(points, reach, hash.Value) });
+			shapers.Add(new Shaper { Profile = profile, Deck = deck, Guard = guard, Reach = reach, Pieces = pieces, Footprint = FootprintOf(points, reach, hash.Value) });
 		}
 
 		// The junction and parking lot surfaces and the pavements round them, and the rounded ends of roads that
-		// stop: the ground is held under them and brought up to meet their kerbs, the same way a road holds it.
-		foreach (var (centre, polygon, pavementReach, pavementTop) in _Network.GetJunctionPolygons(segment => segment.ConformTerrain))
+		// stop: the ground is held under them and brought up to meet their kerbs, the same way a road holds it. One
+		// whose roads all leave the ground alone leaves it alone too, and only guards itself; a lot always shapes it.
+		foreach (var (centre, polygon, pavementReach, pavementTop, roads) in _Network.GetJunctionPolygons())
 		{
 			if (polygon.Count < 3)
 				continue;
 
+			bool guard = roads.Count > 0 && roads.All(road => !road.ConformTerrain);
 			Vector3 world = transform.PointToWorld(centre);
 			var outline = new Vector3[polygon.Count];
 			var hash = StableHash.Create();
 
+			hash.Add(guard ? 1 : 0);
 			hash.Add(world);
 			hash.Add(pavementReach);
 			hash.Add(pavementTop);
@@ -583,7 +599,7 @@ internal static class RoadTerrainConformer
 				hash.Add(outline[i]);
 			}
 
-			shapers.Add(new Shaper { Centre = world, Outline = outline, PavementReach = pavementReach, PavementTop = pavementTop, Footprint = FootprintOf(outline, pavementReach + falloff, hash.Value) });
+			shapers.Add(new Shaper { Guard = guard, Centre = world, Outline = outline, PavementReach = pavementReach, PavementTop = pavementTop, Footprint = FootprintOf(outline, pavementReach + (guard ? 0.0f : falloff), hash.Value) });
 		}
 
 		return shapers;
@@ -639,6 +655,7 @@ internal static class RoadTerrainConformer
 		IReadOnlyList<RectInt> clip = _Clip ?? new[] { new RectInt(0, 0, resolution, resolution) };
 		var entries = new Dictionary<int, Entry>();
 		var caps = new Dictionary<int, float>();
+		var guards = new Dictionary<int, float>();
 		var road = new Dictionary<int, Entry>();
 
 		foreach (var shaper in _Shapers)
@@ -648,6 +665,28 @@ internal static class RoadTerrainConformer
 				continue;
 
 			road.Clear();
+
+			// A road that leaves the ground alone pulls on nothing; it only says how high the others may bring the
+			// ground under it (an area's pulls, worked out on the way, are simply dropped).
+			if (shaper.Guard)
+			{
+				if (shaper.Outline is not null)
+				{
+					RasteriseArea(road, guards, terrainTransform, resolution, cell, clip, shaper.Centre, shaper.Outline, shaper.PavementReach, shaper.PavementTop, 0.0f, sink);
+				}
+				else
+				{
+					foreach (var piece in shaper.Pieces)
+					{
+						if (shaper.Deck)
+							RasteriseDeck(guards, terrainTransform, resolution, cell, clip, piece, surfaceOffset, sink);
+						else
+							RasteriseGuard(guards, terrainTransform, resolution, cell, clip, piece, shaper.Profile, surfaceOffset, sink);
+					}
+				}
+
+				continue;
+			}
 
 			if (shaper.Outline is not null)
 			{
@@ -674,7 +713,8 @@ internal static class RoadTerrainConformer
 			}
 		}
 
-		// Every sample a road reaches is shaped from its ground; the layer gives the rest it held their ground back.
+		// Every sample a road reaches is shaped from its ground (a guard alone reaches nothing); the layer gives the
+		// rest it held their ground back.
 		var reached = new HashSet<int>(entries.Keys);
 
 		reached.UnionWith(caps.Keys);
@@ -695,6 +735,11 @@ internal static class RoadTerrainConformer
 
 			if (caps.TryGetValue(_Index, out float cap))
 				target = MathF.Min(target, cap);
+
+			// Under a road that leaves the ground alone the others may still shape it, but never bring it up through
+			// that road: no higher than just under it, or than the ground itself where that already stands higher.
+			if (guards.TryGetValue(_Index, out float guard))
+				target = MathF.Min(target, MathF.Max(ground, guard));
 
 			// The target is a world height; the map stores heights above the terrain's own origin.
 			float local = terrainTransform.PointToLocal(world.WithZ(target)).z;
@@ -780,6 +825,70 @@ internal static class RoadTerrainConformer
 					release = release * release * (3.0f - 2.0f * release);
 
 					_Road[index] = new Entry(distance, anchor, release);
+				}
+			}
+		}
+	}
+
+
+
+	/// <summary>
+	/// Records, for every height sample under one straight piece of a road that leaves the ground alone (its surface
+	/// and its border), inside the clip, how high the other roads may bring the ground there: just under the road,
+	/// rising under the border the way the road would hold it if it shaped the ground itself.
+	/// </summary>
+	private static void RasteriseGuard(Dictionary<int, float> _Guards, in Transform _TerrainTransform, int _Resolution, float _Cell, IReadOnlyList<RectInt> _Clip,
+		in Piece _Piece, RoadProfile _Profile, float _SurfaceOffset, float _Sink)
+	{
+		Vector3 from = _Piece.From;
+		Vector3 to = _Piece.To;
+		float leftReach = _Piece.Left.Edge + _Piece.Left.Border;
+		float rightReach = _Piece.Right.Edge + _Piece.Right.Border;
+		Vector3 fromLocal = _TerrainTransform.PointToLocal(from);
+		Vector3 toLocal = _TerrainTransform.PointToLocal(to);
+		float localReach = MathF.Max(leftReach, rightReach) / _TerrainTransform.Scale.x;
+
+		int minX = Math.Clamp((int)MathF.Floor((MathF.Min(fromLocal.x, toLocal.x) - localReach) / _Cell), 0, _Resolution - 1);
+		int maxX = Math.Clamp((int)MathF.Ceiling((MathF.Max(fromLocal.x, toLocal.x) + localReach) / _Cell), 0, _Resolution - 1);
+		int minY = Math.Clamp((int)MathF.Floor((MathF.Min(fromLocal.y, toLocal.y) - localReach) / _Cell), 0, _Resolution - 1);
+		int maxY = Math.Clamp((int)MathF.Ceiling((MathF.Max(fromLocal.y, toLocal.y) + localReach) / _Cell), 0, _Resolution - 1);
+
+		if (minX > maxX || minY > maxY)
+			return;
+
+		var a = new Vector2(from.x, from.y);
+		var b = new Vector2(to.x, to.y);
+		Vector2 ab = b - a;
+		float lengthSquared = ab.LengthSquared;
+
+		foreach (var clip in _Clip)
+		{
+			int startX = Math.Max(minX, clip.Left);
+			int endX = Math.Min(maxX, clip.Left + clip.Width - 1);
+			int startY = Math.Max(minY, clip.Top);
+			int endY = Math.Min(maxY, clip.Top + clip.Height - 1);
+
+			for (int y = startY; y <= endY; y++)
+			{
+				for (int x = startX; x <= endX; x++)
+				{
+					Vector3 world = _TerrainTransform.PointToWorld(new Vector3((x + 0.5f) * _Cell, (y + 0.5f) * _Cell, 0.0f));
+					var point = new Vector2(world.x, world.y);
+
+					float t = lengthSquared > 0.0f ? Math.Clamp(Vector2.Dot(point - a, ab) / lengthSquared, 0.0f, 1.0f) : 0.0f;
+					float distance = (a + ab * t).Distance(point);
+					bool left = ab.x * (point.y - a.y) - ab.y * (point.x - a.x) >= 0.0f;
+					var side = left ? _Piece.Left : _Piece.Right;
+
+					if (distance > side.Edge + side.Border)
+						continue;
+
+					int index = x + y * _Resolution;
+					float surface = MathX.Lerp(from.z, to.z, t) + _SurfaceOffset;
+					float guard = AnchorHeight(distance, surface, side.Edge, side.Border, side.Relief, _Profile, _Sink);
+
+					if (!_Guards.TryGetValue(index, out float existing) || guard < existing)
+						_Guards[index] = guard;
 				}
 			}
 		}
@@ -1154,7 +1263,7 @@ internal static class RoadTerrainPainter
 		}
 
 		// A junction or a parking lot is a surface of its own: painted inside its outline and out from it.
-		foreach (var (centre, polygon, pavementReach, _) in _Network.GetJunctionPolygons())
+		foreach (var (centre, polygon, pavementReach, _, _) in _Network.GetJunctionPolygons())
 		{
 			if (polygon.Count < 3)
 				continue;

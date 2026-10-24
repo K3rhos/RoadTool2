@@ -658,11 +658,12 @@ public sealed partial class RoadNetwork
 	/// <summary>
 	/// The filled area of every junction, in network space (lifted to the road surface): its centre and its
 	/// outline, which the junction surface fans between, plus how far a pavement reaches out from the outline
-	/// round it and how far above the outline that pavement's top sits (nothing when no arm has a sidewalk). For
-	/// tools that need to know where road is. <paramref name="_Include"/> leaves out the rounded ends of the roads it
-	/// turns down, which belong to their road alone.
+	/// round it, how far above the outline that pavement's top sits (nothing when no arm has a sidewalk), and the
+	/// roads it belongs to (a rounded end its own road, a junction its arms, a parking lot none). For tools that need
+	/// to know where road is, and whose: the terrain conformer leaves alone an area whose roads all leave the ground
+	/// alone.
 	/// </summary>
-	public IEnumerable<(Vector3 Centre, IReadOnlyList<Vector3> Polygon, float PavementReach, float PavementTop)> GetJunctionPolygons(Func<RoadSegment, bool> _Include = null)
+	public IEnumerable<(Vector3 Centre, IReadOnlyList<Vector3> Polygon, float PavementReach, float PavementTop, IReadOnlyList<RoadSegment> Roads)> GetJunctionPolygons()
 	{
 		// A parking lot is a junction as far as the ground under it is concerned.
 		foreach (var lot in Lots)
@@ -670,7 +671,7 @@ public sealed partial class RoadNetwork
 			var profile = ProfileOf(lot);
 			bool pavement = profile.Border == RoadBorderStyle.Sidewalk;
 
-			yield return (lot.Centre, RoadLotOutline.Build(lot, OpeningsOf(lot)).Points, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f);
+			yield return (lot.Centre, RoadLotOutline.Build(lot, OpeningsOf(lot)).Points, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f, s_NoSegments);
 		}
 
 		// A rounded dead end reaches past its node, where no road piece covers the ground.
@@ -678,7 +679,7 @@ public sealed partial class RoadNetwork
 		{
 			var table = GetCurveTable(segment);
 
-			if (table is null || segment.Bridge is not null || (_Include is not null && !_Include(segment)))
+			if (table is null || segment.Bridge is not null)
 				continue;
 
 			var profile = ProfileOf(segment);
@@ -695,7 +696,7 @@ public sealed partial class RoadNetwork
 				var outline = RoadCapBuilder.Outline(table, atStart ? 0.0f : table.Length, atStart, width, profile, SurfaceOffset, out Vector3 centre);
 
 				if (outline.Count >= 3)
-					yield return (centre, outline, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f);
+					yield return (centre, outline, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f, new[] { segment });
 			}
 		}
 
@@ -718,7 +719,7 @@ public sealed partial class RoadNetwork
 				top = MathF.Max(top, profile.CurbHeight);
 			}
 
-			yield return (layout.Centre, layout.Polygon, reach, top);
+			yield return (layout.Centre, layout.Polygon, reach, top, layout.Arms.Select(arm => arm.Segment).ToList());
 		}
 	}
 
