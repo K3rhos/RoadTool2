@@ -615,8 +615,10 @@ internal sealed class RoadJunctionLayout
 				continue;
 
 			// Two edges leaving one point on the node (a ramp peeling off the side of a road) diverge at a nose,
-			// which is rounded far more tightly than a street corner, if at all.
-			bool nose = hit.DistanceA < 0.5f && hit.DistanceB < 0.5f;
+			// which is rounded far more tightly than a street corner, if at all. On the node, not just short of it:
+			// the outside of a bend has its edges meet behind the node, and a 90 degree bend whose angle came out a
+			// hair under 90 was taken for a nose and rounded at the nose's radius instead of the node's.
+			bool nose = MathF.Abs(hit.DistanceA) < 0.5f && MathF.Abs(hit.DistanceB) < 0.5f;
 
 			// Two edges leaving that point in opposite directions are one edge carrying on through the node: they
 			// meet on the node and nowhere else that means anything. Refining that meeting slides it along an edge
