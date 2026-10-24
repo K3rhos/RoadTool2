@@ -89,6 +89,13 @@ public sealed class RoadPropRow
 	public RangedFloat Roll { get; set; } = 0.0f;
 
 	/// <summary>
+	/// Stands square to the road's surface rather than upright, so it climbs and falls with the road (a barrier along
+	/// a slope); the yaw, pitch and roll then turn it from there. Off, it stands straight up whatever the road does
+	/// (lamp posts, poles, trees).
+	/// </summary>
+	[Title("Follow Road Normal")] public bool FollowRoad { get; set; } = false;
+
+	/// <summary>
 	/// The share of places that actually get one; the rest are left empty, at random but always the same way.
 	/// </summary>
 	[Group("Variation"), Range(0.0f, 1.0f)] public float Chance { get; set { field = value.Clamp(0.0f, 1.0f); } } = 1.0f;
@@ -120,6 +127,7 @@ public sealed class RoadPropRow
 		AddToHash(ref _Hash, Yaw);
 		AddToHash(ref _Hash, Pitch);
 		AddToHash(ref _Hash, Roll);
+		_Hash.Add(FollowRoad ? 1 : 0);
 		_Hash.Add(Chance);
 		_Hash.Add(RandomYaw ? 1 : 0);
 		_Hash.Add(Scatter);
@@ -168,6 +176,11 @@ public sealed class RoadJunctionProp
 
 	[Range(-180.0f, 180.0f)] public float Yaw { get; set; } = 0.0f;
 
+	/// <summary>
+	/// Stands square to the road's surface rather than upright, so it leans with the road's grade.
+	/// </summary>
+	[Title("Follow Road Normal")] public bool FollowRoad { get; set; } = false;
+
 	[Range(0.0f, 1.0f)] public float Chance { get; set { field = value.Clamp(0.0f, 1.0f); } } = 1.0f;
 
 
@@ -181,6 +194,7 @@ public sealed class RoadJunctionProp
 		_Hash.Add(Offset);
 		_Hash.Add(HeightOffset);
 		_Hash.Add(Yaw);
+		_Hash.Add(FollowRoad ? 1 : 0);
 		_Hash.Add(Chance);
 	}
 }

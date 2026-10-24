@@ -132,7 +132,7 @@ internal static class RoadPropBuilder
 
 				along = Math.Clamp(along, _Context.Span.RangeStart, _Context.Span.RangeEnd);
 
-				_Placements.Add(Place(_Context, row.Prefab, along, left, row.Anchor, offset + across, row.HeightOffset, yaw, pitch, roll, scale, false));
+				_Placements.Add(Place(_Context, row.Prefab, along, left, row.Anchor, offset + across, row.HeightOffset, yaw, pitch, roll, scale, false, row.FollowRoad));
 			}
 		}
 	}
@@ -171,7 +171,7 @@ internal static class RoadPropBuilder
 				if (random.NextSingle() > row.Chance)
 					continue;
 
-				_Placements.Add(Place(_Context, row.Prefab, distance, left, row.Anchor, row.Offset, row.HeightOffset, row.Yaw, 0.0f, 0.0f, 1.0f, atStart));
+				_Placements.Add(Place(_Context, row.Prefab, distance, left, row.Anchor, row.Offset, row.HeightOffset, row.Yaw, 0.0f, 0.0f, 1.0f, atStart, row.FollowRoad));
 			}
 		}
 	}
@@ -180,16 +180,19 @@ internal static class RoadPropBuilder
 
 	/// <summary>
 	/// A prop's transform at a curve distance on one side of the road: its forward along the road (or back along
-	/// it, for a junction prop at the start end), its right away from the road, then turned by the yaw and, in that
-	/// turned frame, tipped by the pitch and leant by the roll.
+	/// it, for a junction prop at the start end), its right away from the road, its up straight up or, following the
+	/// road, square to the road's surface; then turned by the yaw and, in that turned frame, tipped by the pitch and
+	/// leant by the roll.
 	/// </summary>
-	private static Placement Place(in Context _Context, GameObject _Prefab, float _Distance, bool _Left, PropAnchor _Anchor, float _Offset, float _HeightOffset, float _Yaw, float _Pitch, float _Roll, float _Scale, bool _FaceBack)
+	private static Placement Place(in Context _Context, GameObject _Prefab, float _Distance, bool _Left, PropAnchor _Anchor, float _Offset, float _HeightOffset, float _Yaw, float _Pitch, float _Roll, float _Scale, bool _FaceBack, bool _FollowRoad)
 	{
 		var table = _Context.Table;
 		var profile = _Context.Profile;
 
-		Vector3 centre = table.PositionAt(_Distance) + Vector3.Up * _Context.Lift;
-		Vector3 right = RoadCurve.RightOf(table.TangentAt(_Distance));
+		table.Frame(_Distance, out Vector3 point, out Vector3 tangent);
+
+		Vector3 centre = point + Vector3.Up * _Context.Lift;
+		Vector3 right = RoadCurve.RightOf(tangent);
 		Vector3 along = Vector3.Cross(Vector3.Up, right).Normal;
 		Vector3 outward = _Left ? -right : right;
 
@@ -201,11 +204,22 @@ internal static class RoadPropBuilder
 		// Right pointing away from the road: forward runs along the road on the right side, back along it on
 		// the left. A junction prop faces the junction instead, which turns it round at the start end.
 		Vector3 forward = _Left ? -along : along;
+		Vector3 up = Vector3.Up;
+
+		// Square to the surface: forward climbs and falls with the road, and up leans back from it by as much. The
+		// road is level across, so its right stays the prop's right and only the grade tilts it.
+		if (_FollowRoad && !tangent.IsNearZeroLength)
+		{
+			Vector3 slope = tangent.Normal;
+
+			up = Vector3.Cross(right, slope).Normal;
+			forward = _Left ? -slope : slope;
+		}
 
 		if (_FaceBack)
 			forward = -forward;
 
-		var rotation = Rotation.LookAt(forward, Vector3.Up) * Rotation.From(_Pitch, _Yaw, _Roll);
+		var rotation = Rotation.LookAt(forward, up) * Rotation.From(_Pitch, _Yaw, _Roll);
 
 		return new Placement(_Prefab, position, rotation, _Scale);
 	}
