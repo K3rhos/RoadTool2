@@ -618,7 +618,18 @@ internal sealed class RoadJunctionLayout
 			// which is rounded far more tightly than a street corner, if at all.
 			bool nose = hit.DistanceA < 0.5f && hit.DistanceB < 0.5f;
 
-			RefineCrossing(a, EdgeRef.Left, b, EdgeRef.Right, ref hit);
+			// Two edges leaving that point in opposite directions are one edge carrying on through the node: they
+			// meet on the node and nowhere else that means anything. Refining that meeting slides it along an edge
+			// that meets itself everywhere, as far as the rounding of coordinates far from the origin happens to
+			// push it (units, a hundred thousand units out), which left a sliver of junction in the middle of a
+			// plain bend, the paint and the props stopping either side of it. How straight on the road runs is the
+			// arms' own directions to say: the sampled edges leave the node along chords that have already turned.
+			float through = MathF.Acos(Math.Clamp(Vector2.Dot(a.Direction, b.Direction), -1.0f, 1.0f)).RadianToDegree();
+
+			if (nose && through > 175.0f)
+				hit = new Hit(hit.Point, 0.0f, 0.0f, a.Direction, b.Direction);
+			else
+				RefineCrossing(a, EdgeRef.Left, b, EdgeRef.Right, ref hit);
 
 			// The angle between the edges where they leave the corner, and the way into it: used by the fillet, and
 			// by borders squaring off a corner that is sharp or tighter than they are wide.
