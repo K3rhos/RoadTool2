@@ -9,14 +9,16 @@ namespace RedSnail.RoadTool2;
 /// (in as many equal bays as come nearest to the row's spacing, one prop per bay at the row's phase), and the set's
 /// junction props a fixed distance before each junction the segment meets. Within the road's border a prop stands
 /// on the border; beyond it, on whatever ground is found below. Everything random (chance, scatter, turn, scale) is
-/// drawn from a hash of where the prop is, so a rebuild puts the same props back.
+/// drawn from a hash of where the prop is, so a rebuild puts the same props back. A row can instead be laid end to
+/// end, as a chain of straight pieces along the line it stands on (see <see cref="BuildChain"/>).
 /// </summary>
 internal static class RoadPropBuilder
 {
 	/// <summary>
-	/// A prefab to stand as a child of the props piece, in network space.
+	/// A prefab to stand as a child of the props piece, in network space. The scale is per axis of the prefab's own,
+	/// so a piece laid end to end can be stretched along its length alone.
 	/// </summary>
-	public readonly record struct Placement(GameObject Prefab, Vector3 Position, Rotation Rotation, float Scale);
+	public readonly record struct Placement(GameObject Prefab, Vector3 Position, Rotation Rotation, Vector3 Scale);
 
 	/// <summary>
 	/// A segment's whole built range (curve distances) and which of its ends meet a junction.
@@ -97,6 +99,12 @@ internal static class RoadPropBuilder
 		if (!row.Prefab.IsValid())
 			return;
 
+		if (row.Chain)
+		{
+			BuildChain(_Context, _Set, _Row, _Placements);
+			return;
+		}
+
 		float rangeStart = _Context.Span.RangeStart;
 		float range = MathF.Max(0.0f, _Context.Span.RangeEnd - rangeStart);
 		int bays = Math.Max(1, (int)MathF.Round(range / MathF.Max(1.0f, row.Spacing)));
@@ -135,6 +143,224 @@ internal static class RoadPropBuilder
 				_Placements.Add(Place(_Context, row.Prefab, along, left, row.Anchor, offset + across, row.HeightOffset, yaw, pitch, roll, scale, false, row.FollowRoad));
 			}
 		}
+	}
+
+
+
+	/// <summary>
+	/// A row laid end to end: the line its pieces stand along (the road's edge or the border's, out by the row's
+	/// offset) is cut into as many equal lengths as come nearest to the row's spacing, and each piece spans one of them
+	/// as a straight chord, stretched or squeezed along its length to reach from one cut to the next. Measured on that
+	/// line rather than along the road's middle, the pieces fill the outside of a bend and don't crowd its inside.
+	/// </summary>
+	private static void BuildChain(in Context _Context, RoadPropSet _Set, int _Row, List<Placement> _Placements)
+	{
+		var row = _Set.Rows[_Row];
+		float start = _Context.Span.RangeStart;
+		float end = _Context.Span.RangeEnd;
+
+		if (end - start < 1.0f)
+			return;
+
+		float length = MathF.Max(1.0f, row.Spacing);
+
+		// One line for the whole chain: pieces at different offsets could not meet, so a range stands it in its middle.
+		float fromEdge = (row.Anchor == PropAnchor.BorderEdge ? _Context.Profile.FlatBorderWidth : 0.0f) + (row.Offset.Min + row.Offset.Max) * 0.5f;
+		var extent = PrefabExtent(row.Prefab);
+
+		foreach (bool left in Sides(row.Side))
+		{
+			var line = Line(_Context, left, fromEdge, start, end, length);
+			float total = line[^1].Run;
+			int pieces = Math.Max(1, (int)MathF.Round(total / length));
+
+			for (int k = 0; k < pieces; k++)
+			{
+				var (fromDistance, from) = At(line, total * k / pieces);
+				var (toDistance, to) = At(line, total * (k + 1) / pieces);
+
+				// A piece belongs to the chunk its middle falls in; every chunk lays out the same chain.
+				if (!_Context.Owns((fromDistance + toDistance) * 0.5f))
+					continue;
+
+				var random = RandomFor(_Set.Seed, _Context.SegmentId, _Row, k, left);
+
+				if (random.NextSingle() > row.Chance)
+					continue;
+
+				float turn = row.RandomYaw ? random.NextSingle() * 360.0f : 0.0f;
+				float scale = MathX.Lerp(row.MinScale, row.MaxScale, random.NextSingle());
+				float yaw = Pick(row.Yaw, random) + turn;
+				float pitch = Pick(row.Pitch, random);
+				float roll = Pick(row.Roll, random);
+
+				// Both ends on what they stand on: the border within it, the ground beyond.
+				from.z += HeightAt(_Context, from, fromEdge);
+				to.z += HeightAt(_Context, to, fromEdge);
+
+				_Placements.Add(Link(row, extent, from, to, left, length, yaw, pitch, roll, scale));
+			}
+		}
+	}
+
+
+
+	/// <summary>
+	/// The line a chained row stands along, at road height, sampled closely enough to measure it: each sample's curve
+	/// distance, its point, and the length in plan run along the line so far.
+	/// </summary>
+	private static List<(float Distance, Vector3 Point, float Run)> Line(in Context _Context, bool _Left, float _FromEdge, float _Start, float _End, float _Length)
+	{
+		// Several samples to a piece, so a cut lands on the line rather than on a chord cutting across it.
+		float step = Math.Clamp(_Length / 8.0f, 2.0f, 25.0f);
+		int count = Math.Max(2, (int)MathF.Ceiling((_End - _Start) / step) + 1);
+		var line = new List<(float Distance, Vector3 Point, float Run)>(count);
+		Vector3 previous = default;
+		float run = 0.0f;
+
+		for (int i = 0; i < count; i++)
+		{
+			float distance = MathX.Lerp(_Start, _End, i / (float)(count - 1));
+
+			_Context.Table.Frame(distance, out Vector3 point, out Vector3 tangent);
+
+			Vector3 right = RoadCurve.RightOf(tangent);
+			float edge = _Left ? _Context.Width.LeftAt(distance) : _Context.Width.RightAt(distance);
+			Vector3 position = point + Vector3.Up * _Context.Lift + (_Left ? -right : right) * (edge + _FromEdge);
+
+			if (i > 0)
+				run += new Vector2(position.x - previous.x, position.y - previous.y).Length;
+
+			line.Add((distance, position, run));
+			previous = position;
+		}
+
+		return line;
+	}
+
+
+
+	/// <summary>
+	/// Where a run along the line ends up, and the curve distance there.
+	/// </summary>
+	private static (float Distance, Vector3 Point) At(List<(float Distance, Vector3 Point, float Run)> _Line, float _Run)
+	{
+		int low = 0;
+		int high = _Line.Count - 1;
+
+		if (_Run <= _Line[low].Run)
+			return (_Line[low].Distance, _Line[low].Point);
+
+		if (_Run >= _Line[high].Run)
+			return (_Line[high].Distance, _Line[high].Point);
+
+		while (high - low > 1)
+		{
+			int middle = (low + high) / 2;
+
+			if (_Line[middle].Run <= _Run)
+				low = middle;
+			else
+				high = middle;
+		}
+
+		float span = _Line[high].Run - _Line[low].Run;
+		float t = span > 0.0f ? (_Run - _Line[low].Run) / span : 0.0f;
+
+		return (MathX.Lerp(_Line[low].Distance, _Line[high].Distance, t), Vector3.Lerp(_Line[low].Point, _Line[high].Point, t));
+	}
+
+
+
+	/// <summary>
+	/// One piece of a chain, from one cut to the next: turned along that chord with its right away from the road (as
+	/// a single prop's is), level, or with Follow Road Normal tilted from end to end; the prefab's own axis that runs
+	/// along the road stretched to the chord; and its middle along that axis put on the chord's middle, wherever its
+	/// pivot is.
+	/// </summary>
+	private static Placement Link(RoadPropRow _Row, BBox? _Extent, Vector3 _From, Vector3 _To, bool _Left, float _Length, float _Yaw, float _Pitch, float _Roll, float _Scale)
+	{
+		Vector3 chord = _To - _From;
+		Vector3 flat = chord.WithZ(0.0f);
+		Vector3 forward = flat.IsNearZeroLength ? Vector3.Forward : flat.Normal;
+		Vector3 up = Vector3.Up;
+		float span = flat.Length;
+
+		if (_Row.FollowRoad && !chord.IsNearZeroLength)
+		{
+			forward = chord.Normal;
+			up = Vector3.Cross(RoadCurve.RightOf(chord), forward).Normal;
+			span = chord.Length;
+		}
+
+		if (_Left)
+			forward = -forward;
+
+		var turn = Rotation.From(_Pitch, _Yaw, _Roll);
+		var rotation = Rotation.LookAt(forward, up) * turn;
+		int axis = LengthAxis(turn);
+		float stretch = span / _Length;
+		var scale = new Vector3(axis == 0 ? stretch : 1.0f, axis == 1 ? stretch : 1.0f, axis == 2 ? stretch : 1.0f) * _Scale;
+		Vector3 position = (_From + _To) * 0.5f + Vector3.Up * _Row.HeightOffset;
+
+		if (_Extent is BBox extent)
+		{
+			Vector3 along = Axis(axis);
+			float centre = Vector3.Dot(extent.Center, along) * Vector3.Dot(scale, along);
+
+			position -= rotation * (along * centre);
+		}
+
+		return new Placement(_Row.Prefab, position, rotation, scale);
+	}
+
+
+
+	/// <summary>
+	/// Which of the prefab's own axes (0 forward, 1 left, 2 up) runs nearest along the road once the prop's own turn
+	/// is applied: the one a chained piece is stretched along.
+	/// </summary>
+	private static int LengthAxis(Rotation _Turn)
+	{
+		float forward = MathF.Abs((_Turn * Vector3.Forward).x);
+		float left = MathF.Abs((_Turn * Vector3.Left).x);
+		float up = MathF.Abs((_Turn * Vector3.Up).x);
+
+		return forward >= left && forward >= up ? 0 : left >= up ? 1 : 2;
+	}
+
+
+
+	private static Vector3 Axis(int _Axis)
+	{
+		return _Axis == 0 ? Vector3.Forward : _Axis == 1 ? Vector3.Left : Vector3.Up;
+	}
+
+
+
+	/// <summary>
+	/// The box round a prefab's models, in the frame it is placed in (its root's own scale included), or null when it
+	/// has none: where a chained piece's middle lies along its length, wherever its pivot sits.
+	/// </summary>
+	private static BBox? PrefabExtent(GameObject _Prefab)
+	{
+		if (!_Prefab.IsValid())
+			return null;
+
+		var root = _Prefab.WorldTransform.WithScale(1.0f);
+		BBox? extent = null;
+
+		foreach (var renderer in _Prefab.Components.GetAll<ModelRenderer>(FindMode.EverythingInSelfAndDescendants))
+		{
+			if (renderer.Model is null)
+				continue;
+
+			var box = renderer.Model.Bounds.Transform(root.ToLocal(renderer.WorldTransform));
+
+			extent = extent is BBox existing ? existing.AddBBox(box) : box;
+		}
+
+		return extent;
 	}
 
 
@@ -221,7 +447,7 @@ internal static class RoadPropBuilder
 
 		var rotation = Rotation.LookAt(forward, up) * Rotation.From(_Pitch, _Yaw, _Roll);
 
-		return new Placement(_Prefab, position, rotation, _Scale);
+		return new Placement(_Prefab, position, rotation, Vector3.One * _Scale);
 	}
 
 

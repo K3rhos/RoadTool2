@@ -49,9 +49,21 @@ public sealed class RoadPropRow
 	public RoadSide Side { get; set; } = RoadSide.Both;
 
 	/// <summary>
-	/// Distance between two of them. The road is divided into as many equal bays as come nearest to it.
+	/// Distance between two of them (joined end to end, the length of one piece). The road is divided into as many
+	/// equal bays as come nearest to it.
 	/// </summary>
 	[Range(50.0f, 5000.0f)] public float Spacing { get; set { field = value.Clamp(1.0f, 100000.0f); } } = 1000.0f;
+
+	/// <summary>
+	/// Lays them end to end (guard rails, fences, walls, kerb blocks): each one a straight piece reaching from where the
+	/// last one ends to where the next begins, measured along the line they stand on rather than along the middle of
+	/// the road, so a bend leaves no gaps on its outside and runs none into each other on its inside. Spacing is then
+	/// the length of one piece: the line takes the whole number of them that comes nearest, each stretched or squeezed
+	/// along its length by the little that needs. Phase, Scatter and an Offset range have no say, as they would pull
+	/// pieces out of line; with Follow Road Normal on, each piece also tilts from one end to the other, so the chain
+	/// runs smoothly up and down slopes.
+	/// </summary>
+	[Title("Join End To End")] public bool Chain { get; set; } = false;
 
 	/// <summary>
 	/// Where in each bay the prop stands, as a fraction of the spacing: 0 at the bay's start, 0.5 halfway along.
@@ -120,6 +132,7 @@ public sealed class RoadPropRow
 		_Hash.Add(RoadPropSet.PrefabKey(Prefab));
 		_Hash.Add((int)Side);
 		_Hash.Add(Spacing);
+		_Hash.Add(Chain ? 1 : 0);
 		_Hash.Add(Phase);
 		_Hash.Add((int)Anchor);
 		AddToHash(ref _Hash, Offset);
