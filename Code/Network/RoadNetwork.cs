@@ -409,7 +409,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 
 		// The split point's handles come straight from the subdivision, which is the only way the two halves keep
 		// tracing the old road, so they are hand-placed from the node's point of view.
-		var node = new RoadNode { Id = NextId++, Position = first.P3, AutoTangents = false };
+		var node = new RoadNode { Id = NextId++, Position = first.P3, TangentMode = AutoTangentMode.Disabled };
 		Nodes.Add(node);
 
 		int endNodeId = segment.EndNodeId;
@@ -459,21 +459,26 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 
 
 	/// <summary>
-	/// Switches a node between automatic and hand-placed tangents. Going manual straightens every handle at the
-	/// node, which is the "sharp corner" look, unless <paramref name="_Straighten"/> is off, which just freezes the
-	/// handles as they are (so a road added next keeps its straight handle there without kinking the roads already
-	/// through the node); going automatic hands the smoothing back to the network.
+	/// Sets how a node's tangent handles are kept up. Coming off Full straightens every handle at the node, which is
+	/// the "sharp corner" look, unless <paramref name="_Straighten"/> is off, which just freezes the handles as they are
+	/// (so a road added next keeps its straight handle there without kinking the roads already through the node).
+	/// Pitch Only keeps the directions the handles have and fits their pitch to the heights; Full hands the handles
+	/// back to the network altogether.
 	/// </summary>
-	public void SetAutoTangents(int _NodeId, bool _Auto, bool _Straighten = true)
+	public void SetTangentMode(int _NodeId, AutoTangentMode _Mode, bool _Straighten = true)
 	{
 		var node = FindNode(_NodeId);
 
 		if (node is null)
 			return;
 
-		node.AutoTangents = _Auto;
+		// Handles that were the network's own (smooth through the node) are no shape anyone chose to keep; ones placed
+		// by hand are, so only a node coming off Full is straightened.
+		bool straighten = _Straighten && node.TangentMode == AutoTangentMode.Full && _Mode != AutoTangentMode.Full;
 
-		if (!_Auto && _Straighten)
+		node.TangentMode = _Mode;
+
+		if (straighten)
 		{
 			foreach (var segment in GetSegmentsAt(_NodeId))
 			{
@@ -502,7 +507,8 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 
 	/// <summary>
 	/// Places one handle by hand. With <paramref name="_Mirror"/>, a pass-through node keeps its other handle
-	/// opposite (own length kept) so the road stays smooth through it.
+	/// opposite (own length kept) so the road stays smooth through it. A node on Full stops working its handles out;
+	/// one on Pitch Only keeps fitting their pitch, which is all it ever does, to the directions just given.
 	/// </summary>
 	public void SetHandle(int _SegmentId, int _NodeId, Vector3 _Handle, bool _Mirror)
 	{
@@ -512,7 +518,9 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 		if (segment is null || node is null || !segment.Touches(_NodeId))
 			return;
 
-		node.AutoTangents = false;
+		if (node.TangentMode == AutoTangentMode.Full)
+			node.TangentMode = AutoTangentMode.Disabled;
+
 		SetHandleInternal(segment, _NodeId, _Handle);
 
 		if (_Mirror && !_Handle.IsNearZeroLength)
@@ -528,6 +536,7 @@ public sealed partial class RoadNetwork : Component, Component.ExecuteInEditor
 			}
 		}
 
+		RefreshTangentsAt(_NodeId);
 		MarkDirty();
 	}
 

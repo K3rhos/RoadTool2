@@ -19,7 +19,7 @@ public sealed partial class RoadNetwork
 		text.AppendLine($"NETWORK name=\"{GameObject.Name}\" surfaceOffset={SurfaceOffset} spacing={SampleSpacing} chunkLength={ChunkLength} defaultProfile={DefaultProfile?.ResourceName ?? "(none)"}");
 
 		foreach (var node in Nodes)
-			text.AppendLine($"NODE id={node.Id} position={BorderDebug.Format(node.Position)} cornerRadius={node.CornerRadius} autoTangents={(node.AutoTangents ? 1 : 0)} degree={GetDegree(node.Id)}");
+			text.AppendLine($"NODE id={node.Id} position={BorderDebug.Format(node.Position)} cornerRadius={node.CornerRadius} tangents={node.TangentMode} degree={GetDegree(node.Id)}");
 
 		foreach (var segment in Segments)
 		{

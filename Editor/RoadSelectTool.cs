@@ -91,6 +91,26 @@ public class RoadSelectTool : EditorTool
 		}
 	}
 
+	/// <summary>
+	/// How the selected node's tangent handles are kept up. Set through the network rather than on the node, so the
+	/// handles follow at once and the network knows which mode the node is coming from (a node coming off Full gets
+	/// the straight handles of a sharp corner).
+	/// </summary>
+	[Property, Title("Auto Tangents")]
+	public AutoTangentMode NodeTangents
+	{
+		get => SelectedNode?.TangentMode ?? AutoTangentMode.Full;
+		set
+		{
+			var network = Network;
+
+			if (!network.IsValid() || SelectedNode is not { } node)
+				return;
+
+			network.SetTangentMode(node.Id, value);
+		}
+	}
+
 	private RoadNetworkTool Root => Manager?.CurrentTool as RoadNetworkTool;
 
 
@@ -266,12 +286,6 @@ public class RoadSelectTool : EditorTool
 		if (!network.IsValid() || _Node is null)
 			return;
 
-		if (_PropertyName == nameof(RoadNode.AutoTangents))
-		{
-			network.SetAutoTangents(_Node.Id, _Node.AutoTangents);
-			return;
-		}
-
 		// The value is already written on the node; only the consequences are left to apply.
 		if (_PropertyName == nameof(RoadNode.Position))
 			network.RefreshTangentsAround(_Node.Id);
@@ -306,6 +320,10 @@ public class RoadSelectTool : EditorTool
 		{
 			m_Drag = DragKind.Handle;
 			m_DragSegmentId = _HoverHandleSegment;
+
+			if (SelectedNode is { } handleNode && _Network.FindSegment(_HoverHandleSegment) is { } handleSegment)
+				m_DragStartWorld = _Network.WorldTransform.PointToWorld(handleNode.Position + RoadNetwork.GetHandle(handleSegment, handleNode.Id));
+
 			return;
 		}
 
@@ -343,7 +361,9 @@ public class RoadSelectTool : EditorTool
 
 	/// <summary>
 	/// A node pressed directly slides along the ground under the cursor; a handle slides on the horizontal plane
-	/// through its current position, so a road's vertical profile is only changed on purpose (through the gizmo).
+	/// through where it was picked up, so a road's vertical profile is only changed on purpose (through the gizmo).
+	/// The plane stays put while the handle moves: a node fitting its handles' pitch lifts and lowers the tip as it
+	/// goes, and a plane following the tip would chase it.
 	/// </summary>
 	private void UpdateDirectDrag(RoadNetwork _Network)
 	{
@@ -369,8 +389,7 @@ public class RoadSelectTool : EditorTool
 		}
 		else if (m_Drag == DragKind.Handle && SelectedNode is { } handleNode && _Network.FindSegment(m_DragSegmentId) is { } segment)
 		{
-			Vector3 handleWorld = transform.PointToWorld(handleNode.Position + RoadNetwork.GetHandle(segment, handleNode.Id));
-			var plane = new Plane(handleWorld, Vector3.Up);
+			var plane = new Plane(m_DragStartWorld, Vector3.Up);
 
 			if (plane.Trace(Gizmo.CurrentRay, true) is not Vector3 hit)
 				return;
@@ -582,11 +601,14 @@ public class RoadSelectTool : EditorTool
 				Vector3 handleWorld = transform.PointToWorld(node.Position + RoadNetwork.GetHandle(attached, node.Id));
 				bool active = attached.Id == _HoverHandleSegment || (m_Drag == DragKind.Handle && attached.Id == m_DragSegmentId);
 
-				Gizmo.Draw.Color = node.AutoTangents ? Color.White.WithAlpha(0.5f) : Color.White;
+				// Handles the network works out entirely are drawn faint; ones whose direction was placed by hand, solid.
+				bool computed = node.TangentMode == AutoTangentMode.Full;
+
+				Gizmo.Draw.Color = computed ? Color.White.WithAlpha(0.5f) : Color.White;
 				Gizmo.Draw.LineThickness = 1.0f;
 				Gizmo.Draw.Line(nodeWorld, handleWorld);
 
-				Gizmo.Draw.Color = active ? Color.Cyan : (node.AutoTangents ? Color.White.WithAlpha(0.6f) : Color.White);
+				Gizmo.Draw.Color = active ? Color.Cyan : (computed ? Color.White.WithAlpha(0.6f) : Color.White);
 				Gizmo.Draw.SolidSphere(handleWorld, RoadPicker.NodeRadius(handleWorld) * 0.45f);
 			}
 		}
@@ -664,12 +686,12 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 		// well as the network's; its setter moves the node either way.
 		var tool = m_Tool.GetSerialized();
 
-		tool.OnPropertyStartEdit += _ => BeginEdit("Move Node");
+		tool.OnPropertyStartEdit += property => BeginEdit(property?.Name == nameof(RoadSelectTool.NodeTangents) ? "Edit Node" : "Move Node");
 		tool.OnPropertyFinishEdit += _ => EndEdit();
 
 		SidebarRows.Add(group, tool.GetProperty(nameof(RoadSelectTool.NodeSpace)));
 		SidebarRows.AddVector(group, tool.GetProperty(nameof(RoadSelectTool.NodePosition)));
-		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadNode.AutoTangents)));
+		SidebarRows.Add(group, tool.GetProperty(nameof(RoadSelectTool.NodeTangents)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadNode.CornerRadius)));
 		group.Add(new Label($"Roads at this node: {_Network.GetDegree(_Node.Id)}"));
 

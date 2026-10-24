@@ -602,11 +602,12 @@ public class RoadDrawTool : EditorTool
 				// A sharp corner needs both ends of the new road to hold the straight handles the road starts with,
 				// so the smoothing must not touch either node: the one being extended from (it was placed
 				// with smoothing on if the toggle changed mid-chain) any more than the new one. Handles the nodes
-				// already have are left alone, so a road already running through is not kinked.
+				// already have are left alone, so a road already running through is not kinked. A node fitting only
+				// its handles' pitch never smooths them, so it stays as it is.
 				if (SharpCorners)
 				{
-					network.SetAutoTangents(m_LastNodeId, false, false);
-					network.SetAutoTangents(node.Id, false, false);
+					StopSmoothing(network, m_LastNodeId);
+					StopSmoothing(network, node.Id);
 				}
 
 				network.AddSegment(m_LastNodeId, node.Id, Width, Profile, Lanes, OneWay ? Lanes : RoadSegment.DefaultForwardLanes(Lanes), Bridge, Props);
@@ -614,10 +615,22 @@ public class RoadDrawTool : EditorTool
 
 			// A corner node is a node whose handles all point straight at its neighbours.
 			if (isNew && SharpCorners)
-				network.SetAutoTangents(node.Id, false);
+				network.SetTangentMode(node.Id, AutoTangentMode.Disabled);
 
 			m_LastNodeId = node.Id;
 		}
+	}
+
+
+
+	/// <summary>
+	/// Takes a node off Full without touching its handles, so a road added to it keeps the straight handle it starts
+	/// with.
+	/// </summary>
+	private static void StopSmoothing(RoadNetwork _Network, int _NodeId)
+	{
+		if (_Network.FindNode(_NodeId)?.TangentMode == AutoTangentMode.Full)
+			_Network.SetTangentMode(_NodeId, AutoTangentMode.Disabled, false);
 	}
 
 

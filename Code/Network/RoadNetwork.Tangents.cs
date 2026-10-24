@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Sandbox;
@@ -8,7 +9,8 @@ public sealed partial class RoadNetwork
 {
 	/// <summary>
 	/// Recomputes the automatic tangent handles at a node and at each of its neighbours. A neighbour's smoothing
-	/// direction runs through this node, so it has to follow whenever this node moves or gains a road.
+	/// direction runs through this node, and so does the grade of its pitch-only handles, so both have to follow
+	/// whenever this node moves or gains a road.
 	/// </summary>
 	public void RefreshTangentsAround(int _NodeId)
 	{
@@ -24,10 +26,15 @@ public sealed partial class RoadNetwork
 	{
 		var node = FindNode(_NodeId);
 
-		if (node is null || !node.AutoTangents)
+		if (node is null || node.TangentMode == AutoTangentMode.Disabled)
 			return;
 
 		var segments = GetSegmentsAt(_NodeId).ToList();
+		bool full = node.TangentMode == AutoTangentMode.Full;
+
+		// Pitch only leaves the handles' directions as they were placed, so they say whether the road turns a corner
+		// here: if it does, each road leaves at its own grade instead of one carried on through the node.
+		bool corner = !full && IsCorner(_NodeId, segments);
 
 		foreach (var segment in segments)
 		{
@@ -40,7 +47,7 @@ public sealed partial class RoadNetwork
 
 			foreach (var otherSegment in segments)
 			{
-				if (otherSegment == segment)
+				if (otherSegment == segment || corner)
 					continue;
 
 				// A ramp peels off the side of the road; the road flows on through the node as if it were not there.
@@ -53,13 +60,86 @@ public sealed partial class RoadNetwork
 					neighbours.Add(neighbour.Position);
 			}
 
-			Vector3 handle = ComputeAutoHandle(node.Position, other.Position, neighbours);
+			Vector3 handle = full
+				? ComputeAutoHandle(node.Position, other.Position, neighbours)
+				: FitPitch(GetHandle(segment, _NodeId), node.Position, other.Position, neighbours);
 
 			if (segment.StartNodeId == _NodeId)
 				segment.StartTangent = handle;
 			else
 				segment.EndTangent = handle;
 		}
+	}
+
+
+
+	/// <summary>
+	/// Whether a node's two handles turn the road there rather than carry it straight on: they leave anything but
+	/// opposite ways in plan. A road end or a junction is neither.
+	/// </summary>
+	private static bool IsCorner(int _NodeId, IReadOnlyList<RoadSegment> _Segments)
+	{
+		if (_Segments.Count != 2)
+			return false;
+
+		Vector3 first = GetHandle(_Segments[0], _NodeId).WithZ(0.0f);
+		Vector3 second = GetHandle(_Segments[1], _NodeId).WithZ(0.0f);
+
+		// A handle pulled in onto its node leaves in no particular direction: each road goes its own way.
+		if (first.IsNearZeroLength || second.IsNearZeroLength)
+			return true;
+
+		float angle = MathF.Acos(Math.Clamp(Vector3.Dot(first.Normal, second.Normal), -1.0f, 1.0f)).RadianToDegree();
+
+		return angle < 175.0f;
+	}
+
+
+
+	/// <summary>
+	/// A handle given the grade an automatic one would leave the node at (see <see cref="AutoGrade"/>), keeping the
+	/// direction and length it has in plan. A handle with no reach in plan has no grade to follow and stays as it is.
+	/// </summary>
+	private static Vector3 FitPitch(Vector3 _Handle, Vector3 _NodePosition, Vector3 _TargetPosition, IReadOnlyList<Vector3> _OtherNeighbours)
+	{
+		Vector3 flat = _Handle.WithZ(0.0f);
+
+		if (flat.IsNearZeroLength)
+			return _Handle;
+
+		float horizontal = flat.Length;
+
+		return flat + Vector3.Up * (AutoGrade(_NodePosition, _TargetPosition, _OtherNeighbours, flat / horizontal) * horizontal);
+	}
+
+
+
+	/// <summary>
+	/// How steeply an automatic handle leaves a node, as rise per unit of horizontal travel in a direction (a flat unit
+	/// vector): at a pass-through, the grade running from the road's other neighbour to its far node; at a junction,
+	/// the grade of the road running through it; at a road end, a corner or a hairpin, the road's own grade to its far
+	/// node, whichever way the handle points. The grades <see cref="ComputeAutoHandle"/> gives its handles.
+	/// </summary>
+	private static float AutoGrade(Vector3 _NodePosition, Vector3 _TargetPosition, IReadOnlyList<Vector3> _OtherNeighbours, Vector3 _Along)
+	{
+		Vector3 chord = _TargetPosition - _NodePosition;
+
+		if (_OtherNeighbours.Count == 1)
+		{
+			Vector3 through = _TargetPosition - _OtherNeighbours[0];
+			Vector3 run = through.WithZ(0.0f);
+
+			if (!run.IsNearZeroLength && Vector3.Dot(through, chord) > 0.0f)
+				return through.z / run.Length * Vector3.Dot(_Along, run.Normal);
+		}
+		else if (_OtherNeighbours.Count >= 2 && TryThroughGrade(_NodePosition, _OtherNeighbours, out Vector3 throughDirection, out float grade))
+		{
+			return grade * Vector3.Dot(_Along, throughDirection);
+		}
+
+		float horizontal = chord.WithZ(0.0f).Length;
+
+		return horizontal > 0.001f ? chord.z / horizontal : 0.0f;
 	}
 
 
@@ -79,11 +159,11 @@ public sealed partial class RoadNetwork
 
 		var to = _ToNodeId >= 0 ? FindNode(_ToNodeId) : null;
 
-		Vector3 startHandle = from.AutoTangents && !_Sharp
+		Vector3 startHandle = from.TangentMode == AutoTangentMode.Full && !_Sharp
 			? ComputeAutoHandle(from.Position, _ToLocalPosition, GetNeighbourPositions(_FromNodeId))
 			: StraightHandle(from.Position, _ToLocalPosition);
 
-		Vector3 endHandle = to is not null && to.AutoTangents && !_Sharp
+		Vector3 endHandle = to is not null && to.TangentMode == AutoTangentMode.Full && !_Sharp
 			? ComputeAutoHandle(_ToLocalPosition, from.Position, GetNeighbourPositions(_ToNodeId))
 			: StraightHandle(_ToLocalPosition, from.Position);
 

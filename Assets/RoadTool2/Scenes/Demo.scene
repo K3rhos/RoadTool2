@@ -486,7 +486,7 @@
           ],
           "Children": [
             {
-              "__guid": "3e671af5-a8e2-473a-8375-beef8bb6bf7d",
+              "__guid": "4bcf89c6-1352-41c2-92fc-671ff3051f95",
               "__version": 2,
               "Flags": 0,
               "Name": "Clothing - y_front_pants_white",
@@ -503,7 +503,7 @@
               "Components": [
                 {
                   "__type": "Sandbox.SkinnedModelRenderer",
-                  "__guid": "35cc5665-c0b1-4f67-b55c-e8a2d6256165",
+                  "__guid": "4126e8f6-022b-4def-b6c7-20fa3a7bc00d",
                   "__enabled": true,
                   "Flags": 0,
                   "AnimationGraph": null,
@@ -736,7 +736,7 @@
           "Flags": 0,
           "Generation": 2,
           "Heights": "",
-          "HeightSamples": 45541,
+          "HeightSamples": 45532,
           "HeightTiles": [
             {
               "Index": 44,
@@ -846,12 +846,12 @@
             {
               "Index": 106,
               "Count": 2136,
-              "Data": "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"
+              "Data": "Au2Ya4hVVRTHf3vtc86Uj5nrM505PsaSTL03zSwlTTKyMlIpKqmkiPoQFFgf+lAUZmnmKy2VZphklMhK7ENRWkomQmEmVJaPzMoK03zUkJpPjL22N0bnnpk5TheEXBwul7P32v+1H2v9//tsyfDBQ5MiuA0MzBdYFpS6v/MEplmoNjAWKmmpRTAOusMFMBCuOb21lbaWw24Dx6ylOswHddDA5qCUoGhBxYqfFFRHmCJQZy0rQhgDFv42sDUodZMpUlDl0CY5qAiWC6yzlk0h3AQlsFTKqCreMnWEDFyeEFFb2CfwrLX8EMJI6ACzbBlLbdEiykB7yCZE1BuOCWwTy68hDINBcNCWsURg6qmI3jVwK1zW4ogyejQEOkO/hIgGwh+nItoVwhB4FI7YDEPhgMB0gXYwWNeuoJVoShQ00dRCf/vDtbhRr2xWMPtDGABvGdhjMzwFtQKrBBYaxWybgNlWh+na4H0vyCmO36oYbtHVfwIubTqcA6G6HDHwo23nFvS4gZ8NPKlDn2Gt9GVPne91DVpHwxV64iqhE9wFT8N4+M5oRE3FcjTUBdgs8KJt73Kgxug8+jRAGuZjXGB0kjc0aB+js1puYJ2BEXAftPa54Za7GcG4Sj0I6gS2SgfXcolmwBn2CHxt4XMDPeDGBu3j1GmPgbUW7tFecwzMtlDTvEimRprIRwTWS4Wb2jsWFoiucUFEgfcFXrPiqlUKqJkRPOwKC6yUCu6GowIfC1yYAFUGGwT+krRQcyJ4zridhiVSwYMw2cInoglZECv0ZyM91oIIFhlXIuEVqXCbVjSsmghWG3jJwklTweNFxKqNYLuBuTbmMZhu/V51TT4WW8UdJMWptvCyaAVMKunuyG0Xy8LISwOHczt8aWGSaI+COF1gnytvoqUIf+CPC7xtFKsgHFCl09KZW32+CGGGuH2L3SLttbDCKC0WxO0D18MMA3foqBPhGa1IIxIwY+053xNlqI/bp0VagGJXZPZbmG100QtC9leOsOoqWn8DbUpC7KX9S/SxeX55T2CKjbkTJgdaeAcVgssp8RW0ikI8f1WeFTxh+d+OsFbghMRubWYGcG8C3H9io2GjHu2YjwwctTCqmHjDYIfAbonZaeB3m9ciRcLr65XYdonZa+BPq2qseHhdfFJukJjXDdQEykBZTbQksdISEzgpsFpil121AezyMMM1/cPmjVKSMLTPFfKhGy2RL1hYJrETZ58KvGlx3ICWNds8vN66BfUt0HNXejoYMAHVzFXSzRWDQ+IxH8hnmtTrbVWCXaTJFqkaKNc/jaR6a+3cSd0DVSoObI10d66HnApwQtRoGfF0XqnBd9L1naBlR2Cmge+N3tGGJ4B1hrkGNvgCG+mzSaDKwkHp6c7NOFWonh685A3h4np681UDb1iv1oYm3zzWC/wiWoX9Fn4TwjKb5atTsmZhI6TSz4XjyetwCBttlg/TqaHnI1hjs2xO5zY98kHWpddeq22WbencDoVwwmaZlc7N8d1nQdbtUAqv4wGsDLKuFqXwWhz4EEel8vrJwg6bdUUnhddOcWmd1YOcwu2wcVycZV46ty1OVUpWLw8p3FYZqDNZatO5LTY5rk7lMc3k6JbKY2LO5WoKh/E5d+tI4TAy5+p7CodczhFrCofynHuRwqFVjvtTOYQ5p/hSOHTIOQ2UomTFWppbYrE+fuwhSiJlitxDX7ZOQ6quXC9uuly729lvfj28OZI761lEerUer4w1QD989FFaDZXpBitB9YCb81fdxi3w3LapSW5zEv1bU++TwySrX2/OTvJklLo76/iS18b/msmzfVmevRtXHW10G7s0QwtUKvf67e3LuWi9NT+ShFN9G8u5aElCM2pez/N23vg/2D8="
             },
             {
               "Index": 107,
-              "Count": 1376,
-              "Data": "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"
+              "Count": 1361,
+              "Data": "As2XXWhcVRSFv3PnTmaSprFt/mdi0rQmaRvTmE5/0qYm1TapPy01VSlapUKNoBS0oG8iiKUVVBQtUeoPFkV8KyiI+mIeFJ+liPpS9UkEffFF8KHIrO05nplJCorTuFlcLnfuPWetvc45e89XTZfTj+aaYXyCUZiEu+AxeGqcXxN4Et5w8JKDh2BGL+zbyu9ZuFm/vu3gWwfPO/08CG3QDA3QPcb5BrgXTjl4zcG80zcnYBxaIIEMdArd0D3Cj1k4AI/Asw5edvbtCbgNNsEaSCHnvzG0oxjiYlajtsF1sPAXsXMODsP10AO90AFNmvkafRlGWalBnI0FFPkmq9ny+qAFVmnoLijAWlgntZvgBtgDvzl4z8EWyU8EpK89QqfYx/H3jPBdqg8CXHStetUmSIUGYS3sg+2i2goDmsnYmvJ1HoPChgiDsn1cYi1Wi26r591aSXopAV8b16xgN7GYKgFplN9dcmmPrGuSOX3QrxtLuqFDaJMZLXqzQbM0Su0KD9N/rfKdVVKuHIHYg55nSH2gHV+TSg/yIpPXfVIzckhFzmcm5+9znnmjh62O7vJyLksYgPUSshIuxelbNLq0zmNyIddVN7HmIDKWbZ4F6jFyfj0uFe2wDcZgBDZKw5Bk9MuP8p6Ov08jewswx/LHAEzBTtgBJSkZ9jLMkKIM+Tix86+87bt0ODktvf+DhD7YD9MSMiEtJWHUW2LokyXAA7pm4GcHlxpY/sjCQbhdmIab4EZhW+RJvEmKyv0GPT9VdcguV5RgVjJMya2wV0omtLRMSbxJwqH1VjiIr0LYCWbnsF0Nzcrocw7uhyORDnNkr+zY6RdX1S65nK887/9R2OEVSkQoc6HYGfL+WgWrCWGQJ5TtMw4ehXvgUI0lU15KbMl8k7hUFYCqilfLuop+shj91BcGK1qrlehOreE+ZW+jdmoX3KGyfKcO1QG/oMqWHJMlhyTioHTsr7RkDD5t8hQCl4DaahAXO3PfPkc0raSWRM3ataIWa7+wXrYbhvXOsEefhroFHtcps1m6h2TJ0w5OypLZJSz5IxfZHZJoSGoUhKKVU0Hertz16smIkjinobs9/QB7Yr1kq5qOFToCZ9QRHFabl5HKkli+4OC4RpytNOBsttL0RfMeZzxTw7pN95bT0BNkwbWWW59JaSro4YDvWn9y8DAcFaMyna18kKrtK2g/rPKdUh4uJPCiUyru3sG5VO5Yd1teVtN+e5xxu1iw7nxU0o7Cyd38kMjRCTg+yecOiguN3EddIlVj2qzlNNXL2St3Hf8uCpTZH1D1noBXnVXAC66H0/95FUzUvfYo2YmsLcE7Dr5I4PWkyPt1LbyJJl4jTz908EqmyC/1SGocHepJt2jLn0/gy0yB+WydJ0UyZ/Sn6E0H32cKnLajrN6xW/9ijsFnmQLv1ju7FuP663cEPikn9yrMmepA3wzPOLiY+RM="
             },
             {
               "Index": 108,
@@ -881,17 +881,17 @@
             {
               "Index": 121,
               "Count": 2443,
-              "Data": "ArWZe4xcVR3HP+fcmbmzM7M7+2x3t7u0lXb73pZtkbWWhcVKa7dsV1ChTeMjthJ8Kyr8gVIJAqFQMaGFSEQLGiKJJgqCRGsIBI2J8fGHGtTESFDjk2DQGB/RnO9v7+3dnZnuzKY9Od2c3jn3d76/x/n9vufcoz08cfiLDjbCEQ+3elgOV8BWKIODEnTDTrgRhmEpHAYPg+r96kugV70bOtQrerEIBU2O4B2wDy6Gdv03p8k7YAbWQj7pUWacPok5Y3OcysOjHn7noQ+m4AJoE/6iEF4Odzi4GZ7z8HE9G4Qh/T1PgyENbJz9eync6qALVkryRVIhL8nd+nkGPqK1kLKuni5d8Poa4Ku0vKnwch6OefiHh81aaINUQDYchD1wr4PfO/i3j/i00w9F2boio3cKUK/8sUQqroVXnLl1mWRuTexvbr0MDkhGVQ4i49MRmFBcVOB8+W6eFybUgchxsgD3eLjXS/IUrEnmFyVzrwz1awff8NWw1EMe/uyFZkoKW7QVtPZOuNPB9fAtD59ySbSZx86DI84UO+akWCNwm+F6x99zZtlbvAw6JUeaZUuSNg1j8FsHj/gqr4M7PfzTS28DZ7OLMuseuN/BLx38z3seMNQFCdsND0bwTYuCurDG4TEHL3vHbxzc5eGvDga065YlS1VghQJrFfzJwXFfDSYNs+/38rEFSGrjftl4J/zcwZO+ENR40cMrXjarC2UMPufheOTC7F84+LbTilPCYy9UFArTWuEvDm731YAxmOgOU3MKVmcMOqTZ4+btL/sCm+AFD3/0ise6SEbhYQ9HI8ekyT3hJPsNyjix8kVF729Xhvqpgx+5aoj6gCTEQo+QLE+QdAjJjEI4uPYBXwhKtYCk3eL5oOJglxJLXkA6JHSPlvyaMwetlLA4s/VdMUy5LewKp/Wm5F/TpSg7T8vLf3Bw1BfCLy2gG7WAHoNLCO7rSUR36uG01viM075ep31W28uZ3pb03RaQAXROoJfqsTlgRDl7GfzEhX+FEPctgL4c/uXkmKsEuiupBZ2wTd66WG4vC16bpLUl8FKoKfh2Ja6y3n3cwavl/12ZmOmA9doZffA9By+5Qtg8TUOG4yHNeHjG7PFG2bsqlCa/X4PC3F77REk+aGs9nxSnErwVXivYXXruJXaLfOjhK7PBO9QS7OD5pz18Qla6QiukqA1OtvkmNKh9UlByTJ3YocibkUkeVjYthGELqG+G73qJ6MvUWgPdK3MtrvkaBcoZ0ONacRBOzoJe1RLoD8DjPtkXVmPLmRo7xFlrlljMFtuTpHy7g6d8IQRMa6C/4JNsmvKlKKklo2cJsW3VSCbvFoYrNfgQPOsLwfKtYQ5M5lLVmylCYYkT1jAoMnNW2uoajvQWmeU6s/OOljBfC79yKhYbEl6UVsp+hd5IkgwW3cpy3zwCdY1+uiHmedcS4LdZqtsDFwrw+RmSYQX1ww1Yer7Bw6gG8Br5LiW3S1R03qSZ97mYz7eG+J3wHSdk+4R4eC6Jmlb+PyAhtnuse805w6kjHW+aS8dLQrxXktvhlIvZ3xLg6+CrDg4pOlJW4AX4VVLkgGwUaXMat0+PVWkvJUesUnIQsAFwt6vh4MbKdkvisy4O2rSA+H0QTokfhE+a6D4Zw0jvWkF+u2bdoNpbmos0xW6DzoxC2/XuRapQKTE3SxjiaeXTJ10c5LaA+D3auNu0J4y7pYRgo6QeMu52uBDKYm5ucUjtOg43KTIPJ5FlUkoJPT8oJE+5OLzQmkGvkYxhnQu7MvC2aG67YF9SDbv5IQcf06k1JeaGYUQYDsFH4REXt1i3rlYy7oTXEFh3toxvk4nyCvqrjc027sZs8GFNs7lPSFjKZtZL4LvN5tfGwQcB6d+8jFAX6RZDenekU8BeKfxmIU1vECyApmUXuyZIkc6DHNUbV+BdqhwDwtuTpKoOmWlCsbgLJuNAa05E8DOvwGh0rguc+L4IHQknNCd742EVcLSGU+USIWkJyJo1a2V75aAyszH+LO8yh03Cvjjw7BcjO5JXG+DdId3CUfRoTuHSk2FcZof65M8Fuy3IDk2rAwlhzgbXuLBWREn3x7wX/hPBC06bodFRPhKu/+blL+NZm1hMWxB5T3K/Yw4zctivXbI/Dhc9d+Xgh06ZtBbtqALa2kt5SRjQvD7ObStqK08Iba8V7zhkja/n4FE7oNaizbaTeXnHrlOq5xitOeIy5daS0sxkzD3hBiJnN3ULwv2SGXep5vWce7g43TYBK4shCp7IKSnXvRrLtsfyumPyygSbFVvnGudNShjDRW5xhvPGJnB+P68s0KH/WB0+TYNcYJeNqNLi2na5P5I5Z+CZnNU5SwHlxu89bylgheLGN7RBs+S00ZM0GffrwLFKBllXDIsey8FnjaNMyqVRAwwBarfQdmQYZxaklSKf/OTnjtO/qUaNMEfCuULTlsK6Nk54+EEE79fvdjtVp0W6ujW+kxYir7HdU6SQ7GHdcfrEkmmqQs1aIa2sLgWbHIngx3a5VqnnvQjaOnjO6GzWOFkrZZe26ynTYl5djbXucCU44kFv/25z4iR2EdCXfNnYAFcNccreTDVJq0QAJVwoJoKMK7XsgLi2Xa9sgAue9uGs6iYCF4prejQeiLS5z67c5l1rtV0YmJLxe7NbPrkJsxuvLvVQqMYCTbaZRrE7k88AueSVqvANa351y3zXWJGzzwa9iqJOGWRAvU+vV0fr3BhlJdj3n2JisPbk3fympq5sjBYY/j7hbGvuxbQNJpqGoN24+HuiWWq4PjjO/NK+4NenmjbLMtfps1EqJXVbX9M14DT9WxNIvn1Ns785Se5TXy5zl5sTGDQcCenMgmbeAa2kQFknH5SFtilVR8LYNp7JtBDsTr79tUug9QVbQLg+DEoJJPuGWJYN7aDclJCNszeslhRMl3mp5EyGGpu9d2x+cpqMFgC29TSGM0gO+ff/"
+              "Data": "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"
             },
             {
               "Index": 122,
               "Count": 1444,
-              "Data": "Au2XbWxURRSGn5l7292WbUtr0Vq9axVQRFPt1VgEBQmWFru7gkWiVCWCREWjCRK/0giKQsAQlUhViDbxK8YEMWqqJhCNhmjCH42Y+IH6Q3800T+a+C3RzDu5mzXYYrZr4o9ONpu7s++d95wz55x559lJDK8+VMX/eqSShwycAu0wCy6CHNwMd8K+oEJMJ8MJR0zOhnDcK6egGprhRJghB2bDfUbmbzXwWAgBmLIWDyGdGNkN5/z93yZYDK1avEqfsVlCmRqCPcKFDJwKF8A0WZuCGngxhOcNfJ6G48uyH5gM98CAgjOaC5PhanjEQOfRlstAjxJkplKmTUtUJ6mUgXo9z4NV4vvEwjWwsZhq5Y1XDPxm4WEDXaN4cRzssbDPQvQvlszAxcp5n4lL4Uyog/NhkR4COTAf5oqhaYrz6qkAfhjDiG7YEsB7NuZpA9sD+MPAglHgffCnhf0T8InITCTB0ZJgMIBfxqimXtgcOHjkKno84w0DjwfwwhilfjoctvC9jRgO1C7KG7XwqIGXDJw3eo9OwVsWDgQRm4r9toyR0WFZr0NoNK4M7HCeBREjlZIwp8H0f+JqhsMGtoURg/+dXPJcLfCmgY8rz1WnHQkVupZEFqyH38OIDRWkqoMp0gae6mwoSPlcCz+GEYfGr6eKY6pO1JQSxVPlJFL64esw4mAFqTqlb2oSqvZEYNwIH4URI5WiaoQ5EqJFqpmiaofNBp4JI4YrtVn9kBfXJP30Ai8HMTznNF0QsdeLxvJGWkVcC5er7+XhJPllNDlNXD3wuoF3g4if7Di4MrAWdho54x2bmpClpQNzcBV8ZWB3EDn8eMYyeNvCNwZWiGy6iI2EZpvI1sJDFn61sfvzAwvvWIXiUnWaBq1TrdK4xKvGAxZetbFLgO0WdlqZnoezVFVenrcKPhc+dZ7YmCWwwcKghWNL0FVavAUW6oX9LnlszPXwnRN9VhuQV3dt0MkQ6v2F6gx7DOyyMXfAZwa2WjhXhneWoJulTpfBLuNcjdli4H0D91td0Tz8mMSUZk1eAQ8Y2Gjdax1u/jXj9WdO5lwoAp8GzfJzMc7onw0MmQ437Y5Zp2+Xi2KeaqZK1dIkmVzQ/LfOYdPhbHWxHTGwRuGfn9gUKj1niXkOfGFc2sfuUvalv5v1J+AaOZDR4ZeDM+BDrR5zHRw0cLdW7lLn8022Pul8kY/9kIm5zIdnALdn3QL7E7nYuxp893/SxC60ez04n4D9gVqvW0BBLuw28ISJnRMvezO6dTUogn3/KCg6QwZ2mNi97a5st0ukLCppobW6gRX84er21MSucFxRrVOgewX2sU6rWxQU9AeN606xy00X61u0jb0yw+9kWtlWUIath3tN7DZ3k4EbdJvpLTG5iG3F5d9dsbv7DcBKpVPRBK9K2oTMwq1wW+xis05l3qmweX5vbFaZlIXVcFPsXFyj5PVInxE2Kd+CvlfAKiFXasYjG5NNK0VeCf1CLldH8x41JpfttIrcs/dBn5BLVQ5dClUpMquqmiGuvJA9yrslUnP+zuftzKpTx1pkwV8="
+              "Data": "Au2XbWiWVRjHf9e57736zDmbtVb3Wi3NLFa7e1kpamFzs+151GZSrpAsqQwKTHpjpFE5TKKSHKXUoDf6YkbFKjCKQgr8UmQfKqsP9WFQXwp6T4rzP9zjsdqM7fFDsMN4tp3nf67/dV3nejvPTWN4/aEy/t9rUYnknAon/WNzPsQc23U+RGATOhtDZaZhJ5x35LczYQU0SniZfsZniaFcn25c2N+kDTg4cULaAzPgXuiHuWMbMAOuhccM2o8mLgdd0APz4DRolohyaVoFs6BF93wBrCwi2x4xqfWKwW8OHjXoGMOIE2Cvg7ccJP9BZA4ug1b9PR9WwdkyYTH0Kk6nwcJiqlke8HQEP4yjRCdsi+B9l/KMwY4I/jBYMga8F/50sH8KPuWZqSA4WhAMRvDLONnUDQORhyc+oyez3jB4IoIXx0n1M+Gwg+9dwnCkDjOxVQ2PG7xkcOHYJboC3nZwIErYWq5/J7ZyUA/T1YHG4srBTm9ZlDBSqtnlDJj9b1z1cNjg4Thh8NjNSYGrAd40+KT0XDW6kViua8hmgs3we5ywpYRUNWqxVRnVuVCAk+E6+DFOOFTCSapFHbVCgRKoemAO9MHXccLBElK1a7ypyqhas/niZvg4ThgpFVUdLFBrH6WaJ6pWGDB4Nk4YLtVl9UE+GyNC2s0RVwrPG3weJewLM97EVqWSuBquVN3Lwymyy7R5uri64HWD96KEn9wkuHKwEXaZjAmGtWRklRoDe+Aa+MpgT5R4/GTWanjHwTcGa0U2W8SmObNZZBvhEQe/utR/+aGDd51csVyVplZyypUal4ep8YCDV13qA2CHg11OqufhHGVVmM0bBV8En3pLXOpn2C0OBh0cX4Quk/AGWKoD+33wuJQb4Ts/9DldQF7VtVadIdb5paoMew12u5Q74TODh5weKMuVBqPoek2nq2G3eVNTthl8YPCAg0sy+HGZKvXavAoeNLjf+WNtfv81C/Nnj9RZKIIQBvWycwVe6Z8NhqzNb/s26+fbNaJYrJwpU7bM1Jhc0P633mBr87p6344YbJD7L810ihWeF4l5AXxhPuxT7oIvDf+rLwNXyYCcml8PnAUfSXrKDXDQ4B5J7lDlC0V2elb5kuD7IUu5IrinX++OToFDRx6tXbWh+j9lqXftvgDOZ+DQUKfrFVCQCXsMnrTUG/FyUKMTlhWBQ/0oyDtDBjst9adfMLhDQ8qyohJarQdYITRXf6eW+sTxSbVJju4WOPi6UtWiIKdvN1+dUh+b3te36hq7pUa4yUpFW0ERthnus9Rf7laDm+DiDFtxJLYRH393p/7p1w/rFE6jKoSppFnIJrgNbk+9bzYpzdvltsAflG1SJDXBergl9SZuUPAGZIgIl6VvQZ9r4Xoh12knIOuySytGXg19Qq5RRQsW1WVv40oleWDvhV4hVykdOuSqYmSTsmquuPJCdinuVmqaqxF70LNJlTqVkCV/AQ=="
             },
             {
               "Index": 123,
-              "Count": 178,
-              "Data": "AmXQvUvVcRQG8M85l3t9ITUqh+xlKMitsampsamhsaGhFmnoT4imBhclKkIcQnohCZG4NcjFmiIiyEKqIcJBIiQkwqE34/e7X9AKngOHc57n8DxnPrTPr/QzHcwGneB58D5YDb4FP4MryWRyM7mV3E3mkodJO1lIOqUWS3XK/HHhVPzZZCaZTq4m48nlZCNYa3Cvlx+HuT864kb/lqe14EPwKbrcS0Vb3ZgqNz8m89v8LGzz8jT5/o+nL8VPlWU5uVb21e0Hye0gedfiyV5eje7zNrde9Ka8aaXY+hysl/q6rV8vu9XCrWIsBy+DZ8Fi0A7mgplgKpgMxnt4UcVrstHgAteTR31sDvP64H6/GozVm4t/Y6zGOc5yhtOc4iQnOM4xjnKEQ4ywhx301mHLq5ea/G6xFEy0mBhkc+iAO8FOdjFYi7q6Vi1NGjTpoY8BhmrsrjH8H7rzLmeglrT+AA=="
+              "Count": 184,
+              "Data": "ArXQMQ4BURCA4e+9XdtQ0S21SDQOgMIRtBKdWq1UuwZXEAdwBRW1RuUAEsnbK+ybaqb6Mv8tuO5eHXmnYsaSLt/As6idc6N9xmk58Is8Yu1eta1EyvRgmc7AgD2XyCcOvYu2RUxYM6fHlGNosp7iyDYD14irlHSRem7+"
             },
             {
               "Index": 125,
@@ -1000,629 +1000,733 @@
               ]
             }
           ],
-          "NextId": 658,
+          "NextId": 662,
           "Nodes": [
             {
               "Id": 48,
               "Position": "2157.40698,2036.78137,495.231812",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 50,
               "Position": "2972.07593,-1297.77759,495.231689",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 52,
               "Position": "2479.80396,-3418.4707,508.144531",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 55,
               "Position": "-180.769043,-3819.62207,684.62085",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 88,
               "Position": "-526.596191,4314.32959,516.851562",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 90,
               "Position": "-1748.95837,4615.59326,516.851562",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 92,
               "Position": "-2787.06641,4109.91602,516.851562",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 94,
               "Position": "-4149.80615,2371.20825,516.851562",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 96,
               "Position": "-5170.02832,438.241943,516.851562",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 98,
               "Position": "-5711.85107,-1134.86035,516.851562",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 103,
               "Position": "2763.69214,446.665192,492.812378",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 107,
               "Position": "-582.459717,-6335.47363,684.621582",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 109,
               "Position": "-4231.68555,-2678.87256,684.62085",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 111,
               "Position": "-2732.44287,-6938.55371,684.621582",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 113,
               "Position": "-3070.50049,-5136.99316,684.621582",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 115,
               "Position": "-2658.56006,-3121.86914,684.62085",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 118,
               "Position": "-1547.47864,-3434.75269,684.62085",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 120,
               "Position": "-762.951904,-1203.29919,684.62085",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 122,
               "Position": "-2294.24951,-355.385986,684.62085",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 124,
               "Position": "-3809.13818,-459.619385,684.62085",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 126,
               "Position": "-4590.3418,-1755.95435,684.62085",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 129,
               "Position": "1257.27173,-3778.92407,566.857971",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 154,
               "Position": "1807.46606,-3727.95361,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 187,
               "Position": "2045.86182,-7117.57227,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 189,
               "Position": "7106.81836,-6761.62891,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 191,
               "Position": "7398.01172,-10901.9463,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 193,
               "Position": "2337.0542,-11257.8896,550.255859",
+              "TangentMode": "PitchOnly",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 196,
               "Position": "7253.521,-8847.50781,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 200,
               "Position": "2192.56323,-9203.44922,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 204,
               "Position": "9941.81641,-6562.24023,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 206,
               "Position": "10127.5762,-9203.44922,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 208,
               "Position": "12017.5352,-9070.52539,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 210,
               "Position": "11831.7764,-6429.31543,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 213,
               "Position": "10352.6299,-12403.3672,550.256348",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 215,
               "Position": "7517.63037,-12602.7549,550.256348",
+              "TangentMode": "PitchOnly",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 218,
               "Position": "12242.5908,-12270.4443,550.256348",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 221,
               "Position": "12423.1631,-14837.9121,550.256348",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 223,
               "Position": "13247.0293,-16099.7842,550.256348",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 227,
               "Position": "15171.5742,-16316.5049,550.256348",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 229,
               "Position": "17755.0723,-16297.9365,550.256348",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 231,
               "Position": "17755.0723,-10173.5244,550.256348",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 233,
               "Position": "17755.0098,-25881.8945,567.649475",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 236,
               "Position": "17755.0723,-6429.31543,550.255859",
-              "AutoTangents": false,
+              "TangentMode": "Full",
+              "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 239,
               "Position": "15206.2422,-6429.31543,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 241,
               "Position": "15206.2422,-3121.86914,550.255859",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 243,
               "Position": "11831.7764,-3121.86938,550.255859",
+              "TangentMode": "PitchOnly",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 246,
               "Position": "7517.63086,-926.862366,495.231445",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 248,
               "Position": "9597.94434,1319.59961,495.231445",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 250,
               "Position": "8238.71191,3965.00928,495.231445",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 252,
               "Position": "4514.3291,5858.8374,495.231445",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 254,
               "Position": "1778.16406,7750.73096,495.231445",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 256,
               "Position": "5503.63281,8332.73242,495.231445",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 258,
               "Position": "10534.29,6375.9248,495.231445",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 260,
               "Position": "14844.1562,2891.91357,495.231445",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 262,
               "Position": "15303.3447,212.154297,495.231445",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 265,
               "Position": "21004.7637,-10173.5234,550.256348",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 269,
               "Position": "33818.9922,-6205.95264,0",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 270,
               "Position": "23287.3438,-10398.8447,550.256348",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 278,
               "Position": "24649.4414,-10793.7354,550.256348",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 280,
               "Position": "17755.0723,-18759.3125,550.256531",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 282,
               "Position": "17755.0723,-22628.1934,550.256714",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 293,
               "Position": "17755.0723,-22934.5176,550.256714",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 295,
               "Position": "16769.1055,-27352.9102,503.977844",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 297,
               "Position": "13467.3691,-27551.8516,492.464966",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 299,
               "Position": "8879.09668,-27304.9805,496.825012",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 341,
               "Position": "27769.6816,-11867.8359,550.418945",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 354,
               "Position": "30474.2832,-12854.1914,602.554565",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 356,
               "Position": "31981.0293,-13403.6953,830.351257",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 358,
               "Position": "39388.4727,-16099.7842,830.351013",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 360,
               "Position": "33450.0156,-13938.5439,870.767334",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 364,
               "Position": "41807.6367,2008.52185,492.428711",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 368,
               "Position": "30342.4102,-33400.5547,490.460938",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 372,
               "Position": "29105.0703,-32950.1992,490.461914",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 377,
               "Position": "43019.1602,1566.95703,493.478516",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 381,
               "Position": "38476.1953,-15767.7715,836.753235",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 383,
               "Position": "37413.375,-18271.2051,547.166992",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 385,
               "Position": "34342.4219,-22301.9629,490.421814",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 388,
               "Position": "34177.1641,-14203.1826,867.025574",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 390,
               "Position": "35382.1758,-11562.0303,554.360901",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 392,
               "Position": "37893.9062,-8834.2959,491.390778",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 395,
               "Position": "34406.6055,-13383.4287,837.652222",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 397,
               "Position": "38270.2383,-16477.084,837.651978",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 405,
               "Position": "30566.8887,-14174.1406,490.460938",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 407,
               "Position": "32722.9453,-15637.2344,490.460938",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 409,
               "Position": "33231.875,-16986.5488,490.45752",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 411,
               "Position": "33179.0312,-18510.8945,490.546265",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 413,
               "Position": "33136.4375,-21887.8926,490.164001",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 416,
               "Position": "25479.1797,-9526.22461,435.737488",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 418,
               "Position": "17755.0723,-12489.7676,550.256348",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 443,
               "Position": "17755.0723,-14058.5723,550.256348",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 445,
               "Position": "17034.7578,-14058.5723,550.255981",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 449,
               "Position": "16206.002,-10173.5244,550.255981",
+              "TangentMode": "PitchOnly",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 451,
               "Position": "16206.002,-11875.9824,550.255981",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 454,
-              "Position": "21802.5117,-6502.85889,1289.7229",
+              "Position": "21802.5117,-6429.31494,550.255981",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 456,
               "Position": "352.440918,-3802.0022,658.234009",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 458,
               "Position": "9699.84863,-3121.86914,490.462891",
-              "AutoTangents": false,
-              "CornerRadius": 150
-            },
-            {
-              "Id": 460,
-              "Position": "6864.85645,-3321.25977,490.464844",
+              "TangentMode": "PitchOnly",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 465,
               "Position": "9805.98926,-4631.00439,516.691345",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 467,
               "Position": "6970.99463,-4830.39404,516.692444",
+              "TangentMode": "Disabled",
               "AutoTangents": false,
               "CornerRadius": 150
             },
             {
               "Id": 470,
               "Position": "4677.53662,-22928.6953,490.460449",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 472,
               "Position": "3055.71802,-24300.0547,490.459961",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 474,
               "Position": "5211.08447,-28458.1113,490.460449",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 476,
               "Position": "7642.88184,-29742.3125,490.460449",
+              "TangentMode": "Full",
               "AutoTangents": true,
               "CornerRadius": 150
             },
             {
               "Id": 501,
               "Position": "3790.44824,-26475.3125,490.460175",
+              "TangentMode": "Disabled",
+              "AutoTangents": false,
+              "CornerRadius": 150
+            },
+            {
+              "Id": 659,
+              "Position": "6864.8584,-3321.26367,490.458008",
+              "TangentMode": "PitchOnly",
               "AutoTangents": false,
               "CornerRadius": 150
             }
@@ -2790,7 +2894,7 @@
               "Id": 238,
               "StartNodeId": 236,
               "EndNodeId": 231,
-              "StartTangent": "0,-1248.0697,0.000162760422",
+              "StartTangent": "0,-1248.0697,-1.70970866E-12",
               "EndTangent": "0,1248.0697,1.9382591E-11",
               "Width": 500,
               "LeftExtraStart": 0,
@@ -2814,7 +2918,7 @@
               "StartNodeId": 239,
               "EndNodeId": 236,
               "StartTangent": "849.610352,0,0",
-              "EndTangent": "-849.609375,0,0",
+              "EndTangent": "-849.610046,0,0",
               "Width": 500,
               "LeftExtraStart": 0,
               "LeftExtraEnd": 0,
@@ -4140,7 +4244,7 @@
               "StartNodeId": 231,
               "EndNodeId": 449,
               "StartTangent": "-516.35675,0,0",
-              "EndTangent": "516.35675,0,0.000122070312",
+              "EndTangent": "516.35675,0,0.000122070305",
               "Width": 500,
               "LeftExtraStart": 0,
               "LeftExtraEnd": 0,
@@ -4162,8 +4266,8 @@
               "Id": 455,
               "StartNodeId": 236,
               "EndNodeId": 454,
-              "StartTangent": "1254.52734,0,-19.9306641",
-              "EndTangent": "-1349.14648,24.5144844,-246.489014",
+              "StartTangent": "1349.14648,0.000162760407,4.06901017E-05",
+              "EndTangent": "-1349.14648,-0.000162760407,-4.06901017E-05",
               "Width": 500,
               "LeftExtraStart": 0,
               "LeftExtraEnd": 0,
@@ -4228,57 +4332,11 @@
               "IsOneWay": false
             },
             {
-              "Id": 461,
-              "StartNodeId": 458,
-              "EndNodeId": 460,
-              "StartTangent": "-944.997375,-66.4635391,0.000651041686",
-              "EndTangent": "944.997375,66.4635391,-0.000651041686",
-              "Width": 500,
-              "LeftExtraStart": 0,
-              "LeftExtraEnd": 0,
-              "RightExtraStart": 0,
-              "RightExtraEnd": 0,
-              "Ramp": false,
-              "Profile": null,
-              "Bridge": null,
-              "Props": null,
-              "LaneCount": 2,
-              "ForwardLanes": 1,
-              "CrossingAtStart": true,
-              "CrossingAtEnd": true,
-              "ConformTerrain": true,
-              "BackwardLanes": 1,
-              "IsOneWay": false
-            },
-            {
-              "Id": 462,
-              "StartNodeId": 460,
-              "EndNodeId": 467,
-              "StartTangent": "35.3793945,-503.044678,8.74255371",
-              "EndTangent": "-35.3793945,503.044922,-8.74252319",
-              "Width": 500,
-              "LeftExtraStart": 0,
-              "LeftExtraEnd": 0,
-              "RightExtraStart": 0,
-              "RightExtraEnd": 0,
-              "Ramp": false,
-              "Profile": null,
-              "Bridge": null,
-              "Props": null,
-              "LaneCount": 2,
-              "ForwardLanes": 1,
-              "CrossingAtStart": true,
-              "CrossingAtEnd": true,
-              "ConformTerrain": true,
-              "BackwardLanes": 1,
-              "IsOneWay": false
-            },
-            {
               "Id": 466,
               "StartNodeId": 465,
               "EndNodeId": 458,
               "StartTangent": "-35.3798828,503.044922,-8.74279785",
-              "EndTangent": "35.3808594,-503.045166,8.74282837",
+              "EndTangent": "35.3808594,-503.045166,8.74282074",
               "Width": 500,
               "LeftExtraStart": 0,
               "LeftExtraEnd": 0,
@@ -4463,6 +4521,52 @@
               "EndNodeId": 474,
               "StartTangent": "397.571289,-710.701172,9.15527344E-05",
               "EndTangent": "-620.108337,525.87384,-4.42104538E-05",
+              "Width": 500,
+              "LeftExtraStart": 0,
+              "LeftExtraEnd": 0,
+              "RightExtraStart": 0,
+              "RightExtraEnd": 0,
+              "Ramp": false,
+              "Profile": null,
+              "Bridge": null,
+              "Props": null,
+              "LaneCount": 2,
+              "ForwardLanes": 1,
+              "CrossingAtStart": true,
+              "CrossingAtEnd": true,
+              "ConformTerrain": true,
+              "BackwardLanes": 1,
+              "IsOneWay": false
+            },
+            {
+              "Id": 660,
+              "StartNodeId": 458,
+              "EndNodeId": 659,
+              "StartTangent": "-944.996765,-66.4648438,-0.00162760413",
+              "EndTangent": "944.996765,66.4648438,0.00162760413",
+              "Width": 500,
+              "LeftExtraStart": 0,
+              "LeftExtraEnd": 0,
+              "RightExtraStart": 0,
+              "RightExtraEnd": 0,
+              "Ramp": false,
+              "Profile": null,
+              "Bridge": null,
+              "Props": null,
+              "LaneCount": 2,
+              "ForwardLanes": 1,
+              "CrossingAtStart": true,
+              "CrossingAtEnd": true,
+              "ConformTerrain": true,
+              "BackwardLanes": 1,
+              "IsOneWay": false
+            },
+            {
+              "Id": 661,
+              "StartNodeId": 659,
+              "EndNodeId": 467,
+              "StartTangent": "35.3787422,-503.043457,8.74481201",
+              "EndTangent": "-35.3787422,503.043457,-8.74481201",
               "Width": 500,
               "LeftExtraStart": 0,
               "LeftExtraEnd": 0,
@@ -38055,692 +38159,6 @@
           "Children": []
         },
         {
-          "__guid": "51777aeb-f95c-4655-ba0c-bf85813614e5",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 461 [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "e6aca549-fc40-44d3-b6a1-9cb906c874ed",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Surface",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 461,
-              "Signature": -2921953873711250791
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "36414a96-cdf9-46af-a452-ed60eeb2c5e2",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "c33a5c40-468b-882e-824d-4fa0aa1d4161"
-                },
-                "Materials": [
-                  "roadtool2/materials/asphalt.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "d8875570-bb1b-4839-820d-116d83fa94f0",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 461 markings [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "367b15e8-8b43-46dc-a0cd-8d71cde7ab63",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Marking",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 461,
-              "Signature": 7026005822728273653
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "e21ee9c3-88a8-4c11-b125-88514a849444",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "None",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "0b68daa9-6e54-8e20-a1b2-47a1475593c1"
-                },
-                "Materials": [
-                  "roadtool2/materials/lineyellow.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "Off",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": false,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "5b0b5aaa-2cea-42d7-ab35-215735cb654f",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 461 border [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "a10815c4-a2d9-4098-872d-d8832f4a2ef0",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Border",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 461,
-              "Signature": -2129794248807326158
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "65e776e0-dbde-4aeb-895a-4eb11426066e",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "42d71ebc-f6b5-85c6-9757-21eadd8969a7"
-                },
-                "Materials": [
-                  "roadtool2/materials/sidewalk.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "ec6647cb-9fe0-40d4-8250-f9f675bdfb16",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 462 [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "836781eb-2115-4869-8bff-b63ac036c8c8",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Surface",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 462,
-              "Signature": 671792234655738458
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "884fdd96-e298-4774-812a-d471a345d17f",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "b662618f-afdb-8973-86ee-9787903ed5de"
-                },
-                "Materials": [
-                  "roadtool2/materials/asphalt.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "b79bff32-bb97-48b4-9faf-1947aecaea6c",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 462 markings [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "e86e9059-4e23-463b-b7aa-ebed7116b304",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Marking",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 462,
-              "Signature": 497739968902075566
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "7ba90afd-8af0-4174-8d59-50702c922aff",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "None",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "e5f64322-6683-8408-af88-ae8b11a969d9"
-                },
-                "Materials": [
-                  "roadtool2/materials/lineyellow.vmat",
-                  "roadtool2/materials/crossingstrip.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "Off",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": false,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "e6d71379-2785-4df8-853d-66af64289c63",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 462 border [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "1e46b889-d887-44f3-ac6f-693a18993656",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Border",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 462,
-              "Signature": 6079994091276505817
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "e85d7785-5522-49ab-b136-0c88b1a81062",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "636a28ba-40ba-8549-ba3c-29ba5377c800"
-                },
-                "Materials": [
-                  "roadtool2/materials/sidewalk.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "a8d1a279-9da9-4fe4-a19c-deb6fd9ddb92",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 466 [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "dce9ed45-22b7-47e8-ada3-c2fd0aa3621e",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Surface",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 466,
-              "Signature": -3913773094907369063
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "5d6449f0-5f54-472a-97e4-4cfdd7bfae90",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "984c2b2c-e5c0-833e-91a4-e7d60ab2aa13"
-                },
-                "Materials": [
-                  "roadtool2/materials/asphalt.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "51dc819c-9e1f-4fcb-8063-46e2bbb91dc3",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 466 markings [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "0dbe838b-98f4-4921-837d-04079a5e1cea",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Marking",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 466,
-              "Signature": -4359470209630191188
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "58cb3261-405d-4fe3-ace2-1ceb520e0263",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "None",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "9a6f9eba-bd86-83ca-8648-b822e5731d94"
-                },
-                "Materials": [
-                  "roadtool2/materials/lineyellow.vmat",
-                  "roadtool2/materials/crossingstrip.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "Off",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": false,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "6a755970-8e24-45b9-83c1-e185f4d9fe51",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 466 border [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "60cf1d53-c8f2-48a4-9769-c75625b43f80",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Border",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 466,
-              "Signature": -5390854614775802488
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "7d5d0185-675b-496e-8768-272bffa68278",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "c27a94db-88b8-84b2-98f0-103dd3bcbe6e"
-                },
-                "Materials": [
-                  "roadtool2/materials/sidewalk.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
           "__guid": "184a0ec3-2558-437a-a9d3-bd416eccf002",
           "__version": 2,
           "Flags": 0,
@@ -38817,83 +38235,6 @@
           "Children": []
         },
         {
-          "__guid": "96a58620-097e-4f2d-ac38-08d015cefc55",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 468 markings [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "056213e4-de7a-4b68-9e0a-fb19b836d0ae",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Marking",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 468,
-              "Signature": -8719244375062894974
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "de74f5ff-e7d4-49c6-ae01-2423ea6bd7f7",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "None",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "8595e599-7c65-8ac7-ade9-8a56cd69a5b8"
-                },
-                "Materials": [
-                  "roadtool2/materials/lineyellow.vmat",
-                  "roadtool2/materials/crossingstrip.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "Off",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": false,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
           "__guid": "d01e9da1-0287-4e4f-b47f-57ccc4aabd9b",
           "__version": 2,
           "Flags": 0,
@@ -38944,235 +38285,6 @@
               "Mesh": {
                 "Data": {
                   "$blob": "a2a817b1-747f-8367-bcca-3a96b847544e"
-                },
-                "Materials": [
-                  "roadtool2/materials/sidewalk.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "3330ac3a-e647-4068-bac7-c23c34294052",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 469 [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "862a8dde-0b73-41b5-a0e3-146145de9dcc",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Surface",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 469,
-              "Signature": 1246281604648682588
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "b2fb990d-9bb4-4c71-ab4e-142cff3207e5",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "be8d4d2c-5405-8d4e-8055-776ae5b17ff4"
-                },
-                "Materials": [
-                  "roadtool2/materials/asphalt.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "b7ecdd4b-9b00-4728-974f-c3d81142a363",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 469 markings [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "a69f983c-f552-4697-89ed-b3acb824c295",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Marking",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 469,
-              "Signature": -7493001614605799309
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "0a8aefb2-b039-4bd5-b7d5-2db9f5dcfbe1",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "None",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "7bf128eb-f1dd-8180-b509-3f6881e262cb"
-                },
-                "Materials": [
-                  "roadtool2/materials/lineyellow.vmat",
-                  "roadtool2/materials/crossingstrip.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "Off",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": false,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "690e4369-a9aa-4b84-ade4-e1afb20468f0",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Road 469 border [1/1]",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "576c3004-d33f-442e-a58d-86915e2c9e42",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Border",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": -1,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": 469,
-              "Signature": -6973965911609998251
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "4ea67eed-4058-43d4-9c18-788c3767eeb3",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "36f42827-1c28-805a-bc5a-44ea640606d1"
                 },
                 "Materials": [
                   "roadtool2/materials/sidewalk.vmat"
@@ -43685,82 +42797,6 @@
           "Children": []
         },
         {
-          "__guid": "454f6d3a-1aa8-4ea8-8d56-593f4284eefc",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Junction 231",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "b08de1bc-b56d-41c2-9300-b89c15f9880f",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Surface",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": 231,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": -1,
-              "Signature": 4460153999336544331
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "5de51e29-6eb5-4449-ac26-02aaebbe1165",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "6699b928-5021-8f17-ab0f-077f1298e154"
-                },
-                "Materials": [
-                  "roadtool2/materials/asphalt.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
           "__guid": "60a9fe84-a054-42ff-8431-bb00c5f24d6f",
           "__version": 2,
           "Flags": 0,
@@ -45739,310 +44775,6 @@
           "Children": []
         },
         {
-          "__guid": "344b56bc-04df-4a5a-a403-d4f0eecfe47a",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Junction 458",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "a4008bdf-3653-428d-a178-3e7af67476b6",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Surface",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": 458,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": -1,
-              "Signature": -8131462798547835289
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "f20814c8-7e16-425c-a414-aa3267162d58",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "3b38fe0a-59da-8fb1-8a61-a332d273ad02"
-                },
-                "Materials": [
-                  "roadtool2/materials/asphalt.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "36db89e2-ae79-4bdd-9b61-d5847bc4a636",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Junction 458 border",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "fcea173e-90cc-4a57-8eb6-303e42167811",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Border",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": 458,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": -1,
-              "Signature": 6983394640058366893
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "003f8036-c7b7-4303-9e86-6fb09c168847",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "e1268534-e7fa-892b-8098-1422d1ea75cd"
-                },
-                "Materials": [
-                  "roadtool2/materials/sidewalk.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "71199b2c-47b2-4459-b246-fa7164e5666b",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Junction 460",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "f70178e5-2615-474f-a474-57a94853e357",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Surface",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": 460,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": -1,
-              "Signature": 1541873104739280362
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "c9dd347c-9711-41b5-b7ab-3f723e2af8d7",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "731068cd-1666-8e4b-bfe7-40c72b76e430"
-                },
-                "Materials": [
-                  "roadtool2/materials/asphalt.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "4c471005-5108-430f-9b34-b2477543584f",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Junction 460 border",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "8e75bbec-0d29-4809-b8ec-0881b33bba94",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Border",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": 460,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": -1,
-              "Signature": -6116101726386020197
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "e8d9ebbe-e36e-4891-9ede-364c3b16d303",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "01fadf7f-e43d-81f5-8b6c-aa3bf3fc7894"
-                },
-                "Materials": [
-                  "roadtool2/materials/sidewalk.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
           "__guid": "b5f7445c-d480-44cd-b8ba-020c6172c161",
           "__version": 2,
           "Flags": 0,
@@ -46096,234 +44828,6 @@
                 },
                 "Materials": [
                   "roadtool2/materials/asphalt.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "7c1e2ec5-9e1c-4b23-9118-45943ee636da",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Junction 465 border",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "76df4882-7f11-48b7-ab1c-8aecb229e672",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Border",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": 465,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": -1,
-              "Signature": 9028567615471298463
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "d8d3a6b6-e14d-4e42-b951-83c02896768a",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "e0a3727a-807a-819b-827c-a8a804624d07"
-                },
-                "Materials": [
-                  "roadtool2/materials/sidewalk.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "2d02d07c-f2ca-41e8-9514-c06c52f0e97e",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Junction 467",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "4a3d007f-981a-4868-83de-cad58fe0cbb1",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Surface",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": 467,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": -1,
-              "Signature": 8234206141656403300
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "e8e879d8-b7f8-4da2-9664-f533d52a4906",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "cc12bc9b-956d-8206-b693-9c4abe874cdf"
-                },
-                "Materials": [
-                  "roadtool2/materials/asphalt.vmat"
-                ]
-              },
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "OnObjectTriggerEnter": null,
-              "OnObjectTriggerExit": null,
-              "OnTriggerEnter": null,
-              "OnTriggerExit": null,
-              "RenderType": "On",
-              "RollingResistance": null,
-              "SmoothingAngle": 40,
-              "Static": true,
-              "Surface": null,
-              "SurfaceVelocity": "0,0,0"
-            }
-          ],
-          "Children": []
-        },
-        {
-          "__guid": "f8ddee75-2111-4903-8511-b68caf3c63b4",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Junction 467 border",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "1,1,1",
-          "Tags": "road_chunk,world",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "867e968c-7220-4500-a599-646845623cef",
-              "__enabled": true,
-              "Flags": 0,
-              "ChunkCount": 1,
-              "ChunkIndex": 0,
-              "Kind": "Border",
-              "Locked": false,
-              "LotId": -1,
-              "NodeId": 467,
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "SegmentId": -1,
-              "Signature": -211434461743163620
-            },
-            {
-              "__type": "Sandbox.MeshComponent",
-              "__guid": "f3737456-b991-4a5a-ba41-20791ead8a5d",
-              "__enabled": true,
-              "Flags": 0,
-              "ColliderFlags": 0,
-              "Collision": "Mesh",
-              "Color": "1,1,1,1",
-              "Elasticity": null,
-              "Friction": null,
-              "HideInGame": false,
-              "IsTrigger": false,
-              "Mesh": {
-                "Data": {
-                  "$blob": "ec758e64-4037-8180-8425-de6bad56da9a"
-                },
-                "Materials": [
-                  "roadtool2/materials/sidewalk.vmat"
                 ]
               },
               "OnComponentDestroy": null,
@@ -46575,7 +45079,83 @@
           "Children": []
         },
         {
-          "__guid": "edc7e09e-c30c-4208-9f0d-0146661d38cf",
+          "__guid": "eeddf028-3bed-40ee-b79b-9f53e43485c0",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Junction 231",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "0053dac7-baaa-4112-8485-bfe4d98b4d67",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Surface",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": 231,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": -1,
+              "Signature": -2384076973804744668
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "20b6abb8-0568-43eb-b811-16cb72b24be5",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "3f68e469-63c8-8acf-8c37-d05e2b104902"
+                },
+                "Materials": [
+                  "roadtool2/materials/asphalt.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "66d0d1d0-bd85-44aa-a53d-d9feb42ae7c3",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 238 [1/1]",
@@ -46592,7 +45172,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "4ab4937b-e8af-42c3-8b7e-3f3b3e86d81c",
+              "__guid": "a23d5cea-51f8-42f7-9367-c0376b10681d",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46608,11 +45188,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 238,
-              "Signature": 3596929086132468215
+              "Signature": 8102712980802664249
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "bfe7fb5e-af97-4853-84d3-2524b2a4ac7d",
+              "__guid": "5f893494-d66a-44d7-a158-29e005dd1cc1",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46624,7 +45204,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "7c633a35-5dad-8afa-b36f-9283038086be"
+                  "$blob": "731c7f66-de90-802c-8a24-2de891a5b9ea"
                 },
                 "Materials": [
                   "roadtool2/materials/asphalt.vmat"
@@ -46651,7 +45231,7 @@
           "Children": []
         },
         {
-          "__guid": "32dcfb33-dc67-48ec-925f-da8cc74f53e3",
+          "__guid": "79c3751f-a8f9-4c32-820c-1e0d0be1ca77",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 238 markings [1/1]",
@@ -46668,7 +45248,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "c8f557ab-d0b4-4fb5-b9fd-2f0b885109c4",
+              "__guid": "704e8dd3-c432-4459-80c1-c5f439a1c3fd",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46684,11 +45264,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 238,
-              "Signature": -6478791950608967997
+              "Signature": -1857750222816966477
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "58b86ca5-7737-4225-b079-a62d15b7d082",
+              "__guid": "bc698c4c-3e0c-4876-af0d-a40a76578e53",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46700,7 +45280,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "b6317640-74aa-8edb-a10a-8750f7e76867"
+                  "$blob": "008d8d67-d45a-898c-9f7c-0c6599967d15"
                 },
                 "Materials": [
                   "roadtool2/materials/lineyellow.vmat",
@@ -46728,7 +45308,7 @@
           "Children": []
         },
         {
-          "__guid": "1606c9ed-d675-41db-8232-b2a19d755872",
+          "__guid": "4642c29e-f1ee-43ec-8bc5-565c14876544",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 238 border [1/1]",
@@ -46745,7 +45325,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "0fb8eaa6-ea03-436d-8ba2-3db6f3b2b535",
+              "__guid": "5a1069d0-bad9-4d10-81e1-4b357c0e89cf",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46761,11 +45341,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 238,
-              "Signature": 1775796508972260431
+              "Signature": 2453470719941263346
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "55160bb7-0bcd-41f4-9218-9966ff6ca9d5",
+              "__guid": "0999f8b2-49c7-4808-9133-0e36f5e898d3",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46777,7 +45357,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "498a5f84-df40-841b-a7e3-01c4e745b1f4"
+                  "$blob": "4a191092-c885-8ecd-bcfa-babc61a475a6"
                 },
                 "Materials": [
                   "roadtool2/materials/sidewalk.vmat"
@@ -46804,7 +45384,7 @@
           "Children": []
         },
         {
-          "__guid": "f82a994c-e4d1-464d-9c1f-d470a1d7d8cc",
+          "__guid": "80f95cec-d2a5-41d6-a39e-bdd8c066fa92",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 [1/1]",
@@ -46821,7 +45401,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "f491b5e5-0eba-4da6-b580-b9f4642fb60f",
+              "__guid": "e686a23c-cea6-4b8a-9ca5-d50f06bdcb95",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46837,11 +45417,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 455,
-              "Signature": 4198016864696224035
+              "Signature": -4760912210970204888
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "154bb8a8-88c1-42fd-bad9-1cca73bdb694",
+              "__guid": "2d94803d-0908-4522-a8cd-831afd209810",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46853,7 +45433,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "1cbf08fc-3b6e-85dc-b97e-6f7caeb651b5"
+                  "$blob": "86421efd-179d-8f8d-94f1-b3d8b1b2fe0e"
                 },
                 "Materials": [
                   "roadtool2/materials/asphalt.vmat"
@@ -46880,7 +45460,7 @@
           "Children": []
         },
         {
-          "__guid": "7be33492-4115-483c-be02-ee167ed86367",
+          "__guid": "3966fab4-69a9-4df7-9889-3471b9d87a7c",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 markings [1/1]",
@@ -46897,7 +45477,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "93dac613-3b90-4f9e-8d48-eb42c52c934f",
+              "__guid": "f258e766-7076-43d6-a9c5-13755bc6382b",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46913,11 +45493,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 455,
-              "Signature": 3708303145027528634
+              "Signature": -3240613566376892947
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "c8ae7512-3061-4af4-a8b5-dcdd62952c04",
+              "__guid": "f44b4331-648b-4cc6-9081-58599c1d7d02",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -46929,7 +45509,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "be40b89b-8d39-80ea-94ea-787ad5c904ba"
+                  "$blob": "3188bbfc-77ab-81b0-9f0e-79f9a28f341d"
                 },
                 "Materials": [
                   "roadtool2/materials/lineyellow.vmat",
@@ -46957,7 +45537,7 @@
           "Children": []
         },
         {
-          "__guid": "45f7766d-880a-4b93-962a-c4d7288f3a06",
+          "__guid": "c735df6b-526d-4fe5-a171-9cbe77c54229",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 border [1/1]",
@@ -46974,7 +45554,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "d99a588a-92fc-468b-a621-477afa61b089",
+              "__guid": "e102423e-38cd-4865-8264-56c9ce69d486",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -46990,11 +45570,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 455,
-              "Signature": 8384482169124791014
+              "Signature": 5866776862096936707
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "b7e7e328-bc1f-4400-be41-82c03f9df7d0",
+              "__guid": "69e5a33d-ca32-4d6e-bbd5-05f282619161",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47006,7 +45586,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "04731dfd-8ce4-8f68-9bb6-a6cd7ccb9b78"
+                  "$blob": "daf9e404-3638-8d0b-9ea5-b599f80c393e"
                 },
                 "Materials": [
                   "roadtool2/materials/sidewalk.vmat"
@@ -47033,7 +45613,7 @@
           "Children": []
         },
         {
-          "__guid": "f43ad7ad-799a-4a50-8d9c-70a980d3529f",
+          "__guid": "1b2ea7b9-7c7f-4d2d-a253-36922cadf399",
           "__version": 2,
           "Flags": 0,
           "Name": "Road 455 end cap",
@@ -47050,7 +45630,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "29adadea-156a-44cd-a202-b95b654060fc",
+              "__guid": "daa02e47-3dbd-49ea-9534-505ac269753a",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 2,
@@ -47066,11 +45646,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": 455,
-              "Signature": 7516225846809117027
+              "Signature": 8871624222265273978
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "54abc5cc-bffc-4692-bcc9-f78f8171f5e4",
+              "__guid": "b93cd614-5714-4193-98b7-241c85d64d32",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47082,7 +45662,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "4294ddba-fba1-8215-98a4-8d076f2f6bd3"
+                  "$blob": "c0ea5545-5db7-8c4e-ae72-c6c0d09dc484"
                 },
                 "Materials": [
                   "roadtool2/materials/asphalt.vmat",
@@ -47110,7 +45690,7 @@
           "Children": []
         },
         {
-          "__guid": "da801e95-3517-4dcd-814c-8125feb677eb",
+          "__guid": "e48db41c-4cff-4350-bf7d-0cb272928f88",
           "__version": 2,
           "Flags": 0,
           "Name": "Junction 231 border",
@@ -47127,7 +45707,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "81c6282e-ced2-4630-beed-36329d40cb30",
+              "__guid": "a77b5a0a-4414-4a9f-a670-37578b7069b7",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47143,11 +45723,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": -1,
-              "Signature": 6770070519294531059
+              "Signature": 5509110604320065839
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "43aa80f3-f74f-463a-a95a-4982799f6371",
+              "__guid": "fbc9423e-0d5f-4988-a3bd-6a5e61fa692c",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47159,7 +45739,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "15c073cb-3df8-8754-87f3-0ea075cc6956"
+                  "$blob": "7409a2b4-bf14-81a3-9541-085172066d13"
                 },
                 "Materials": [
                   "roadtool2/materials/sidewalk.vmat"
@@ -47186,7 +45766,7 @@
           "Children": []
         },
         {
-          "__guid": "b736372a-85e8-4288-a646-e6864ed840ef",
+          "__guid": "2417f685-9678-4d54-a6bc-f6ef0a0e5d45",
           "__version": 2,
           "Flags": 0,
           "Name": "Junction 236",
@@ -47203,7 +45783,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "78206478-100b-42d6-9c8b-e990faf52531",
+              "__guid": "c49d1b15-0715-47fd-b8c7-7c0403d62d28",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47219,11 +45799,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": -1,
-              "Signature": -6571752038352045155
+              "Signature": -3665411622335192439
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "a519d899-b30a-4d37-be45-022c4450940b",
+              "__guid": "b2206f5b-2cd7-4487-9503-137b7ace2f47",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47235,7 +45815,7 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "300c4dad-59cc-81ca-a11e-a54c65b16c2f"
+                  "$blob": "031690c0-00b2-8beb-b7f2-1583bdebdebf"
                 },
                 "Materials": [
                   "roadtool2/materials/asphalt.vmat"
@@ -47262,7 +45842,7 @@
           "Children": []
         },
         {
-          "__guid": "293d22cc-3fbb-4fc7-8fc6-d7e498520f6a",
+          "__guid": "beaf94cf-9583-4f92-861b-352e92652dd7",
           "__version": 2,
           "Flags": 0,
           "Name": "Junction 236 border",
@@ -47279,7 +45859,7 @@
           "Components": [
             {
               "__type": "RedSnail.RoadTool2.RoadChunk",
-              "__guid": "53adf2fa-464f-4ceb-91e0-05d10ba29a2f",
+              "__guid": "5f53131e-add8-4c21-8596-68e5263abae8",
               "__enabled": true,
               "Flags": 0,
               "ChunkCount": 1,
@@ -47295,11 +45875,11 @@
               "OnComponentStart": null,
               "OnComponentUpdate": null,
               "SegmentId": -1,
-              "Signature": 8154604921492945106
+              "Signature": -2035382594241885098
             },
             {
               "__type": "Sandbox.MeshComponent",
-              "__guid": "1f18dbce-21c7-4be0-bff4-d02054043bab",
+              "__guid": "7e89c714-cc24-429c-ab79-3876a6d459e5",
               "__enabled": true,
               "Flags": 0,
               "ColliderFlags": 0,
@@ -47311,7 +45891,1531 @@
               "IsTrigger": false,
               "Mesh": {
                 "Data": {
-                  "$blob": "f41302ab-b45a-8a30-87dd-223029eef6c4"
+                  "$blob": "2c537980-4e1b-8631-954f-4c7d32b61da4"
+                },
+                "Materials": [
+                  "roadtool2/materials/sidewalk.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "b03e9e11-1b15-4a14-a7b7-839bfef63751",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 466 [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "239a00a7-7cbb-408c-87fb-05bd5297c63b",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Surface",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 466,
+              "Signature": 3256696044076609351
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "174e1b6d-e624-4f99-86df-95ffc508c4c7",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "ed37bdc6-c2e5-85d5-827d-fe1e60dab29e"
+                },
+                "Materials": [
+                  "roadtool2/materials/asphalt.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "06d07426-5938-4f05-925f-48754098a817",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 466 markings [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "c12dcd8d-212f-4f0f-a940-6670d51c3e51",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Marking",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 466,
+              "Signature": -6414758408741692633
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "3ce1434f-5bbc-4ea8-87c9-ff41899c2837",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "None",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "c95ed323-34dd-88ae-9ee3-d78071ec4488"
+                },
+                "Materials": [
+                  "roadtool2/materials/lineyellow.vmat",
+                  "roadtool2/materials/crossingstrip.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "Off",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": false,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "d7e85a8d-01b4-43f5-acaa-81f566f43cb9",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 466 border [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "ab3d54b2-c937-468e-a10a-7a2474de2c61",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Border",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 466,
+              "Signature": 3030024317337143592
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "20c0df0d-ed06-4146-9265-4a1e0cd35d67",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "ba75628a-5c8a-8c81-bc06-ede1d03ac7a0"
+                },
+                "Materials": [
+                  "roadtool2/materials/sidewalk.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "59b86e10-9419-477e-a232-616a54d7ab78",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Junction 458",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "2065b1e9-b51c-469c-b834-cfc7b862e48c",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Surface",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": 458,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": -1,
+              "Signature": -1176570977903033888
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "bc850d01-8bd8-45f7-a2d4-e544ca709960",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "72922d76-ac0f-8e80-9437-a7e4d65c9e0d"
+                },
+                "Materials": [
+                  "roadtool2/materials/asphalt.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "2b8bb1d3-b223-4e0b-bc7d-bdd80091f4f0",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 468 markings [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "512ac1b6-2c58-4149-a1c0-41547a75381e",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Marking",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 468,
+              "Signature": -8719244375062894974
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "396e0168-260b-499f-8232-dccd372f61be",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "None",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "8595e599-7c65-8ac7-ade9-8a56cd69a5b8"
+                },
+                "Materials": [
+                  "roadtool2/materials/lineyellow.vmat",
+                  "roadtool2/materials/crossingstrip.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "Off",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": false,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "d6e48f8a-de92-43e4-848c-5786cf178587",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 469 [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "6ad9385b-11cf-4b9d-a956-737daaab102c",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Surface",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 469,
+              "Signature": -4220478310550874512
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "cf9ec83e-c66b-4894-b1bb-18b1864c127a",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "c4972bd2-710e-8859-8a84-ed4de3659a20"
+                },
+                "Materials": [
+                  "roadtool2/materials/asphalt.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "c25d80d8-bbdb-406f-97a8-666a646e9500",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 469 markings [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "401d0a69-232d-43fa-8235-10bd56434f14",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Marking",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 469,
+              "Signature": 5540639370518453936
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "c7013a9d-10c2-4137-b447-f976f119cac1",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "None",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "94b9b956-bdb2-81ae-a175-9c9d18d694e2"
+                },
+                "Materials": [
+                  "roadtool2/materials/lineyellow.vmat",
+                  "roadtool2/materials/crossingstrip.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "Off",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": false,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "020ede51-1deb-4329-b7c1-1f877b6a052d",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 469 border [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "769c9417-cd3c-401c-9a10-b96b0ca28cb2",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Border",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 469,
+              "Signature": 4473580026918188963
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "e97201cc-952f-476b-b5e5-9341325dd31d",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "0b94dc05-5089-8c22-a53e-13938bd59cff"
+                },
+                "Materials": [
+                  "roadtool2/materials/sidewalk.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "3d21eb6f-b291-42fd-bedc-ee3a604aca64",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 660 [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "4a91d1ac-acb1-4ad0-9576-eab58ccde367",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Surface",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 660,
+              "Signature": -4171374163613749449
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "41f36309-2399-4bdf-9fed-05d1890c87cd",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "65c40357-2b60-85de-b87d-da79992fa7c0"
+                },
+                "Materials": [
+                  "roadtool2/materials/asphalt.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "c7159b7f-a620-427c-8c02-1e446674a1c0",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 660 markings [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "fccaaad8-886d-4912-a85f-945292c44b15",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Marking",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 660,
+              "Signature": 198014828438391774
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "a638731b-eca6-40ef-b67b-d8057e25727c",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "None",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "411e9e77-f253-8a97-b9f4-2c11d6aa94eb"
+                },
+                "Materials": [
+                  "roadtool2/materials/lineyellow.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "Off",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": false,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "42c2a032-776d-4c1d-bf69-4de2a43b3e18",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 660 border [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "0462a72c-a5d2-4d6f-8198-8353e5d553b6",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Border",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 660,
+              "Signature": 8495415429184670737
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "f3ed65be-72bb-403e-bc67-29167de2de23",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "fc29e698-1bcc-87b8-9f09-736327f4e6c1"
+                },
+                "Materials": [
+                  "roadtool2/materials/sidewalk.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "64acf806-3de7-495f-9aac-7a46a913a872",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 661 [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "9d910f74-74e6-467c-ace7-4567de00dffe",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Surface",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 661,
+              "Signature": -5112610319961113832
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "9bdeb39c-d7da-479b-ba33-01c0005caaf8",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "6bb0fed3-b677-830c-bc07-614f41e146ae"
+                },
+                "Materials": [
+                  "roadtool2/materials/asphalt.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "708e0322-a85b-4436-a14b-03a6a7ea6c06",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 661 markings [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "d8d90ea1-8036-4b6c-b36f-6e2f8dc105c0",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Marking",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 661,
+              "Signature": 143793048658538948
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "af62376c-2560-416e-ae72-3328d3e851ba",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "None",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "90fb71f5-6729-836c-a74c-5378f2e37ee1"
+                },
+                "Materials": [
+                  "roadtool2/materials/lineyellow.vmat",
+                  "roadtool2/materials/crossingstrip.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "Off",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": false,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "38796507-203b-4cdc-b613-17549ee4e895",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Road 661 border [1/1]",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "c0a49764-d07f-42ed-a334-07135cd3db25",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Border",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": -1,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": 661,
+              "Signature": 4304516535995536556
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "5116b27c-c47b-478f-a1d9-076ea386eb8d",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "b9183bca-2ac6-8b8b-ae39-7da0a8a802f1"
+                },
+                "Materials": [
+                  "roadtool2/materials/sidewalk.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "284bd792-9938-456f-a603-22b8e1787e18",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Junction 458 border",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "385ef86c-6be0-42c8-b09c-943476eaa43a",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Border",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": 458,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": -1,
+              "Signature": 4255566472475784621
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "d7ee60a0-1e75-4d7a-a1e5-dc9912859ec8",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "5c0a6b51-6e41-89e1-87a1-29d2afb116d4"
+                },
+                "Materials": [
+                  "roadtool2/materials/sidewalk.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "106b569d-cfc7-4068-9689-6bc7b12ca4c9",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Junction 465 border",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "2da9554c-2487-42ba-90d3-e7ef908533f6",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Border",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": 465,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": -1,
+              "Signature": -5675582944604234115
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "5cb53269-5430-4627-9c78-bf875f8374a2",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "e0a3727a-807a-819b-827c-a8a804624d07"
+                },
+                "Materials": [
+                  "roadtool2/materials/sidewalk.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "e6387bf7-1e2d-412a-815c-bc4a34fd090f",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Junction 467",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "808d1c53-7cd9-43c6-920b-5023b3858ae9",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Surface",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": 467,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": -1,
+              "Signature": -5698681557724868161
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "6f3c0142-d78c-4fb1-b19f-ec78d9cfdc49",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "98a5259c-1099-80f5-a4dc-e344289742fd"
+                },
+                "Materials": [
+                  "roadtool2/materials/asphalt.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "ac37a850-6743-411e-b035-2272b75414ec",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Junction 467 border",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "aa9e2861-7c88-40a7-a5f6-0a1affd6d03c",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Border",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": 467,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": -1,
+              "Signature": -6889948715919612340
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "774b6d72-f119-49d7-8d29-a0ea9ccd9a84",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "390477b1-42db-82c5-8cca-06e2414c439c"
+                },
+                "Materials": [
+                  "roadtool2/materials/sidewalk.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "a342a5cb-eb27-4c02-a5da-23c2c133678a",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Junction 659",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "1e968a69-dd6d-4d31-9b55-3239d29a5b6c",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Surface",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": 659,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": -1,
+              "Signature": -8360517005486554725
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "6a57ad1a-afba-4833-bbea-e3f1200d9efb",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "d945954b-d440-8f34-a6ff-26abdeb746dd"
+                },
+                "Materials": [
+                  "roadtool2/materials/asphalt.vmat"
+                ]
+              },
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "OnObjectTriggerEnter": null,
+              "OnObjectTriggerExit": null,
+              "OnTriggerEnter": null,
+              "OnTriggerExit": null,
+              "RenderType": "On",
+              "RollingResistance": null,
+              "SmoothingAngle": 40,
+              "Static": true,
+              "Surface": null,
+              "SurfaceVelocity": "0,0,0"
+            }
+          ],
+          "Children": []
+        },
+        {
+          "__guid": "93036a4c-480f-4057-b36f-0a0282f3751c",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "Junction 659 border",
+          "Position": "0,0,0",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "road_chunk,world",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [
+            {
+              "__type": "RedSnail.RoadTool2.RoadChunk",
+              "__guid": "5c9f0afc-4030-4ede-812e-2dd4fd3808c1",
+              "__enabled": true,
+              "Flags": 0,
+              "ChunkCount": 1,
+              "ChunkIndex": 0,
+              "Kind": "Border",
+              "Locked": false,
+              "LotId": -1,
+              "NodeId": 659,
+              "OnComponentDestroy": null,
+              "OnComponentDisabled": null,
+              "OnComponentEnabled": null,
+              "OnComponentFixedUpdate": null,
+              "OnComponentStart": null,
+              "OnComponentUpdate": null,
+              "SegmentId": -1,
+              "Signature": -168640079085842744
+            },
+            {
+              "__type": "Sandbox.MeshComponent",
+              "__guid": "98618758-6dea-4c91-9f46-d2e6f86eaa84",
+              "__enabled": true,
+              "Flags": 0,
+              "ColliderFlags": 0,
+              "Collision": "Mesh",
+              "Color": "1,1,1,1",
+              "Elasticity": null,
+              "Friction": null,
+              "HideInGame": false,
+              "IsTrigger": false,
+              "Mesh": {
+                "Data": {
+                  "$blob": "70517329-719e-8cf9-9994-b722d4e2b0e9"
                 },
                 "Materials": [
                   "roadtool2/materials/sidewalk.vmat"

@@ -100,7 +100,7 @@ public sealed partial class RoadNetwork
 			return null;
 
 		int edge = lot.NearestEdge(_NearPosition, out float along);
-		var node = new RoadNode { Id = NextId++, Position = lot.EdgePoint(edge, along), AutoTangents = false };
+		var node = new RoadNode { Id = NextId++, Position = lot.EdgePoint(edge, along), TangentMode = AutoTangentMode.Disabled };
 
 		Nodes.Add(node);
 		InvalidateIndex();
