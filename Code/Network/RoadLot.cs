@@ -226,6 +226,23 @@ public sealed class RoadLotOpening
 	public float GapTo;
 
 	/// <summary>
+	/// The road that opens into the lot here, when its first row is where the outline meets it: which way the road
+	/// runs from the opening, and how wide it is. The lot carries the road's texture on in through the flares from
+	/// it. Null when the road could not be followed and the mouth was squared off instead.
+	/// </summary>
+	public RoadSegment Segment;
+	public RoadCurveTable Table;
+	public bool AtStart;
+	public RoadWidth Width;
+
+	/// <summary>
+	/// Where on the outline, once it is built, the kerb leaves the lot's edge for this opening and where it comes back
+	/// to it: the flares and the road's row lie between. -1 for an opening the outline left out.
+	/// </summary>
+	public int OutlineFrom = -1;
+	public int OutlineTo = -1;
+
+	/// <summary>
 	/// How much room the opening and its flares take along the edge, either side of its middle.
 	/// </summary>
 	public float Reach => HalfWidth + Flare;
@@ -236,6 +253,11 @@ public sealed class RoadLotOpening
 		_Hash.Add(Along);
 		_Hash.Add(HalfWidth);
 		_Hash.Add(Flare);
+
+		// The road's own first row is part of the outline, so where it is shapes every piece of the lot.
+		_Hash.Add(MouthFrom);
+		_Hash.Add(MouthTo);
+		_Hash.Add(Away);
 	}
 }
 
@@ -254,6 +276,30 @@ public sealed class RoadLotOutline
 	public readonly List<Vector3> Points = new();
 	public readonly List<Vector3> Outwards = new();
 	public readonly List<float> Distances = new();
+
+	/// <summary>
+	/// For each point, who the stretch of edge leaving it belongs to: one of the lot's four sides (0 to 3, as
+	/// <see cref="RoadLot.EdgeFrame"/> numbers them), or an opening (<see cref="SideCount"/> plus its index in the
+	/// openings the outline was built with). A side has its straight run and half of each corner and flare beside
+	/// it; an opening, its road's first row and the half of each flare beside that.
+	/// </summary>
+	public readonly List<int> Owners = new();
+
+	/// <summary>
+	/// For each point, whether the stretch of edge leaving it is kerb: everything but the rows the roads cross into
+	/// the lot at.
+	/// </summary>
+	public readonly List<bool> Kerbs = new();
+
+	/// <summary>
+	/// The owners numbered before the openings: the lot's sides.
+	/// </summary>
+	public const int SideCount = 4;
+
+	/// <summary>
+	/// The steps a corner's quarter turn is drawn in.
+	/// </summary>
+	public static int CornerSteps => Math.Max(1, (int)MathF.Ceiling(90.0f / ArcStepDegrees));
 
 	/// <summary>
 	/// The whole way round.
@@ -278,53 +324,61 @@ public sealed class RoadLotOutline
 
 			float from = -half + radius;
 			float to = half - radius;
+			int nextEdge = (edge + 1) % SideCount;
 
-			// The openings on this edge, in the order they are met walking along it.
-			var openings = new List<RoadLotOpening>();
+			// The openings on this edge, in the order they are met walking along it, with where each is in the list.
+			var openings = new List<(RoadLotOpening Opening, int Index)>();
 
 			if (_Openings is not null)
 			{
-				foreach (var opening in _Openings)
+				for (int i = 0; i < _Openings.Count; i++)
 				{
+					var opening = _Openings[i];
+
 					if (opening.Edge == edge && opening.Along > from && opening.Along < to)
-						openings.Add(opening);
+						openings.Add((opening, i));
 				}
 
-				openings.Sort((a, b) => a.Along.CompareTo(b.Along));
+				openings.Sort((a, b) => a.Opening.Along.CompareTo(b.Opening.Along));
 			}
 
 			float walked = from;
 
-			foreach (var opening in openings)
+			foreach (var (opening, index) in openings)
 			{
 				float flare = MathF.Max(0.0f, opening.Flare);
 				float leaves = opening.Along - opening.HalfWidth - flare;
 				float returns = opening.Along + opening.HalfWidth + flare;
+				int owner = SideCount + index;
 
 				// Up to where the kerb leaves the edge...
-				outline.Add(centre + direction * walked, outward);
-				outline.Add(centre + direction * leaves, outward);
+				outline.Add(centre + direction * walked, outward, edge, true);
+				outline.Add(centre + direction * leaves, outward, edge, true);
 
-				// ...round into the road, across its first row, and back out to the edge on the other side.
-				outline.AddCurve(centre + direction * leaves, direction, opening.MouthFrom, opening.Away);
+				opening.OutlineFrom = outline.Count - 1;
+
+				// ...round into the road (the side's half of the flare, then the road's), across its first row, and
+				// back out to the edge on the other side.
+				outline.AddCurve(centre + direction * leaves, direction, opening.MouthFrom, opening.Away, edge, owner, owner, false);
 
 				opening.GapFrom = outline.Distances[^1];
 
-				outline.Add(opening.MouthTo, RoadCurve.RightOf(-opening.Away));
+				outline.Add(opening.MouthTo, RoadCurve.RightOf(-opening.Away), owner, true);
 
 				opening.GapTo = outline.Distances[^1];
 
-				outline.AddCurve(opening.MouthTo, -opening.Away, centre + direction * returns, direction);
+				outline.AddCurve(opening.MouthTo, -opening.Away, centre + direction * returns, direction, owner, edge, edge, true);
 
+				opening.OutlineTo = outline.Count - 1;
 				walked = returns;
 			}
 
-			outline.Add(centre + direction * walked, outward);
-			outline.Add(centre + direction * to, outward);
+			outline.Add(centre + direction * walked, outward, edge, true);
+			outline.Add(centre + direction * to, outward, edge, true);
 
-			// The corner into the next edge.
+			// The corner into the next edge, half each.
 			_Lot.EdgeFrame(edge + 1, out _, out Vector3 nextDirection, out Vector3 nextOutward, out _);
-			outline.AddCorner(centre + direction * to, outward, nextOutward, radius);
+			outline.AddCorner(centre + direction * to, outward, nextOutward, radius, edge, nextEdge);
 		}
 
 		outline.Length = outline.Distances[^1] + outline.Points[^1].Distance(outline.Points[0]);
@@ -461,15 +515,16 @@ public sealed class RoadLotOutline
 	/// <summary>
 	/// The kerb turning out of the lot's edge into the side of a road (or back out of it): a curve that leaves
 	/// along one direction and arrives along another, whatever the two ends are. The way out of the surface is
-	/// always to the right of the way round, which is what keeps it pointing out of the lot all the way round.
+	/// always to the right of the way round, which is what keeps it pointing out of the lot all the way round. Its
+	/// first half belongs to one owner and its second to another; the edge leaving its far end, to a third.
 	/// </summary>
-	private void AddCurve(Vector3 _From, Vector3 _FromDirection, Vector3 _To, Vector3 _ToDirection)
+	private void AddCurve(Vector3 _From, Vector3 _FromDirection, Vector3 _To, Vector3 _ToDirection, int _FirstOwner, int _SecondOwner, int _OwnerAfter, bool _KerbAfter)
 	{
 		float span = _From.Distance(_To);
 
 		if (span <= 0.01f)
 		{
-			Add(_To, RoadCurve.RightOf(_ToDirection));
+			Add(_To, RoadCurve.RightOf(_ToDirection), _OwnerAfter, _KerbAfter);
 			return;
 		}
 
@@ -492,8 +547,9 @@ public sealed class RoadLotOutline
 
 			Vector3 point = u * u * u * _From + 3.0f * u * u * t * controlFrom + 3.0f * u * t * t * controlTo + t * t * t * _To;
 			Vector3 tangent = 3.0f * u * u * (controlFrom - _From) + 6.0f * u * t * (controlTo - controlFrom) + 3.0f * t * t * (_To - controlTo);
+			int owner = i == steps ? _OwnerAfter : i < steps / 2 ? _FirstOwner : _SecondOwner;
 
-			Add(point, RoadCurve.RightOf(tangent.IsNearZeroLength ? _ToDirection : tangent));
+			Add(point, RoadCurve.RightOf(tangent.IsNearZeroLength ? _ToDirection : tangent), owner, i == steps ? _KerbAfter : true);
 		}
 	}
 
@@ -512,35 +568,46 @@ public sealed class RoadLotOutline
 
 
 	/// <summary>
-	/// One of the lot's own corners, turning from one edge's outward direction to the next.
+	/// One of the lot's own corners, turning from one edge's outward direction to the next, its first half the
+	/// edge's and its second the next one's.
 	/// </summary>
-	private void AddCorner(Vector3 _Corner, Vector3 _Outward, Vector3 _NextOutward, float _Radius)
+	private void AddCorner(Vector3 _Corner, Vector3 _Outward, Vector3 _NextOutward, float _Radius, int _Owner, int _NextOwner)
 	{
 		if (_Radius <= 0.01f)
 			return;
 
 		// The turn's centre is a radius in from the edge that ends here, which is also a radius in from the next.
 		Vector3 pivot = _Corner - _Outward * _Radius;
-		int steps = Math.Max(1, (int)MathF.Ceiling(90.0f / ArcStepDegrees));
+		int steps = CornerSteps;
 
 		for (int i = 1; i < steps; i++)
 		{
 			float fraction = (float)i / steps;
 			Vector3 radial = Vector3.Lerp(_Outward, _NextOutward, fraction).Normal;
 
-			Add(pivot + radial * _Radius, radial);
+			Add(pivot + radial * _Radius, radial, i < steps / 2 ? _Owner : _NextOwner, true);
 		}
 	}
 
 
 
-	private void Add(Vector3 _Point, Vector3 _Outward)
+	/// <summary>
+	/// Adds a point, and notes whose the stretch of edge leaving it is and whether that is kerb. A point that lands
+	/// on the one before is that one, and the stretch leaving it is now the new one's.
+	/// </summary>
+	private void Add(Vector3 _Point, Vector3 _Outward, int _Owner, bool _Kerb)
 	{
 		if (Count > 0 && Points[^1].Distance(_Point) < 0.01f)
+		{
+			Owners[^1] = _Owner;
+			Kerbs[^1] = _Kerb;
 			return;
+		}
 
 		Distances.Add(Count > 0 ? Distances[^1] + Points[^1].Distance(_Point) : 0.0f);
 		Points.Add(_Point);
 		Outwards.Add(_Outward.Normal);
+		Owners.Add(_Owner);
+		Kerbs.Add(_Kerb);
 	}
 }

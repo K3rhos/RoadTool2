@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 63;
+	private const int GeneratorVersion = 66;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -1554,10 +1554,18 @@ public sealed partial class RoadNetwork
 	/// </summary>
 	private bool SameSurface(RoadJunctionLayout.Arm _Arm, RoadProfile _Surface)
 	{
-		var profile = ProfileOf(_Arm.Segment);
+		return SameSurface(ProfileOf(_Arm.Segment), _Surface);
+	}
 
-		return profile == _Surface || (profile.ResolvedRoadMaterial?.ResourcePath == _Surface.ResolvedRoadMaterial?.ResourcePath
-			&& profile.RoadTextureRepeat == _Surface.RoadTextureRepeat && profile.RoadTextureAcross == _Surface.RoadTextureAcross);
+
+
+	/// <summary>
+	/// Whether two road types lay the same road surface: the same material, laid the same way at the same scale.
+	/// </summary>
+	private static bool SameSurface(RoadProfile _Profile, RoadProfile _Surface)
+	{
+		return _Profile == _Surface || (_Profile.ResolvedRoadMaterial?.ResourcePath == _Surface.ResolvedRoadMaterial?.ResourcePath
+			&& _Profile.RoadTextureRepeat == _Surface.RoadTextureRepeat && _Profile.RoadTextureAcross == _Surface.RoadTextureAcross);
 	}
 
 

@@ -340,16 +340,22 @@ public sealed partial class RoadNetwork
 				opening.MouthFrom = leftFirst ? left : right;
 				opening.MouthTo = leftFirst ? right : left;
 				opening.Away = (table.TangentAt(distance) * (atStart ? 1.0f : -1.0f)).Normal;
+				opening.Segment = segment;
+				opening.Table = table;
+				opening.AtStart = atStart;
+				opening.Width = width;
 			}
 
 			// A road that doubles back over the lot, dives, or is otherwise not where a road leaving the edge
 			// should be: the flares fall back to a plain mouth square to the edge rather than tying themselves in
-			// a knot reaching for it.
+			// a knot reaching for it, and the road's texture is not carried in to a mouth that is not its row.
 			if (!IsUsableMouth(opening, direction, outward))
 			{
 				opening.Away = outward;
 				opening.MouthFrom = opening.Mouth - direction * opening.HalfWidth + outward * opening.Flare;
 				opening.MouthTo = opening.Mouth + direction * opening.HalfWidth + outward * opening.Flare;
+				opening.Segment = null;
+				opening.Table = null;
 			}
 
 			openings.Add(opening);
@@ -489,6 +495,23 @@ public sealed partial class RoadNetwork
 
 			default:
 				_Profile.AddSurfaceToHash(ref hash);
+
+				// The surface carries each road's texture on in from its row, along its own curve.
+				foreach (var opening in _Openings)
+				{
+					hash.Add(opening.Segment?.Id ?? -1);
+					hash.Add(opening.AtStart ? 1 : 0);
+
+					if (opening.Table is null)
+						continue;
+
+					hash.Add(opening.Table.Curve.P0);
+					hash.Add(opening.Table.Curve.P1);
+					hash.Add(opening.Table.Curve.P2);
+					hash.Add(opening.Table.Curve.P3);
+					ProfileOf(opening.Segment).AddSurfaceToHash(ref hash);
+				}
+
 				break;
 		}
 
@@ -542,7 +565,7 @@ public sealed partial class RoadNetwork
 				break;
 
 			default:
-				mesh = RoadLotBuilder.BuildSurface(lot, outline, profile, SurfaceOffset);
+				mesh = RoadLotBuilder.BuildSurface(lot, outline, profile, openings, SurfaceOffset);
 				name = $"Lot {lot.Id}";
 				break;
 		}
