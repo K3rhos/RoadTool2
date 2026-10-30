@@ -36,7 +36,7 @@ internal static class RoadJunctionBuilder
 			return Build(_Layout, _TextureRepeat, _Material);
 
 		var main = Mapping(_Main, _TextureRepeat, _FitWidth);
-		var mappings = new IFanMapping[_Layout.Arms.Count];
+		var mappings = new RoadArmMapping[_Layout.Arms.Count];
 		var own = new bool[_Layout.Arms.Count];
 
 		for (int i = 0; i < mappings.Length; i++)
@@ -44,6 +44,11 @@ internal static class RoadJunctionBuilder
 			own[i] = i == mainIndex || _SameSurface(_Layout.Arms[i]);
 			mappings[i] = i == mainIndex || !own[i] ? main : Mapping(_Layout.Arms[i], _TextureRepeat, _FitWidth);
 		}
+
+		// A road splitting in two round a nose far out from the node (a highway's exit or entry, a fork) is laid out
+		// as roads of its own instead (see RoadSplitBuilder), when its texture's edges are what has to wrap the nose.
+		if (_FitWidth && Array.TrueForAll(own, sameSurface => sameSurface) && RoadSplitBuilder.TryBuild(_Layout, mappings, _Material, out var split))
+			return split;
 
 		// The outline, with an edge cut straight across from one arm's row to the next arm's halved: each arm takes
 		// the half on its side.

@@ -397,6 +397,12 @@ internal sealed class RoadJunctionLayout
 	/// </summary>
 	public List<int> PolygonArms { get; } = new();
 
+	/// <summary>
+	/// For each arm, the index in <see cref="Polygon"/> its row starts at (its right end, looking out of the node); the
+	/// row runs from there to the next vertex, and the arm's corner path, if it has one, follows from that vertex on.
+	/// </summary>
+	public List<int> RowStarts { get; } = new();
+
 	public List<CornerPath> CornerPaths { get; } = new();
 
 	public Vector3 Centre { get; private set; }
@@ -964,6 +970,7 @@ internal sealed class RoadJunctionLayout
 	{
 		Polygon.Clear();
 		PolygonArms.Clear();
+		RowStarts.Clear();
 		CornerPaths.Clear();
 		Centre = Node.Position + Vector3.Up * m_Lift;
 
@@ -972,7 +979,7 @@ internal sealed class RoadJunctionLayout
 			var arm = Arms[i];
 
 			RowPoints(arm, out Vector3 rowRight, out Vector3 rowLeft, out _);
-			AddPolygonVertex(rowRight, i);
+			RowStarts.Add(AddPolygonVertex(rowRight, i));
 
 			var corner = m_Corners.Find(candidate => candidate.ArmA == i);
 
@@ -1039,10 +1046,10 @@ internal sealed class RoadJunctionLayout
 
 
 	/// <summary>
-	/// Adds an outline vertex and notes which arm the edge leaving it belongs to. A vertex that lands on the one
-	/// before is that one, and the edge leaving it is now the new one's.
+	/// Adds an outline vertex and notes which arm the edge leaving it belongs to, and returns its index. A vertex that
+	/// lands on the one before is that one, and the edge leaving it is now the new one's.
 	/// </summary>
-	private void AddPolygonVertex(Vector3 _Vertex, int _Arm)
+	private int AddPolygonVertex(Vector3 _Vertex, int _Arm)
 	{
 		int index = AddVertex(Polygon, _Vertex);
 
@@ -1050,6 +1057,8 @@ internal sealed class RoadJunctionLayout
 			PolygonArms[index] = _Arm;
 		else
 			PolygonArms.Add(_Arm);
+
+		return index;
 	}
 
 
