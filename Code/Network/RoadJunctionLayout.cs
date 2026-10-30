@@ -391,8 +391,9 @@ internal sealed class RoadJunctionLayout
 
 	/// <summary>
 	/// For each edge of <see cref="Polygon"/> (from a vertex to the next), the arm whose stretch of outline it is: the
-	/// arm's row, and its half of the corner on either side (halved where the borders halve them). -1 for an edge cut
-	/// straight across from one arm's row to the next arm's, which is half each.
+	/// arm's row, and its half of the corner on either side (halved where the borders halve them, or where the path
+	/// comes closest to the node when the corner sits at one of the rows; see <see cref="Handover"/>). -1 for an edge
+	/// cut straight across from one arm's row to the next arm's, which is half each.
 	/// </summary>
 	public List<int> PolygonArms { get; } = new();
 
@@ -988,8 +989,10 @@ internal sealed class RoadJunctionLayout
 			CornerPaths.Add(path);
 
 			// The path ends on the next arm's row, which the next arm adds itself. Its first half is this arm's.
+			int handover = Handover(path);
+
 			for (int k = 0; k < path.Points.Count - 1; k++)
-				AddPolygonVertex(path.Points[k], k < path.MidIndex ? i : corner.ArmB);
+				AddPolygonVertex(path.Points[k], k < handover ? i : corner.ArmB);
 		}
 
 		if (Polygon.Count > 1 && Flat(Polygon[^1]).Distance(Flat(Polygon[0])) < 0.5f)
@@ -997,6 +1000,40 @@ internal sealed class RoadJunctionLayout
 			Polygon.RemoveAt(Polygon.Count - 1);
 			PolygonArms.RemoveAt(PolygonArms.Count - 1);
 		}
+	}
+
+
+
+	/// <summary>
+	/// Where along a corner path the surface's texture hands over from arm A's to arm B's: the corner's middle, as the
+	/// borders hand over. A corner that sits on one of the rows (a road widening out into a ramp's lane at a slant, its
+	/// edges crossing far back at the other arm's row) would leave that arm none of the path and give the other all of
+	/// it, its texture run back past the node down the first arm's side; such a path hands over where it comes closest
+	/// to the node instead.
+	/// </summary>
+	private int Handover(CornerPath _Path)
+	{
+		int last = _Path.Points.Count - 1;
+
+		if (_Path.MidIndex > 0 && _Path.MidIndex < last)
+			return _Path.MidIndex;
+
+		var node = Flat(Node.Position);
+		int closest = 0;
+		float nearest = float.MaxValue;
+
+		for (int k = 0; k < last; k++)
+		{
+			float distance = Flat(_Path.Points[k]).Distance(node);
+
+			if (distance < nearest)
+			{
+				nearest = distance;
+				closest = k;
+			}
+		}
+
+		return closest;
 	}
 
 

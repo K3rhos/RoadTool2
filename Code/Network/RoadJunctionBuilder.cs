@@ -13,7 +13,8 @@ internal static class RoadJunctionBuilder
 	/// <summary>
 	/// Each arm's texture runs on into the junction over the arm's own stretch of the outline (see
 	/// <see cref="RoadJunctionLayout.PolygonArms"/>) and meets the next arm's on a line from the node to the middle
-	/// of the corner between them, where the borders meet too. A road texture with something across its width (lanes,
+	/// of the corner between them, where the borders meet too (or, for a corner on one of the rows, to where the outline
+	/// comes closest to the node). A road texture with something across its width (lanes,
 	/// worn wheel tracks, dark edges) turns the corner with the road instead of being cut by a projection laid over
 	/// it, and nothing is stretched; a road that curves on its way in has its texture bend with it (see
 	/// <see cref="RoadFanBuilder"/>). An arm with a different road surface from the junction's is not the junction's
@@ -108,9 +109,14 @@ internal static class RoadJunctionBuilder
 
 
 
+	/// <summary>
+	/// An arm's mapping, with the node held inside the arm's texture: a lane that sits off to one side of the road's
+	/// centreline (a ramp starting from the side of a highway) can end beside the node rather than across it, and its
+	/// texture's edges would otherwise be drawn out across the junction from the node.
+	/// </summary>
 	private static RoadArmMapping Mapping(RoadJunctionLayout.Arm _Arm, float _TextureRepeat, bool _FitWidth)
 	{
-		return new RoadArmMapping(_Arm.Table, _Arm.AtStart, _Arm.Trim, _Arm.Widths, _TextureRepeat, _FitWidth);
+		return new RoadArmMapping(_Arm.Table, _Arm.AtStart, _Arm.Trim, _Arm.Widths, _TextureRepeat, _FitWidth, true);
 	}
 
 

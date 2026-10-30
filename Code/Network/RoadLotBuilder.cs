@@ -106,6 +106,16 @@ internal static class RoadLotBuilder
 		}
 
 		/// <summary>
+		/// The texture's width in from the kerb, its edge on the kerb.
+		/// </summary>
+		public void Lane(Vector3 _Point, out float _LeftU, out float _RightU, out float _Width)
+		{
+			_LeftU = 0.0f;
+			_RightU = 1.0f;
+			_Width = m_Width;
+		}
+
+		/// <summary>
 		/// How far U is lifted at a point in front of a gap in the kerb: how far into the gap it is from the nearer of
 		/// its ends, but never more than a share of how far the point still is from where the lift has to be gone, in
 		/// from the kerb and along to the line the side meets its neighbour on.

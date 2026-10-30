@@ -22,8 +22,9 @@ internal sealed class RoadArmMapping : IFanMapping
 
 	/// <summary>
 	/// <paramref name="_Trim"/> is how far from the node, along the road, its row is. <paramref name="_HoldCentre"/>
-	/// keeps a centre that lies off to the side of the road (a parking lot's middle) inside the road's texture, so the
-	/// road converges on it rather than running its edges on across the lot.
+	/// keeps a centre that lies off to the side of the road's lane (a parking lot's middle, the node a ramp's offset
+	/// lane ends beside) inside the road's texture, so the road converges on it rather than running its edges on
+	/// across the surface.
 	/// </summary>
 	public RoadArmMapping(RoadCurveTable _Table, bool _AtStart, float _Trim, in RoadWidth _Widths, float _Repeat, bool _FitWidth, bool _HoldCentre = false)
 	{
@@ -85,6 +86,22 @@ internal sealed class RoadArmMapping : IFanMapping
 		Locate(_Point, out float distance, out float right);
 
 		return new Vector2(right, distance);
+	}
+
+	/// <summary>
+	/// The road's lane where a point is along it: U at its left and right edges there, and its width.
+	/// </summary>
+	public void Lane(Vector3 _Point, out float _LeftU, out float _RightU, out float _Width)
+	{
+		Locate(_Point, out float distance, out _);
+
+		float along = Math.Clamp(distance, 0.0f, m_Table.Length);
+		float left = m_Widths.LeftAt(along);
+		float right = m_Widths.RightAt(along);
+
+		_LeftU = Across(distance, -left);
+		_RightU = Across(distance, right);
+		_Width = left + right;
 	}
 
 	/// <summary>
