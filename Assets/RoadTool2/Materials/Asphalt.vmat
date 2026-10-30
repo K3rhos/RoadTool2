@@ -2,39 +2,38 @@
 
 Layer0
 {
-	shader "roadtool2/shaders/roadtool_triplanar.shader"
-
-	//---- Albedo ----
-	BaseColour "roadtool2/textures/asphalt/asphalt_diffuse.jpg"
-	g_flBlendAmount "0.000"
-	g_vBlendColour "[1.000000 1.000000 1.000000 1.000000]"
+	shader "shaders/complex.shader"
 
 	//---- Ambient Occlusion ----
-	AmbientOcclusion "materials/default/default_ao.tga"
+	g_flAmbientOcclusionDirectDiffuse "0.000"
+	g_flAmbientOcclusionDirectSpecular "0.000"
+	TextureAmbientOcclusion "roadtool2/textures/asphalt/asphalt_ao.png"
 
-	//---- Emission ----
-	Emission "materials/default/default_selfillum.tga"
-	g_flEmissionTintBlend "0.000"
-	g_flEmissionTintBoost "1.000"
-	g_vEmissionTint "[1.000000 1.000000 1.000000 1.000000]"
+	//---- Color ----
+	g_flModelTintAmount "1.000"
+	g_vColorTint "[1.000000 1.000000 1.000000 0.000000]"
+	TextureColor "roadtool2/textures/asphalt/asphalt_basecolor.png"
+
+	//---- Fade ----
+	g_flFadeExponent "1.000"
 
 	//---- Fog ----
 	g_bFogEnabled "1"
 
-	//---- General ----
-	g_bFollowWorldSpace "1"
-	g_bUseObjectSpace "0"
-	g_vOffset "[0.000 0.000]"
-	g_vTile "[6.000 6.000]"
-
 	//---- Metalness ----
-	Metalness "materials/default/default_metal.tga"
+	g_flMetalness "0.000"
 
 	//---- Normal ----
-	g_flNormalStrength "1.000"
-	NormalMap "roadtool2/textures/asphalt/asphalt_normal.jpg"
+	g_flLightRangeForSelfShadowNormals "0.707"
+	g_flNormalMapScaleFactor "1.000"
+	TextureNormal "roadtool2/textures/asphalt/asphalt_normal.png"
 
 	//---- Roughness ----
 	g_flRoughnessScaleFactor "0.500"
-	Roughness "roadtool2/textures/asphalt/asphalt_roughness.jpg"
+	TextureRoughness "roadtool2/textures/asphalt/asphalt_roughness.png"
+
+	//---- Texture Coordinates ----
+	g_vTexCoordOffset "[0.000 0.000]"
+	g_vTexCoordScale "[1.000 1.000]"
+	g_vTexCoordScrollSpeed "[0.000 0.000]"
 }

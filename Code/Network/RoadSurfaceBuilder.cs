@@ -86,7 +86,7 @@ internal static class RoadSurfaceBuilder
 
 
 
-	public static PolygonMesh Build(RoadCurveTable _Table, float _StartDistance, float _EndDistance, in RoadWidth _Width, float _Spacing, in RoadSimplify _Simplify, int _Lanes, float _TextureRepeat, float _SurfaceOffset, Material _Material)
+	public static PolygonMesh Build(RoadCurveTable _Table, float _StartDistance, float _EndDistance, in RoadWidth _Width, float _Spacing, in RoadSimplify _Simplify, int _Lanes, float _TextureRepeat, bool _FitWidth, float _SurfaceOffset, Material _Material)
 	{
 		var mesh = new PolygonMesh();
 
@@ -112,10 +112,11 @@ internal static class RoadSurfaceBuilder
 			float distance = rows[i];
 
 			// U runs across the road from the centreline, V along it, so a tiling material follows the road instead
-			// of the world, and an edge that moves out takes its texture with it.
+			// of the world, and an edge that moves out takes its texture with it. Fitted to the width, U runs from 0
+			// on the left edge to 1 on the right instead, so a texture painted kerb to kerb spans the road once.
 			float v = distance / repeat;
-			var uvLeft = new Vector2(-_Width.LeftAt(distance) / repeat, v);
-			var uvRight = new Vector2(_Width.RightAt(distance) / repeat, v);
+			var uvLeft = new Vector2(_FitWidth ? 0.0f : -_Width.LeftAt(distance) / repeat, v);
+			var uvRight = new Vector2(_FitWidth ? 1.0f : _Width.RightAt(distance) / repeat, v);
 
 			for (int k = 0; k < points; k++)
 			{

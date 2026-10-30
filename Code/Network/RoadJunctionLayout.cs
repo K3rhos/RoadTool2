@@ -389,6 +389,13 @@ internal sealed class RoadJunctionLayout
 	/// </summary>
 	public List<Vector3> Polygon { get; } = new();
 
+	/// <summary>
+	/// For each edge of <see cref="Polygon"/> (from a vertex to the next), the arm whose stretch of outline it is: the
+	/// arm's row, and its half of the corner on either side (halved where the borders halve them). -1 for an edge cut
+	/// straight across from one arm's row to the next arm's, which is half each.
+	/// </summary>
+	public List<int> PolygonArms { get; } = new();
+
 	public List<CornerPath> CornerPaths { get; } = new();
 
 	public Vector3 Centre { get; private set; }
@@ -536,7 +543,7 @@ internal sealed class RoadJunctionLayout
 		_Debug.Note($"POLYGON vertices={Polygon.Count}");
 
 		for (int i = 0; i < Polygon.Count; i++)
-			_Debug.Note($"V {i} {BorderDebug.Format(Polygon[i])}");
+			_Debug.Note($"V {i} {BorderDebug.Format(Polygon[i])} arm={(PolygonArms is not null && i < PolygonArms.Count ? PolygonArms[i] : -2)}");
 	}
 
 
@@ -955,6 +962,7 @@ internal sealed class RoadJunctionLayout
 	public void BuildPolygon()
 	{
 		Polygon.Clear();
+		PolygonArms.Clear();
 		CornerPaths.Clear();
 		Centre = Node.Position + Vector3.Up * m_Lift;
 
@@ -963,7 +971,7 @@ internal sealed class RoadJunctionLayout
 			var arm = Arms[i];
 
 			RowPoints(arm, out Vector3 rowRight, out Vector3 rowLeft, out _);
-			AddVertex(Polygon, rowRight);
+			AddPolygonVertex(rowRight, i);
 
 			var corner = m_Corners.Find(candidate => candidate.ArmA == i);
 
@@ -972,20 +980,39 @@ internal sealed class RoadJunctionLayout
 			// outline out past a row would lay the junction over the arm's own chunk.
 			if (corner is null || corner.EndA > arm.Trim + 0.01f || corner.EndB > Arms[corner.ArmB].Trim + 0.01f)
 			{
-				AddVertex(Polygon, rowLeft);
+				AddPolygonVertex(rowLeft, -1);
 				continue;
 			}
 
 			var path = BuildCornerPath(corner, arm, Arms[corner.ArmB]);
 			CornerPaths.Add(path);
 
-			// The path ends on the next arm's row, which the next arm adds itself.
+			// The path ends on the next arm's row, which the next arm adds itself. Its first half is this arm's.
 			for (int k = 0; k < path.Points.Count - 1; k++)
-				AddVertex(Polygon, path.Points[k]);
+				AddPolygonVertex(path.Points[k], k < path.MidIndex ? i : corner.ArmB);
 		}
 
 		if (Polygon.Count > 1 && Flat(Polygon[^1]).Distance(Flat(Polygon[0])) < 0.5f)
+		{
 			Polygon.RemoveAt(Polygon.Count - 1);
+			PolygonArms.RemoveAt(PolygonArms.Count - 1);
+		}
+	}
+
+
+
+	/// <summary>
+	/// Adds an outline vertex and notes which arm the edge leaving it belongs to. A vertex that lands on the one
+	/// before is that one, and the edge leaving it is now the new one's.
+	/// </summary>
+	private void AddPolygonVertex(Vector3 _Vertex, int _Arm)
+	{
+		int index = AddVertex(Polygon, _Vertex);
+
+		if (index < PolygonArms.Count)
+			PolygonArms[index] = _Arm;
+		else
+			PolygonArms.Add(_Arm);
 	}
 
 

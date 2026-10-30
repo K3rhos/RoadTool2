@@ -24,6 +24,8 @@ Layer0
 	g_flMetalness "0.000"
 
 	//---- Normal ----
+	g_flLightRangeForSelfShadowNormals "0.707"
+	g_flNormalMapScaleFactor "1.000"
 	TextureNormal "roadtool2/textures/sidewalk/sidewalk_normal.jpg"
 
 	//---- Roughness ----

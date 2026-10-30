@@ -62,18 +62,29 @@ internal static class RoadCapBuilder
 		if (leftHalf + rightHalf <= 0.01f)
 			return mesh;
 
-		int steps = Math.Max(4, (int)MathF.Ceiling(180.0f / ArcStepDegrees));
+		int steps = ArcSteps();
 		var outline = new List<Vector3>(steps + 1);
 		var outwards = new List<Vector3>(steps + 1);
-		var offsets = new List<float>(steps + 1);
-		var aheads = new List<float>(steps + 1);
 
-		Arc(centre, forward, right, leftHalf, rightHalf, _Depth, steps, outline, outwards, offsets, aheads);
+		Arc(centre, forward, right, leftHalf, rightHalf, _Depth, steps, outline, outwards, null, null);
 
-		AddSurface(mesh, centre, outline, offsets, aheads, _Distance, _AtStart, _Profile);
+		AddSurface(mesh, centre, outline, leftHalf, rightHalf, _Distance, _AtStart, _Profile);
 		AddBorder(mesh, outline, outwards, _Profile);
 
 		return mesh;
+	}
+
+
+
+	/// <summary>
+	/// How many steps the arc is drawn in: an even number, so its tip, where the road's two sides meet, is a point
+	/// of it.
+	/// </summary>
+	private static int ArcSteps()
+	{
+		int steps = Math.Max(4, (int)MathF.Ceiling(180.0f / ArcStepDegrees));
+
+		return steps + steps % 2;
 	}
 
 
@@ -98,9 +109,7 @@ internal static class RoadCapBuilder
 		if (depth <= 0.01f || leftHalf + rightHalf <= 0.01f)
 			return outline;
 
-		int steps = Math.Max(4, (int)MathF.Ceiling(180.0f / ArcStepDegrees));
-
-		Arc(_Centre, (_AtStart ? -tangent : tangent).Normal, RoadCurve.RightOf(tangent), leftHalf, rightHalf, depth, steps, outline, null, null, null);
+		Arc(_Centre, (_AtStart ? -tangent : tangent).Normal, RoadCurve.RightOf(tangent), leftHalf, rightHalf, depth, ArcSteps(), outline, null, null, null);
 
 		return outline;
 	}
@@ -133,9 +142,13 @@ internal static class RoadCapBuilder
 
 	/// <summary>
 	/// The half disc of road surface: a fan from the middle of the end row out to the arc, so every triangle is
-	/// planar and the row itself is the fan's own base.
+	/// planar and the row itself is the fan's own base. The texture turns round the end with the kerb, the way the
+	/// road's lanes would in a U-turn: U is held at the road's edge all round the arc, so whatever runs along the edge
+	/// of the road in the texture (dark edges, a gutter) follows it round, and V is measured round the arc from the
+	/// end row, up each side to the tip, where the two sides meet. Carried straight on instead, the road's edge would
+	/// run off the arc, and its middle run on to the tip.
 	/// </summary>
-	private static void AddSurface(PolygonMesh _Mesh, Vector3 _Centre, List<Vector3> _Outline, List<float> _Offsets, List<float> _Aheads,
+	private static void AddSurface(PolygonMesh _Mesh, Vector3 _Centre, List<Vector3> _Outline, float _LeftHalf, float _RightHalf,
 		float _Distance, bool _AtStart, RoadProfile _Profile)
 	{
 		float repeat = MathF.Max(1.0f, _Profile.RoadTextureRepeat);
@@ -146,9 +159,36 @@ internal static class RoadCapBuilder
 		for (int i = 0; i < _Outline.Count; i++)
 			ring[i] = _Mesh.AddVertices(_Outline[i])[0];
 
-		// U runs across the road from its centreline and V along it, the same as the road's own surface, so the
-		// asphalt carries on through the seam instead of restarting at it.
-		Vector2 centreUv = new(0.0f, _Distance / repeat);
+		// How far round the arc each point is from the row's left end, and the tip halfway round. Both sides reach
+		// the tip at the same V, the mean of their lengths: a road wider one side than the other stretches the
+		// shorter side to meet the longer.
+		var round = new float[_Outline.Count];
+
+		for (int i = 1; i < _Outline.Count; i++)
+			round[i] = round[i - 1] + _Outline[i].Distance(_Outline[i - 1]);
+
+		int tip = (_Outline.Count - 1) / 2;
+		float leftQuarter = MathF.Max(0.001f, round[tip]);
+		float rightQuarter = MathF.Max(0.001f, round[^1] - round[tip]);
+		float quarter = (leftQuarter + rightQuarter) * 0.5f;
+		float sign = _AtStart ? -1.0f : 1.0f;
+
+		// Across, U is the road's own: out from the centre line at the texture's size, or fitted edge to edge.
+		bool fit = _Profile.RoadTextureFitsWidth;
+		float leftU = fit ? 0.0f : -_LeftHalf / repeat;
+		float rightU = fit ? 1.0f : _RightHalf / repeat;
+		float centreU = fit ? _LeftHalf / MathF.Max(0.001f, _LeftHalf + _RightHalf) : 0.0f;
+		var leftUvs = new Vector2[_Outline.Count];
+		var rightUvs = new Vector2[_Outline.Count];
+
+		for (int i = 0; i < _Outline.Count; i++)
+		{
+			leftUvs[i] = new Vector2(leftU, (_Distance + sign * round[i] * quarter / leftQuarter) / repeat);
+			rightUvs[i] = new Vector2(rightU, (_Distance + sign * (round[^1] - round[i]) * quarter / rightQuarter) / repeat);
+		}
+
+		// The middle of the row is where the road's own mapping has it, so the asphalt carries on through the seam.
+		Vector2 centreUv = new(centreU, _Distance / repeat);
 
 		// Which way round the fan closes, so it faces up like the road it carries on from.
 		Vector3 first = _Outline[0] - _Centre;
@@ -157,8 +197,10 @@ internal static class RoadCapBuilder
 
 		for (int i = 0; i < _Outline.Count - 1; i++)
 		{
-			var uvA = new Vector2(_Offsets[i] / repeat, (_Distance + (_AtStart ? -_Aheads[i] : _Aheads[i])) / repeat);
-			var uvB = new Vector2(_Offsets[i + 1] / repeat, (_Distance + (_AtStart ? -_Aheads[i + 1] : _Aheads[i + 1])) / repeat);
+			// Each side's own mapping, the tip taking whichever side the triangle is on.
+			var uvs = i < tip ? leftUvs : rightUvs;
+			Vector2 uvA = uvs[i];
+			Vector2 uvB = uvs[i + 1];
 
 			if (flip)
 				MeshUtility.AddTexturedTriangle(_Mesh, material, centre, ring[i + 1], ring[i], centreUv, uvB, uvA);

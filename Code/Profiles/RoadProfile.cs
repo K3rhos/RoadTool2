@@ -53,6 +53,25 @@ public enum RoadTextureFacing
 }
 
 /// <summary>
+/// How a road's surface texture is laid across the road.
+/// </summary>
+public enum RoadTextureAcross
+{
+	/// <summary>
+	/// At its own size, measured out from the centre line both ways: a repeat is the road texture repeat wide, and a
+	/// wider road shows more of it rather than stretching it. For a texture that tiles across, like plain asphalt.
+	/// </summary>
+	WorldSize,
+
+	/// <summary>
+	/// Once across, edge to edge: the texture's left edge on the road's left edge and its right edge on the right,
+	/// stretched to however wide the road is. For a texture painted kerb to kerb, with dark edges, gutters or lanes
+	/// in it. The road texture repeat is then only how long a repeat is along the road.
+	/// </summary>
+	FitWidth
+}
+
+/// <summary>
 /// What a pedestrian crossing is painted as.
 /// </summary>
 public enum RoadCrossingStyle
@@ -131,6 +150,12 @@ public sealed class RoadProfile : GameResource
 
 	[Group("Road")] public Material RoadMaterial { get; set; }
 	[Group("Road"), Range(10.0f, 10000.0f)] public float RoadTextureRepeat { get; set { field = value.Clamp(1.0f, 100000.0f); } } = 500.0f;
+
+	/// <summary>
+	/// How the road texture is laid across the road: at its own size out from the centre line, or stretched to span
+	/// the road once, edge to edge, whatever its width.
+	/// </summary>
+	[Group("Road"), Title("Road Texture Across")] public RoadTextureAcross RoadTextureAcross { get; set; } = RoadTextureAcross.WorldSize;
 
 	/// <summary>
 	/// Thins the generated geometry out where this road type hardly bends: a straight street is a couple of long
@@ -376,6 +401,8 @@ public sealed class RoadProfile : GameResource
 	/// </summary>
 	[Hide, JsonIgnore] public Material ResolvedRoadMaterial => RoadMaterial ?? Material.Load("roadtool2/materials/asphalt.vmat");
 
+	[Hide, JsonIgnore] public bool RoadTextureFitsWidth => RoadTextureAcross == RoadTextureAcross.FitWidth;
+
 	[Hide, JsonIgnore] public Material ResolvedBorderMaterial => BorderMaterial ?? Material.Load("roadtool2/materials/sidewalk.vmat");
 
 	[Hide, JsonIgnore] public Material ResolvedLaneLineMaterial => LaneLine?.Material ?? Material.Load("roadtool2/materials/linewhite.vmat");
@@ -410,6 +437,7 @@ public sealed class RoadProfile : GameResource
 	{
 		_Hash.Add(RoadMaterial?.ResourcePath);
 		_Hash.Add(RoadTextureRepeat);
+		_Hash.Add((int)RoadTextureAcross);
 
 		// Where the rows sit is what the surface, the borders and the bridge are all built on, and every one of
 		// their signatures folds this one in.

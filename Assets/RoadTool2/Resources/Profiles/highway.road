@@ -4,6 +4,7 @@
     "Path": "roadtool2/materials/asphalt.vmat"
   },
   "RoadTextureRepeat": 500,
+  "RoadTextureAcross": "FitWidth",
   "Simplify": true,
   "SimplifyAngle": 1,
   "SimplifyDeviation": 2,
@@ -15,6 +16,7 @@
   },
   "BorderTextureRepeat": 200,
   "BorderTextureWidth": 200,
+  "BorderTextureFacing": "West",
   "BorderWidth": 50,
   "CurbHeight": 2,
   "CurbBevel": 0,

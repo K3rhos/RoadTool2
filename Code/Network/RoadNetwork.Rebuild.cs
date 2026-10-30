@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 59;
+	private const int GeneratorVersion = 63;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -1484,6 +1484,23 @@ public sealed partial class RoadNetwork
 		AddPolygonToHash(_Layout, ref hash);
 		JunctionSurfaceProfile(_Layout).AddSurfaceToHash(ref hash);
 
+		// Each arm's texture runs on into the junction along the arm's own curve from the row it stops at, so the
+		// junction moves with the curve, where along it that row is and which way it runs, and with whether the
+		// road is surfaced the same.
+		foreach (var arm in _Layout.Arms)
+		{
+			var curve = arm.Table.Curve;
+
+			hash.Add(arm.Segment.Id);
+			hash.Add(arm.AtStart ? 1 : 0);
+			hash.Add(arm.CurveDistance(arm.Trim));
+			hash.Add(curve.P0);
+			hash.Add(curve.P1);
+			hash.Add(curve.P2);
+			hash.Add(curve.P3);
+			ProfileOf(arm.Segment).AddSurfaceToHash(ref hash);
+		}
+
 		return hash.Value;
 	}
 
@@ -1519,9 +1536,28 @@ public sealed partial class RoadNetwork
 	/// </summary>
 	private RoadProfile JunctionSurfaceProfile(RoadJunctionLayout _Layout)
 	{
-		var main = _Layout.Arms.OrderByDescending(arm => arm.Widths.Base).ThenBy(arm => arm.Segment.Id).FirstOrDefault();
+		return ProfileOf(JunctionMainArm(_Layout)?.Segment);
+	}
 
-		return ProfileOf(main?.Segment);
+
+
+	private static RoadJunctionLayout.Arm JunctionMainArm(RoadJunctionLayout _Layout)
+	{
+		return _Layout.Arms.OrderByDescending(arm => arm.Widths.Base).ThenBy(arm => arm.Segment.Id).FirstOrDefault();
+	}
+
+
+
+	/// <summary>
+	/// Whether an arm's road is surfaced like the junction it runs into (same material, laid the same way at the
+	/// same scale), so the junction can carry the arm's texture on.
+	/// </summary>
+	private bool SameSurface(RoadJunctionLayout.Arm _Arm, RoadProfile _Surface)
+	{
+		var profile = ProfileOf(_Arm.Segment);
+
+		return profile == _Surface || (profile.ResolvedRoadMaterial?.ResourcePath == _Surface.ResolvedRoadMaterial?.ResourcePath
+			&& profile.RoadTextureRepeat == _Surface.RoadTextureRepeat && profile.RoadTextureAcross == _Surface.RoadTextureAcross);
 	}
 
 
@@ -1708,7 +1744,7 @@ public sealed partial class RoadNetwork
 			if (segment is null)
 				return false;
 
-			mesh = RoadSurfaceBuilder.Build(_Job.Table, plan.Start, plan.End, _Job.Width, SampleSpacing, _Job.Profile.Simplification, segment.LaneCount, _Job.Profile.RoadTextureRepeat, SurfaceOffset, _Job.Profile.ResolvedRoadMaterial);
+			mesh = RoadSurfaceBuilder.Build(_Job.Table, plan.Start, plan.End, _Job.Width, SampleSpacing, _Job.Profile.Simplification, segment.LaneCount, _Job.Profile.RoadTextureRepeat, _Job.Profile.RoadTextureFitsWidth, SurfaceOffset, _Job.Profile.ResolvedRoadMaterial);
 			name = $"Road {_Job.SegmentId} [{plan.Index + 1}/{plan.Count}]";
 		}
 
@@ -1791,7 +1827,7 @@ public sealed partial class RoadNetwork
 		{
 			var profile = JunctionSurfaceProfile(_Job.Junction);
 
-			mesh = RoadJunctionBuilder.Build(_Job.Junction, profile.RoadTextureRepeat, profile.ResolvedRoadMaterial);
+			mesh = RoadJunctionBuilder.Build(_Job.Junction, JunctionMainArm(_Job.Junction), arm => SameSurface(arm, profile), profile.RoadTextureRepeat, profile.RoadTextureFitsWidth, profile.ResolvedRoadMaterial);
 			name = $"Junction {_Job.NodeId}";
 		}
 
