@@ -1,5 +1,7 @@
 # Road Tool 2.0
 
+<img width="2523" height="1288" alt="Capture d&#39;écran 2026-10-31 044604" src="https://github.com/user-attachments/assets/38e0c45c-efc5-4660-a801-32e0ba7ca2e7" />
+
 Editor-only road building tool for s&box, built around a single road network graph (nodes + segments) from which every mesh: road chunks, junctions, sidewalks and more.
 
 Rewritten from scratch, my previous [Road Tool](https://github.com/K3rhos/RoadTool) stays as the legacy library.
