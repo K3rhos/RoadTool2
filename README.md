@@ -1,12 +1,11 @@
 # Road Tool 2.0
 
-Editor-only road building tool for s&box, built around a single road network graph (nodes + segments) from which every mesh — road chunks, junctions, sidewalks — is generated.
+Editor-only road building tool for s&box, built around a single road network graph (nodes + segments) from which every mesh: road chunks, junctions, sidewalks and more.
 
-Work in progress. Rewritten from scratch; the previous Road Tool (`redsnail.roadtool`) stays as the legacy library.
+Rewritten from scratch, my previous [Road Tool](https://github.com/K3rhos/RoadTool) stays as the legacy library.
 
-- Namespace: `RedSnail.RoadTool2`
-- Assets root: `Assets/RoadTool2/`
-- No traffic / vehicle / pedestrian systems (road geometry only for now)
+However in this version there is no traffic, vehicle or pedestrian systems (road geometry only for now)
+It could easily be reimplemented honestly, but I don't have the need to for now.
 
 ## How it works
 
@@ -20,5 +19,5 @@ Work in progress. Rewritten from scratch; the previous Road Tool (`redsnail.road
 
 Select **Road Tool 2.0** in the scene view tools. Sub tools:
 
-- **Draw** — click the ground to lay nodes, each click extends the road; click an existing node to continue from it or join to it; click on an existing road to branch off it (the road is split there) or to merge into it; right-click or `Esc` ends the road. Width, snap radius and sharp/smooth corners are in the sidebar.
-- **Edit** — click a node or a road to select it. Drag a node to slide it along the ground, or use its move gizmo (arrows for axis/elevation moves). Drag a node's tangent handles to reshape the roads through it (`Alt` breaks the mirror to make a corner). `Ctrl`+click a road to insert a node; `Delete` removes the selection; `Esc` deselects. The sidebar edits the selected node (position, auto tangents) or road (width).
+- **Draw** Click the ground to lay nodes, each click extends the road; click an existing node to continue from it or join to it; click on an existing road to branch off it (the road is split there) or to merge into it; right-click or `Esc` ends the road. Width, snap radius and sharp/smooth corners are in the sidebar.
+- **Edit** Click a node or a road to select it. Drag a node to slide it along the ground, or use its move gizmo (arrows for axis/elevation moves). Drag a node's tangent handles to reshape the roads through it (`Alt` breaks the mirror to make a corner). `Ctrl`+click a road to insert a node; `Delete` removes the selection; `Esc` deselects. The sidebar edits the selected node (position, auto tangents) or road (width).
