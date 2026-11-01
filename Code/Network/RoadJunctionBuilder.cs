@@ -25,12 +25,13 @@ internal static class RoadJunctionBuilder
 	/// <see cref="RoadFanBuilder"/>). An arm with a different road surface from the junction's still has the
 	/// junction's surface turn into it the same way (carried on across it instead, a texture fitted to the main road's
 	/// width would run off its edges and start again); a road that blends the junction's surface into its own (see
-	/// <see cref="RoadProfile.RoadBlendMaterial"/>) picks it up from there. An arm whose road has banks has the
-	/// junction's surface carried on down under the ground past its half of each corner, as its road's own is past its
-	/// edges. <paramref name="_ProfileOf"/> gives each arm's road type.
+	/// <see cref="RoadProfile.RoadBlendMaterial"/>) starts doing so across its mouth (see <see cref="RoadMouthBlend"/>),
+	/// where its share of the corners starts, and carries the blend on from its row. An arm whose road has banks has its
+	/// road's surface carried on down under the ground past its half of each corner, as its road's own is past its edges.
+	/// <paramref name="_ProfileOf"/> gives each arm's road type, and <paramref name="_BlendOf"/> its road's blend.
 	/// </summary>
 	public static PolygonMesh Build(RoadJunctionLayout _Layout, RoadJunctionLayout.Arm _Main, Func<RoadJunctionLayout.Arm, bool> _SameSurface, float _TextureRepeat, bool _FitWidth, Material _Material,
-		Func<RoadJunctionLayout.Arm, RoadProfile> _ProfileOf = null)
+		Func<RoadJunctionLayout.Arm, RoadProfile> _ProfileOf = null, Func<RoadJunctionLayout.Arm, RoadSurfaceBlend> _BlendOf = null)
 	{
 		var mesh = new PolygonMesh();
 		var polygon = _Layout.Polygon;
@@ -68,39 +69,156 @@ internal static class RoadJunctionBuilder
 			return split;
 		}
 
-		// The outline, with an edge cut straight across from one arm's row to the next arm's halved: each arm takes
-		// the half on its side.
 		var points = new List<Vector3>();
 		var arms = new List<int>();
+		var blends = new IFanBlend[_Layout.Arms.Count];
+
+		Outline(_Layout, mainIndex, points, arms);
+
+		if (_ProfileOf is not null && _BlendOf is not null)
+		{
+			for (int i = 0; i < blends.Length; i++)
+				blends[i] = i == mainIndex ? null : MouthBlend(_Layout, points, arms, i, _ProfileOf, _BlendOf);
+		}
+
+		RoadFanBuilder.Build(mesh, _Material, _Layout.Centre, points, arms, mappings, own, null, true, blends);
+		AddSkirts(mesh, _Layout, mappings, _ProfileOf, _Material);
+
+		return mesh;
+	}
+
+
+
+	/// <summary>
+	/// The outline the surface is fanned out to, with an edge cut straight across from one arm's row to the next arm's
+	/// halved, and the arm each edge belongs to: each takes the half on its side.
+	/// </summary>
+	private static void Outline(RoadJunctionLayout _Layout, int _MainIndex, List<Vector3> _Points, List<int> _Arms)
+	{
+		var polygon = _Layout.Polygon;
+		var owners = _Layout.PolygonArms;
 
 		for (int i = 0; i < polygon.Count; i++)
 		{
 			int next = (i + 1) % polygon.Count;
 
-			points.Add(polygon[i]);
+			_Points.Add(polygon[i]);
 
 			if (owners[i] >= 0)
 			{
-				arms.Add(owners[i]);
+				_Arms.Add(owners[i]);
 				continue;
 			}
 
 			int before = OwnerNear(owners, i, -1);
 			int after = OwnerNear(owners, next, 1);
 
-			arms.Add(before >= 0 ? before : mainIndex);
+			_Arms.Add(before >= 0 ? before : _MainIndex);
 
 			if (before >= 0 && after >= 0)
 			{
-				points.Add((polygon[i] + polygon[next]) * 0.5f);
-				arms.Add(after);
+				_Points.Add((polygon[i] + polygon[next]) * 0.5f);
+				_Arms.Add(after);
+			}
+		}
+	}
+
+
+
+	/// <summary>
+	/// Where a road blending the junction's surface into its own starts its blend across its mouth (see
+	/// <see cref="RoadMouthBlend"/>): the line from the middle of the corner on one side of the arm to the middle of the
+	/// corner on the other, where the arm's share of the outline starts and ends, and its skirt and banks with it. In the
+	/// arm's own terms: how far from the node the line crosses the road's centreline (never past the row), and how much
+	/// further from the node it lies for each unit out to the road's right. False where the arm has no share of the
+	/// outline, or the whole of it.
+	/// </summary>
+	internal static bool Mouth(RoadJunctionLayout _Layout, RoadJunctionLayout.Arm _Arm, RoadJunctionLayout.Arm _Main, out float _Centre, out float _Slope)
+	{
+		_Centre = 0.0f;
+		_Slope = 0.0f;
+
+		int mainIndex = _Main is null ? -1 : _Layout.Arms.IndexOf(_Main);
+
+		if (_Layout.Polygon.Count < 3 || _Layout.PolygonArms is null || _Layout.PolygonArms.Count != _Layout.Polygon.Count || mainIndex < 0)
+			return false;
+
+		var points = new List<Vector3>();
+		var arms = new List<int>();
+
+		Outline(_Layout, mainIndex, points, arms);
+
+		return Mouth(_Layout, points, arms, _Layout.Arms.IndexOf(_Arm), out _Centre, out _Slope);
+	}
+
+
+
+	private static bool Mouth(RoadJunctionLayout _Layout, List<Vector3> _Points, List<int> _Arms, int _Index, out float _Centre, out float _Slope)
+	{
+		_Centre = 0.0f;
+		_Slope = 0.0f;
+
+		int count = _Points.Count;
+		int first = -1;
+
+		if (_Index < 0)
+			return false;
+
+		// The arm's stretch, from the edge it takes over at to the last before it hands over.
+		for (int k = 0; k < count; k++)
+		{
+			if (_Arms[k] == _Index && _Arms[(k + count - 1) % count] != _Index)
+			{
+				first = k;
+				break;
 			}
 		}
 
-		RoadFanBuilder.Build(mesh, _Material, _Layout.Centre, points, arms, mappings, own);
-		AddSkirts(mesh, _Layout, mappings, _ProfileOf, _Material);
+		if (first < 0)
+			return false;
 
-		return mesh;
+		int last = first;
+
+		while (_Arms[(last + 1) % count] == _Index)
+			last = (last + 1) % count;
+
+		var arm = _Layout.Arms[_Index];
+		var mapping = Mapping(arm, 1.0f, false);
+		Vector2 from = mapping.Measure(_Points[first]);
+		Vector2 to = mapping.Measure(_Points[(last + 1) % count]);
+		float fromNode = arm.AtStart ? from.y : arm.Length - from.y;
+		float toNode = arm.AtStart ? to.y : arm.Length - to.y;
+		float across = to.x - from.x;
+
+		_Slope = MathF.Abs(across) > 1.0f ? (toNode - fromNode) / across : 0.0f;
+		_Centre = Math.Clamp((fromNode + toNode) * 0.5f - _Slope * (from.x + to.x) * 0.5f, 0.0f, arm.Trim);
+
+		return true;
+	}
+
+
+
+	/// <summary>
+	/// The blend across an arm's mouth, or null where its road does not blend the junction's surface into its own there.
+	/// It starts where the road's own blend says, which is where the mouth's line crosses the road's centreline.
+	/// </summary>
+	private static IFanBlend MouthBlend(RoadJunctionLayout _Layout, List<Vector3> _Points, List<int> _Arms, int _Index,
+		Func<RoadJunctionLayout.Arm, RoadProfile> _ProfileOf, Func<RoadJunctionLayout.Arm, RoadSurfaceBlend> _BlendOf)
+	{
+		var arm = _Layout.Arms[_Index];
+		var profile = _ProfileOf(arm);
+
+		if (profile?.RoadBlendMaterial is null || arm.Segment.Bridge is not null)
+			return null;
+
+		var blend = _BlendOf(arm);
+
+		if (blend.IsNone || !(arm.AtStart ? blend.AtStart : blend.AtEnd) || !Mouth(_Layout, _Points, _Arms, _Index, out _, out float slope))
+			return null;
+
+		float centre = arm.AtStart ? blend.StartAt : arm.Length - blend.EndAt;
+
+		return new RoadMouthBlend(arm, profile, blend, arm.AtStart ? blend.StartSource : blend.EndSource, centre, slope);
 	}
 
 

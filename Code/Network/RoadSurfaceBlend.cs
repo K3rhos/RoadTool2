@@ -6,17 +6,18 @@ namespace RedSnail.RoadTool2;
 
 /// <summary>
 /// Where another surface runs on into a segment's own and gives way to it: from each end that meets one (at
-/// <see cref="StartAt"/> or <see cref="EndAt"/>, distances along the segment's curve where its surface stops), all of
-/// the other surface there, none of it <see cref="Length"/> in. <see cref="StartSource"/> and <see cref="EndSource"/>
-/// say how that surface is laid where it stops, so it carries straight on into the blend. The default is a segment
-/// that blends into nothing.
+/// <see cref="StartAt"/> or <see cref="EndAt"/>, distances along the segment's curve where the other surface starts
+/// giving way: where the segment's own stops, or at a junction back across the road's mouth, see
+/// <see cref="RoadMouthBlend"/>), all of the other surface there, none of it <see cref="Length"/> in.
+/// <see cref="StartSource"/> and <see cref="EndSource"/> say how that surface is laid there, so it carries straight on
+/// into the blend. The default is a segment that blends into nothing.
 /// </summary>
 public readonly record struct RoadSurfaceBlend(bool AtStart, float StartAt, bool AtEnd, float EndAt, float Length, RoadBlendSource StartSource = default, RoadBlendSource EndSource = default)
 {
 	/// <summary>
 	/// The steps a blend is laid in, so its rows give the material a smooth ramp to mix by.
 	/// </summary>
-	private const int Steps = 4;
+	private const int StepCount = 4;
 
 	public bool IsNone => (!AtStart && !AtEnd) || Length <= 0.01f;
 
@@ -47,20 +48,35 @@ public readonly record struct RoadSurfaceBlend(bool AtStart, float StartAt, bool
 		return IsNone || !AtEnd ? 0.0f : Fall(EndAt - _Distance);
 	}
 
+	/// <summary>
+	/// How much of the other surface there is a distance into a blend from where it starts.
+	/// </summary>
+	public float WeightInto(float _Into)
+	{
+		return IsNone ? 0.0f : Fall(_Into);
+	}
 
+
+
+	/// <summary>
+	/// How far into a blend from where it starts its rows are laid, from its start to its end.
+	/// </summary>
+	public IEnumerable<float> Steps()
+	{
+		if (IsNone)
+			yield break;
+
+		for (int step = 0; step <= StepCount; step++)
+			yield return Length * step / StepCount;
+	}
 
 	/// <summary>
 	/// The distances a surface needs rows at for its blends to be laid smoothly.
 	/// </summary>
 	public IEnumerable<float> Knots()
 	{
-		if (IsNone)
-			yield break;
-
-		for (int step = 0; step <= Steps; step++)
+		foreach (float into in Steps())
 		{
-			float into = Length * step / Steps;
-
 			if (AtStart)
 				yield return StartAt + into;
 

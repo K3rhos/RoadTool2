@@ -40,16 +40,70 @@ internal interface IFanMapping
 }
 
 /// <summary>
+/// The surface of a road an owner's stretch of a fan gives way to across it (a road blending a junction's surface into
+/// its own, see <see cref="RoadMouthBlend"/>): the fan's own surface where the blend starts, the road's where it ends,
+/// and the blend material between.
+/// </summary>
+internal interface IFanBlend
+{
+	/// <summary>
+	/// The material the blend is drawn with, and the road's own, where the blend has given way to it.
+	/// </summary>
+	Material Material { get; }
+	Material Own { get; }
+
+	/// <summary>
+	/// How far into the blend its rows are laid, from its start to its end.
+	/// </summary>
+	IReadOnlyList<float> Steps { get; }
+
+	/// <summary>
+	/// How far into the blend a point is, in world units: nought where it starts, less short of it.
+	/// </summary>
+	float Into(Vector3 _Point);
+
+	/// <summary>
+	/// How much of the fan's own surface there is a distance into the blend.
+	/// </summary>
+	float WeightAt(float _Into);
+
+	/// <summary>
+	/// The road's own texture coordinates at a point, as its own material takes them.
+	/// </summary>
+	Vector2 OwnUv(Vector3 _Point);
+
+	/// <summary>
+	/// The blend material's coordinates where the road has <paramref name="_Own"/>, the fan
+	/// <paramref name="_Uv"/>, and there is <paramref name="_Weight"/> of the fan's surface.
+	/// </summary>
+	Vector2 BlendUv(Vector2 _Own, Vector2 _Uv, float _Weight);
+}
+
+/// <summary>
 /// Fans a surface out from its centre to its outline, each edge of the outline textured by the mapping of the owner
 /// it belongs to. The owners meet on the spokes between their stretches, each side of a spoke taking its own owner's
 /// coordinates, the way the arms of a junction meet on lines from the node to the middle of its corners. Spokes
 /// along which a mapping bends (a road curving in, an edge's texture turning back on itself) are cut into pieces so
 /// the texture follows it, and a spoke that is long for the road it reaches has a rim along the outline (see
 /// <see cref="SpokeUvs"/>). The pieces lie on the spokes, so the fan's triangles keep their planes and the surface is
-/// the same however finely it is cut.
+/// the same however finely it is cut. An owner whose road blends the fan's surface into its own across its stretch
+/// (see <see cref="IFanBlend"/>) has the spokes either side of it cut at each step of the blend too, so it is laid in
+/// rows across the fan.
 /// </summary>
 internal static class RoadFanBuilder
 {
+	/// <summary>
+	/// How many points along a spoke how far into a blend it reaches is read at, to find where it crosses the blend's
+	/// steps: it runs all but straight between them.
+	/// </summary>
+	private const int BlendSamples = 16;
+
+	/// <summary>
+	/// How close to all or none of a surface a blend's points can be and the triangle still be drawn in that surface
+	/// alone: nearer than the vertex blend can tell apart.
+	/// </summary>
+	private const float WeightEpsilon = 1.0f / 512.0f;
+
 	/// <summary>
 	/// How far (in world units) a straight run of a mapping along a spoke may drift from the mapping itself before
 	/// the spoke is cut into pieces.
@@ -91,9 +145,11 @@ internal static class RoadFanBuilder
 	/// <paramref name="_Vertex"/> when given (to share them with the rest of a mesh, or set their heights), straight
 	/// from the mesh otherwise. An open fan (<paramref name="_Closed"/> false) stops at its last point instead of
 	/// closing back to its first: a fan from a point on the edge of something else, along which its two end spokes lie.
+	/// <paramref name="_Blends"/> gives, by owner, the road that owner's stretch gives way to, if any.
 	/// </summary>
 	public static void Build(PolygonMesh _Mesh, Material _Material, Vector3 _Centre, IReadOnlyList<Vector3> _Points, IReadOnlyList<int> _Owners,
-		IReadOnlyList<IFanMapping> _Mappings, IReadOnlyList<bool> _Kerbs, Func<Vector3, HalfEdgeMesh.VertexHandle> _Vertex = null, bool _Closed = true)
+		IReadOnlyList<IFanMapping> _Mappings, IReadOnlyList<bool> _Kerbs, Func<Vector3, HalfEdgeMesh.VertexHandle> _Vertex = null, bool _Closed = true,
+		IReadOnlyList<IFanBlend> _Blends = null)
 	{
 		int count = _Points.Count;
 
@@ -114,9 +170,17 @@ internal static class RoadFanBuilder
 			// An open fan's end spokes are shared with whatever it is fanned from the edge of, which knows nothing of
 			// any points along them: they stay whole, so the two meet point for point.
 			if (!_Closed && (k == 0 || k == count - 1))
+			{
 				fractions[k] = new[] { 0.0f, 1.0f };
+			}
 			else
-				fractions[k] = SpokeFractions(_Mappings[_Owners[(k + count - 1) % count]], _Mappings[_Owners[k]], _Centre, _Points[k], out rims[k]);
+			{
+				int entering = _Owners[(k + count - 1) % count];
+				int leaving = _Owners[k];
+
+				fractions[k] = SpokeFractions(_Mappings[entering], _Mappings[leaving], _Centre, _Points[k], out rims[k]);
+				fractions[k] = BlendCuts(fractions[k], rims[k], BlendOf(_Blends, entering), BlendOf(_Blends, leaving), _Centre, _Points[k]);
+			}
 
 			var spoke = new HalfEdgeMesh.VertexHandle[fractions[k].Length];
 
@@ -133,10 +197,93 @@ internal static class RoadFanBuilder
 			int next = (k + 1) % count;
 			var mapping = _Mappings[_Owners[k]];
 			bool kerbs = _Kerbs[_Owners[k]];
+			var uvs = SpokeUvs(mapping, kerbs, _Centre, _Points, k, _Closed, fractions[k], rims[k]);
+			var nextUvs = SpokeUvs(mapping, kerbs, _Centre, _Points, next, _Closed, fractions[next], rims[next]);
 
-			Zip(_Mesh, _Material,
-				spokes[k], fractions[k], SpokeUvs(mapping, kerbs, _Centre, _Points, k, _Closed, fractions[k], rims[k]),
-				spokes[next], fractions[next], SpokeUvs(mapping, kerbs, _Centre, _Points, next, _Closed, fractions[next], rims[next]));
+			if (BlendOf(_Blends, _Owners[k]) is { } blend)
+				ZipBlended(_Mesh, _Material, blend, _Centre, _Points[k], spokes[k], fractions[k], uvs, _Points[next], spokes[next], fractions[next], nextUvs);
+			else
+				Zip(_Mesh, _Material, spokes[k], fractions[k], uvs, spokes[next], fractions[next], nextUvs);
+		}
+	}
+
+
+
+	/// <summary>
+	/// The road an owner's stretch gives way to, if any.
+	/// </summary>
+	private static IFanBlend BlendOf(IReadOnlyList<IFanBlend> _Blends, int _Owner)
+	{
+		return _Blends is not null && _Owner >= 0 && _Owner < _Blends.Count ? _Blends[_Owner] : null;
+	}
+
+
+
+	/// <summary>
+	/// A spoke's points (see <see cref="SpokeFractions"/>) with more where it crosses each step of a blend either side of
+	/// it, inside its rim, so the blend is laid in rows across the fan as it is along the road. A crossing within a unit of
+	/// a point the spoke has already is left out.
+	/// </summary>
+	private static float[] BlendCuts(float[] _Fractions, float _Rim, IFanBlend _Entering, IFanBlend _Leaving, Vector3 _Centre, Vector3 _End)
+	{
+		if (_Entering is null && _Leaving is null)
+			return _Fractions;
+
+		float reach = 1.0f - _Rim;
+		int innerLast = _Rim > 0.0f ? _Fractions.Length - 2 : _Fractions.Length - 1;
+		float gap = 1.0f / MathF.Max(1.0f, Flat(_End - _Centre).Length);
+		var points = new List<float>();
+		var cuts = new List<float>();
+
+		for (int j = 0; j <= innerLast; j++)
+			points.Add(_Fractions[j]);
+
+		Crossings(_Entering, _Centre, _End, reach, cuts);
+
+		if (_Leaving != _Entering)
+			Crossings(_Leaving, _Centre, _End, reach, cuts);
+
+		foreach (float cut in cuts)
+		{
+			if (cut > 0.0f && cut < reach && points.TrueForAll(point => MathF.Abs(point - cut) >= gap))
+				points.Add(cut);
+		}
+
+		points.Sort();
+
+		if (_Rim > 0.0f)
+			points.Add(_Fractions[^1]);
+
+		return points.ToArray();
+	}
+
+
+
+	/// <summary>
+	/// Adds where a spoke crosses each step of a blend, as shares of its length out to <paramref name="_Reach"/>.
+	/// </summary>
+	private static void Crossings(IFanBlend _Blend, Vector3 _Centre, Vector3 _End, float _Reach, List<float> _Cuts)
+	{
+		if (_Blend is null)
+			return;
+
+		var into = new float[BlendSamples + 1];
+
+		for (int i = 0; i <= BlendSamples; i++)
+			into[i] = _Blend.Into(Vector3.Lerp(_Centre, _End, _Reach * i / BlendSamples));
+
+		foreach (float step in _Blend.Steps)
+		{
+			for (int i = 0; i < BlendSamples; i++)
+			{
+				float from = into[i] - step;
+				float to = into[i + 1] - step;
+
+				if (from * to > 0.0f || from == to)
+					continue;
+
+				_Cuts.Add(_Reach * (i + from / (from - to)) / BlendSamples);
+			}
 		}
 	}
 
@@ -305,27 +452,124 @@ internal static class RoadFanBuilder
 	private static void Zip(PolygonMesh _Mesh, Material _Material, HalfEdgeMesh.VertexHandle[] _A, float[] _AtA, Vector2[] _UvA, HalfEdgeMesh.VertexHandle[] _B,
 		float[] _AtB, Vector2[] _UvB)
 	{
+		var handles = Join(_A, _B);
+		var uvs = Join(_UvA, _UvB);
+
+		foreach (var (p, q, r) in Strip(_AtA, _AtB))
+			MeshUtility.AddTexturedTriangle(_Mesh, _Material, handles[p], handles[q], handles[r], uvs[p], uvs[q], uvs[r]);
+	}
+
+
+
+	/// <summary>
+	/// Fills one triangle of the fan as <see cref="Zip"/> does, over a stretch whose road gives way to the fan's surface
+	/// across it: out along the spokes in the order their points reach into the blend, so each of its steps is a row
+	/// across the fan. A triangle that is all the fan's surface is drawn in it as the rest of the fan is, one that is all
+	/// the road's in the road's own material, and anything between in the blend material, its points painted with how
+	/// much of the fan's surface there is at each.
+	/// </summary>
+	private static void ZipBlended(PolygonMesh _Mesh, Material _Material, IFanBlend _Blend, Vector3 _Centre,
+		Vector3 _EndA, HalfEdgeMesh.VertexHandle[] _A, float[] _AtA, Vector2[] _UvA,
+		Vector3 _EndB, HalfEdgeMesh.VertexHandle[] _B, float[] _AtB, Vector2[] _UvB)
+	{
+		var handles = Join(_A, _B);
+		var uvs = Join(_UvA, _UvB);
+		var positions = Join(SpokePoints(_Centre, _EndA, _AtA), SpokePoints(_Centre, _EndB, _AtB));
+		int count = positions.Length;
+		var into = new float[count];
+		var weights = new float[count];
+		var own = new Vector2[count];
+		var mixed = new Vector2[count];
+
+		for (int j = 0; j < count; j++)
+		{
+			into[j] = _Blend.Into(positions[j]);
+			weights[j] = _Blend.WeightAt(into[j]);
+			own[j] = _Blend.OwnUv(positions[j]);
+			mixed[j] = _Blend.BlendUv(own[j], uvs[j], weights[j]);
+		}
+
+		foreach (var (p, q, r) in Strip(into[.._A.Length], into[_A.Length..]))
+		{
+			float least = MathF.Min(weights[p], MathF.Min(weights[q], weights[r]));
+			float most = MathF.Max(weights[p], MathF.Max(weights[q], weights[r]));
+
+			if (least >= 1.0f - WeightEpsilon)
+			{
+				MeshUtility.AddTexturedTriangle(_Mesh, _Material, handles[p], handles[q], handles[r], uvs[p], uvs[q], uvs[r]);
+				continue;
+			}
+
+			if (most <= WeightEpsilon)
+			{
+				MeshUtility.AddTexturedTriangle(_Mesh, _Blend.Own, handles[p], handles[q], handles[r], own[p], own[q], own[r]);
+				continue;
+			}
+
+			var face = MeshUtility.AddTexturedTriangle(_Mesh, _Blend.Material, handles[p], handles[q], handles[r], mixed[p], mixed[q], mixed[r]);
+
+			MeshUtility.SetFaceBlends(_Mesh, face, new[] { RoadSurfaceBuilder.BlendColour(weights[p]), RoadSurfaceBuilder.BlendColour(weights[q]), RoadSurfaceBuilder.BlendColour(weights[r]) });
+		}
+	}
+
+
+
+	/// <summary>
+	/// The triangles filling one triangle of the fan between two spokes that start at the centre, from one to the other
+	/// in the order their points reach out by <paramref name="_A"/> and <paramref name="_B"/>, wound the way the fan
+	/// triangle is: each as three points, A's numbered from nought and B's on from the end of A's.
+	/// </summary>
+	private static IEnumerable<(int, int, int)> Strip(float[] _A, float[] _B)
+	{
 		int lastA = _A.Length - 1;
 		int lastB = _B.Length - 1;
+		int offset = _A.Length;
 		int a = 1;
 		int b = 1;
 
-		MeshUtility.AddTexturedTriangle(_Mesh, _Material, _A[0], _A[1], _B[1], _UvA[0], _UvA[1], _UvB[1]);
+		yield return (0, 1, offset + 1);
 
 		while (a < lastA || b < lastB)
 		{
-			// Step out along whichever spoke is further behind, as a share of its length.
-			if (b == lastB || (a < lastA && _AtA[a + 1] <= _AtB[b + 1]))
+			// Step out along whichever spoke is further behind.
+			if (b == lastB || (a < lastA && _A[a + 1] <= _B[b + 1]))
 			{
-				MeshUtility.AddTexturedTriangle(_Mesh, _Material, _A[a], _A[a + 1], _B[b], _UvA[a], _UvA[a + 1], _UvB[b]);
+				yield return (a, a + 1, offset + b);
 				a++;
 			}
 			else
 			{
-				MeshUtility.AddTexturedTriangle(_Mesh, _Material, _A[a], _B[b + 1], _B[b], _UvA[a], _UvB[b + 1], _UvB[b]);
+				yield return (a, offset + b + 1, offset + b);
 				b++;
 			}
 		}
+	}
+
+
+
+	/// <summary>
+	/// Where a spoke's points are: the centre, the outline point, and the shares of the way between.
+	/// </summary>
+	private static Vector3[] SpokePoints(Vector3 _Centre, Vector3 _End, float[] _Fractions)
+	{
+		var points = new Vector3[_Fractions.Length];
+
+		for (int j = 0; j < points.Length; j++)
+			points[j] = j == 0 ? _Centre : j == points.Length - 1 ? _End : Vector3.Lerp(_Centre, _End, _Fractions[j]);
+
+		return points;
+	}
+
+
+
+	private static T[] Join<T>(T[] _A, T[] _B)
+	{
+		var joined = new T[_A.Length + _B.Length];
+
+		_A.CopyTo(joined, 0);
+		_B.CopyTo(joined, _A.Length);
+
+		return joined;
 	}
 
 

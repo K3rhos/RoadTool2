@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 75;
+	private const int GeneratorVersion = 76;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -55,9 +55,10 @@ public sealed partial class RoadNetwork
 	/// <summary>
 	/// One piece to (re)build: a chunk of a segment, or, when <see cref="NodeId"/> is set, a piece of a junction.
 	/// <see cref="ArmBlends"/> and <see cref="ArmTapers"/> carry, for a junction's border piece, what each arm's
-	/// chunks were built with, keyed by segment.
+	/// chunks were built with, keyed by segment; <see cref="ArmSurfaces"/>, for its surface, each arm's road's blend.
 	/// </summary>
-	private readonly record struct RebuildJob(int SegmentId, int NodeId, RoadChunkKind Kind, long GroupSignature, ChunkPlan Plan, RoadCurveTable Table, RoadWidth Width, RoadProfile Profile, RoadJunctionLayout Junction, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> ArmBlends, Dictionary<int, SegmentBorderTapers> ArmTapers, RoadLot Lot);
+	private readonly record struct RebuildJob(int SegmentId, int NodeId, RoadChunkKind Kind, long GroupSignature, ChunkPlan Plan, RoadCurveTable Table, RoadWidth Width, RoadProfile Profile, RoadJunctionLayout Junction, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> ArmBlends, Dictionary<int, SegmentBorderTapers> ArmTapers, RoadLot Lot,
+		Dictionary<int, RoadSurfaceBlend> ArmSurfaces = null);
 
 	private bool m_IsDirty;
 	private readonly Queue<RebuildJob> m_Jobs = new();
@@ -212,6 +213,7 @@ public sealed partial class RoadNetwork
 		var liveSegments = new HashSet<int>();
 		var segmentBlends = new Dictionary<int, RoadBorderBuilder.SegmentBorderBlends>();
 		var segmentTapers = new Dictionary<int, SegmentBorderTapers>();
+		var segmentSurfaces = new Dictionary<int, RoadSurfaceBlend>();
 
 		foreach (var segment in Segments)
 		{
@@ -240,6 +242,7 @@ public sealed partial class RoadNetwork
 
 			segmentBlends[segment.Id] = blends;
 			segmentTapers[segment.Id] = taper;
+			segmentSurfaces[segment.Id] = surfaceBlend;
 			segmentChunks.TryGetValue(segment.Id, out var existing);
 
 			if (IsSegmentUpToDate(existing, plans))
@@ -254,7 +257,13 @@ public sealed partial class RoadNetwork
 
 		foreach (var (nodeId, layout) in layouts)
 		{
-			ReconcileJunctionPiece(nodeId, layout, RoadChunkKind.Surface, ComputeJunctionSurfaceSignature(layout), junctionChunks, null);
+			// A road blending the junction's surface into its own starts doing so across its mouth, inside the junction.
+			var armSurfaces = new Dictionary<int, RoadSurfaceBlend>();
+
+			foreach (var arm in layout.Arms)
+				armSurfaces[arm.Segment.Id] = segmentSurfaces.GetValueOrDefault(arm.Segment.Id);
+
+			ReconcileJunctionPiece(nodeId, layout, RoadChunkKind.Surface, ComputeJunctionSurfaceSignature(layout, armSurfaces), junctionChunks, null, null, armSurfaces);
 
 			bool anyBorder = layout.Arms.Any(arm => ProfileOf(arm.Segment).HasBorder);
 
@@ -310,7 +319,8 @@ public sealed partial class RoadNetwork
 
 
 
-	private void ReconcileJunctionPiece(int _NodeId, RoadJunctionLayout _Layout, RoadChunkKind _Kind, long _Signature, Dictionary<(int NodeId, RoadChunkKind Kind), RoadChunk> _Existing, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> _ArmBlends, Dictionary<int, SegmentBorderTapers> _ArmTapers = null)
+	private void ReconcileJunctionPiece(int _NodeId, RoadJunctionLayout _Layout, RoadChunkKind _Kind, long _Signature, Dictionary<(int NodeId, RoadChunkKind Kind), RoadChunk> _Existing, Dictionary<int, RoadBorderBuilder.SegmentBorderBlends> _ArmBlends, Dictionary<int, SegmentBorderTapers> _ArmTapers = null,
+		Dictionary<int, RoadSurfaceBlend> _ArmSurfaces = null)
 	{
 		var key = (_NodeId, _Kind);
 
@@ -320,7 +330,7 @@ public sealed partial class RoadNetwork
 		if (m_PendingJunctions.TryGetValue(key, out var pending) && pending.Signature == _Signature)
 			return;
 
-		m_Jobs.Enqueue(new RebuildJob(-1, _NodeId, _Kind, _Signature, default, null, RoadWidth.Uniform(0.0f), null, _Layout, _ArmBlends, _ArmTapers, null));
+		m_Jobs.Enqueue(new RebuildJob(-1, _NodeId, _Kind, _Signature, default, null, RoadWidth.Uniform(0.0f), null, _Layout, _ArmBlends, _ArmTapers, null, _ArmSurfaces));
 		m_PendingJunctions[key] = new PendingGroup(_Signature, 1);
 	}
 
@@ -502,19 +512,20 @@ public sealed partial class RoadNetwork
 	/// Where another surface runs on into a segment's own: from each end where its surface stops against another
 	/// material (a junction laid in another road type's surface, a parking lot's, or another road type carrying on
 	/// from a plain pass-through node), over the profile's blend length, never more than half the stretch between the
-	/// two ends. Nothing without a blend material, or on a bridge's deck.
+	/// two ends. At a junction the blend starts back across the road's mouth, where its share of the corners starts and
+	/// its skirt and banks with it (see <see cref="RoadMouthBlend"/>), so the junction's surface is already giving way
+	/// where the road's edges begin. Nothing without a blend material, or on a bridge's deck.
 	/// </summary>
 	private RoadSurfaceBlend ComputeSurfaceBlend(RoadSegment _Segment, RoadCurveTable _Table, RoadProfile _Profile, Dictionary<int, RoadJunctionLayout> _Layouts, float _TrimStart, float _TrimEnd)
 	{
 		if (_Profile.RoadBlendMaterial is null || _Segment.Bridge is not null)
 			return default;
 
-		float start = _TrimStart;
-		float end = _Table.Length - _TrimEnd;
-
-		if (end - start <= 0.01f)
+		if (_Table.Length - _TrimEnd - _TrimStart <= 0.01f)
 			return default;
 
+		float start = MouthAt(true) ?? _TrimStart;
+		float end = MouthAt(false) ?? _Table.Length - _TrimEnd;
 		float length = MathF.Min(_Profile.RoadBlendLength, (end - start) * 0.5f);
 		var width = new RoadWidth(_Segment, _Table.Length);
 		var (scale, offset) = RoadProfile.TextureTransform(_Profile.ResolvedRoadMaterial);
@@ -540,6 +551,22 @@ public sealed partial class RoadNetwork
 			Vector2 theirs = met.SampleAt(_Stop, 0.0f, left, right, _Table.PositionAt(_Stop));
 
 			return met with { Shift = new Vector2(MathF.Round(own.x - theirs.x), MathF.Round(own.y - theirs.y)) };
+		}
+
+		// Where the line across the road's mouth crosses its centreline, for an end at a junction.
+		float? MouthAt(bool _AtStart)
+		{
+			int nodeId = _AtStart ? _Segment.StartNodeId : _Segment.EndNodeId;
+
+			if (_Layouts?.GetValueOrDefault(nodeId) is not { } layout)
+				return null;
+
+			var arm = layout.Arms.FirstOrDefault(candidate => candidate.Segment.Id == _Segment.Id && candidate.AtStart == _AtStart);
+
+			if (arm is null || !RoadJunctionBuilder.Mouth(layout, arm, JunctionMainArm(layout), out float centre, out _))
+				return null;
+
+			return arm.CurveDistance(centre);
 		}
 	}
 
@@ -1748,7 +1775,7 @@ public sealed partial class RoadNetwork
 
 
 
-	private long ComputeJunctionSurfaceSignature(RoadJunctionLayout _Layout)
+	private long ComputeJunctionSurfaceSignature(RoadJunctionLayout _Layout, Dictionary<int, RoadSurfaceBlend> _ArmSurfaces)
 	{
 		var hash = StableHash.Create();
 
@@ -1757,7 +1784,7 @@ public sealed partial class RoadNetwork
 
 		// Each arm's texture runs on into the junction along the arm's own curve from the row it stops at, so the
 		// junction moves with the curve, where along it that row is and which way it runs, and with whether the
-		// road is surfaced the same.
+		// road is surfaced the same; a road blending the junction's surface into its own starts doing so in its mouth.
 		foreach (var arm in _Layout.Arms)
 		{
 			var curve = arm.Table.Curve;
@@ -1770,6 +1797,7 @@ public sealed partial class RoadNetwork
 			hash.Add(curve.P2);
 			hash.Add(curve.P3);
 			ProfileOf(arm.Segment).AddSurfaceToHash(ref hash);
+			_ArmSurfaces.GetValueOrDefault(arm.Segment.Id).AddToHash(ref hash);
 		}
 
 		return hash.Value;
@@ -2105,8 +2133,10 @@ public sealed partial class RoadNetwork
 		else
 		{
 			var profile = JunctionSurfaceProfile(_Job.Junction);
+			var surfaces = _Job.ArmSurfaces;
 
-			mesh = RoadJunctionBuilder.Build(_Job.Junction, JunctionMainArm(_Job.Junction), arm => SameSurface(arm, profile), profile.RoadTextureRepeat, profile.RoadTextureFitsWidth, profile.ResolvedRoadMaterial, arm => ProfileOf(arm.Segment));
+			mesh = RoadJunctionBuilder.Build(_Job.Junction, JunctionMainArm(_Job.Junction), arm => SameSurface(arm, profile), profile.RoadTextureRepeat, profile.RoadTextureFitsWidth, profile.ResolvedRoadMaterial, arm => ProfileOf(arm.Segment),
+				arm => surfaces is not null ? surfaces.GetValueOrDefault(arm.Segment.Id) : default);
 			name = $"Junction {_Job.NodeId}";
 		}
 

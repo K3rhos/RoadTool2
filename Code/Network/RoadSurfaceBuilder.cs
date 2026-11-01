@@ -519,7 +519,10 @@ internal static class RoadSurfaceBuilder
 
 
 
-	private static Color32 BlendColour(float _Weight)
+	/// <summary>
+	/// The vertex blend that mixes a blendable material's second layer in by <paramref name="_Weight"/>.
+	/// </summary>
+	internal static Color32 BlendColour(float _Weight)
 	{
 		return new Color32((byte)Math.Clamp(MathF.Round(_Weight * 255.0f), 0.0f, 255.0f), 0, 0, 255);
 	}
