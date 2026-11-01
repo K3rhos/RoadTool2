@@ -69,8 +69,21 @@ internal static class RoadTerrainLayers
 	/// </summary>
 	private const int RecentTiles = 16;
 
+	/// <summary>
+	/// How long, in milliseconds, bringing a terrain's collider up to date may take before Live Update stops doing it
+	/// with every change and leaves it until the edits settle (see <see cref="Settle"/>).
+	/// </summary>
+	private const double SlowCollider = 40.0;
+
 	private static readonly List<(string Data, Dictionary<int, (uint Ground, uint Written)> Samples)> s_Recent = [];
 	private static readonly List<RoadTerrainLayerTile> s_NoTiles = [];
+
+	/// <summary>
+	/// The terrains whose collider took too long to bring up to date with every change. Until late October 2026 s&box
+	/// rebuilt the whole of a terrain's collider for any change however small, most of a second each time on a 4096
+	/// one; a terrain is let off again as soon as it is quick.
+	/// </summary>
+	private static readonly HashSet<Terrain> s_SlowColliders = [];
 
 
 
@@ -569,9 +582,10 @@ internal static class RoadTerrainLayers
 
 
 	/// <summary>
-	/// Puts samples into one of a terrain's maps and the tiles into its road layer, then brings the terrain's
-	/// rendering and collision up to date: the changed rectangle alone when <paramref name="_Quick"/> (Live Update,
-	/// many times a second while a road is dragged), else the whole terrain, with everything that depends on it told.
+	/// Puts samples into one of a terrain's maps and the tiles into its road layer, then sends the changed rectangle to
+	/// the terrain's texture and brings its collision up to date: when <paramref name="_Quick"/> (Live Update, many
+	/// times a second while a road is dragged) only if that is quick on this terrain, else with everything that
+	/// depends on the terrain told too (see <see cref="Settle"/>).
 	/// </summary>
 	private static void Apply(Terrain _Terrain, RoadLayerMap _Map, int _Resolution, int[] _Indices, uint[] _Values, RectInt _Region, List<RoadTerrainLayerTile> _Tiles, int _Held, bool _Quick)
 	{
@@ -607,19 +621,95 @@ internal static class RoadTerrainLayers
 		if (_Indices.Length == 0)
 			return;
 
+		SendRegion(_Terrain, heights, _Region);
+
 		if (_Quick)
-			SyncRegion(_Terrain, heights, _Region);
+			FollowRegion(_Terrain, heights, _Region);
 		else
-			_Terrain.ApplyStorageChanges(heights ? Terrain.SyncFlags.Height : Terrain.SyncFlags.Control, _Region);
+			Settle(_Terrain, heights ? Terrain.SyncFlags.Height : Terrain.SyncFlags.Control, _Region);
 	}
 
 
 
 	/// <summary>
-	/// Sends one rectangle of a terrain's map to its texture and its collider, without sending the rest. What else
-	/// depends on the terrain (its clutter) is not told: Live Update does that once the edits settle.
+	/// Brings a terrain's collider (and the lighting baked from its heights, which comes with it) up to date with one
+	/// rectangle of a map as Live Update changes it, unless that has been too slow on this terrain: then it waits until
+	/// the edits settle (see <see cref="Settle"/>), and only the texture follows each change. What else depends on the
+	/// terrain (its clutter) is not told: Live Update does that once the edits settle.
 	/// </summary>
-	private static void SyncRegion(Terrain _Terrain, bool _Heights, RectInt _Region)
+	private static void FollowRegion(Terrain _Terrain, bool _Heights, RectInt _Region)
+	{
+		if (s_SlowColliders.Contains(_Terrain))
+			return;
+
+		var watch = System.Diagnostics.Stopwatch.StartNew();
+
+		_Terrain.UpdateCollision(_Heights ? Terrain.SyncFlags.Height : Terrain.SyncFlags.Control, _Region);
+		Timed(_Terrain, watch.Elapsed.TotalMilliseconds, _Region);
+	}
+
+
+
+	/// <summary>
+	/// Brings a terrain's collider (and the lighting baked from its heights) up to date with a rectangle of its maps
+	/// whose texture is already sent, and tells what else depends on the terrain (its clutter) when the scene has any:
+	/// telling it sends the whole terrain to the GPU again, which a big one feels. How long the collider took decides
+	/// whether Live Update keeps it up to date with every change or leaves it until the edits settle.
+	/// </summary>
+	public static void Settle(Terrain _Terrain, Terrain.SyncFlags _Flags, RectInt _Region)
+	{
+		s_SlowColliders.RemoveWhere(terrain => !terrain.IsValid());
+
+		if (!_Terrain.IsValid() || _Terrain.Storage is null)
+			return;
+
+		if (_Terrain.Scene?.GetAllComponents<Sandbox.Clutter.ClutterComponent>().Any() == true)
+		{
+			_Terrain.ApplyStorageChanges(_Flags, _Region);
+			return;
+		}
+
+		var watch = System.Diagnostics.Stopwatch.StartNew();
+
+		_Terrain.UpdateCollision(_Flags, _Region);
+		Timed(_Terrain, watch.Elapsed.TotalMilliseconds, _Region);
+	}
+
+
+
+	/// <summary>
+	/// Whether bringing a terrain's collider up to date has been too slow for Live Update to do it with every change.
+	/// </summary>
+	public static bool HasSlowCollider(Terrain _Terrain)
+	{
+		return s_SlowColliders.Contains(_Terrain);
+	}
+
+
+
+	/// <summary>
+	/// Notes how long bringing a terrain's collider up to date took: too long, and Live Update leaves it until the edits
+	/// settle from then on (said once, so it is known why the collision lags behind the shape); quick, and it follows
+	/// every change again.
+	/// </summary>
+	private static void Timed(Terrain _Terrain, double _Milliseconds, RectInt _Region)
+	{
+		if (_Milliseconds < SlowCollider)
+		{
+			s_SlowColliders.Remove(_Terrain);
+			return;
+		}
+
+		if (s_SlowColliders.Add(_Terrain))
+			Log.Info($"Road Tool 2: updating the collision of \"{_Terrain.GameObject.Name}\" took {_Milliseconds:0} ms for a {_Region.Width}x{_Region.Height} change, so Live Update now brings it up to date once the edits settle instead of with every change.");
+	}
+
+
+
+	/// <summary>
+	/// Sends one rectangle of a terrain's map to its texture, without sending the rest.
+	/// </summary>
+	private static void SendRegion(Terrain _Terrain, bool _Heights, RectInt _Region)
 	{
 		var storage = _Terrain.Storage;
 		int resolution = storage.Resolution;
@@ -642,8 +732,6 @@ internal static class RoadTerrainLayers
 
 			_Terrain.ControlMap?.Update<uint>(data, _Region.Left, _Region.Top, _Region.Width, _Region.Height);
 		}
-
-		_Terrain.UpdateCollision(_Heights ? Terrain.SyncFlags.Height : Terrain.SyncFlags.Control, _Region);
 	}
 
 

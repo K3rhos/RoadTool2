@@ -26,6 +26,12 @@ internal static class RoadTerrainLive
 	private const float Settle = 0.5f;
 
 	/// <summary>
+	/// The same for a terrain whose collider is slow to bring up to date (see <see cref="RoadTerrainLayers.Settle"/>):
+	/// it waits until the edits have stopped, rather than for the pause between two of them.
+	/// </summary>
+	private const float SlowSettle = 2.0f;
+
+	/// <summary>
 	/// What Live Update knows a terrain was last laid with.
 	/// </summary>
 	private sealed class Laid
@@ -171,8 +177,25 @@ internal static class RoadTerrainLive
 		}
 
 		// Once the terrain has stayed as it is for a moment, the rest of what depends on it is told.
-		if (now - s_LastChange >= Settle)
+		if (now - s_LastChange >= SettleDelay())
 			SettleAll();
+	}
+
+
+
+	/// <summary>
+	/// How long the terrains have to stay as they are before they are settled: longer when one of them waiting has a
+	/// slow collider.
+	/// </summary>
+	private static float SettleDelay()
+	{
+		foreach (var (terrain, laid) in s_Laid)
+		{
+			if (laid.Heights is not null && RoadTerrainLayers.HasSlowCollider(terrain))
+				return SlowSettle;
+		}
+
+		return Settle;
 	}
 
 
@@ -333,8 +356,9 @@ internal static class RoadTerrainLive
 
 
 	/// <summary>
-	/// Tells what else depends on the terrains (their clutter) about what Live Update changed in them. Left out while
-	/// a road is dragged, as it sends the whole terrain again.
+	/// Brings the rest of each terrain up to date with what Live Update changed in it, once the edits settle: its
+	/// collider, where that was too slow to follow every change, and what else depends on it (its clutter), which
+	/// would be sent the whole terrain again each time (see <see cref="RoadTerrainLayers.Settle"/>).
 	/// </summary>
 	private static void SettleAll()
 	{
@@ -360,7 +384,7 @@ internal static class RoadTerrainLive
 					region = Union(region, paint);
 				}
 
-				terrain.ApplyStorageChanges(flags, region.Value);
+				RoadTerrainLayers.Settle(terrain, flags, region.Value);
 			}
 
 			laid.Heights = null;
