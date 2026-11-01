@@ -11,7 +11,7 @@ public sealed partial class RoadNetwork
 	/// Bump whenever the generated geometry changes (UV layout, sampling, profile...), so pieces built by an older
 	/// generator are replaced on the next reconcile instead of lingering until their road is edited.
 	/// </summary>
-	private const int GeneratorVersion = 70;
+	private const int GeneratorVersion = 75;
 
 	/// <summary>
 	/// A stretch of road shorter than this is not worth a chunk (it happens when a junction swallows a whole chunk).
@@ -45,9 +45,10 @@ public sealed partial class RoadNetwork
 	/// <summary>
 	/// One piece of a segment to build. <see cref="Lines"/> bounds the painted lines; <see cref="Taper"/> is the
 	/// border's run-out into a different road type at either end; <see cref="Bridge"/> is the whole built range
-	/// and the ends of a bridge piece; the other kinds ignore them.
+	/// and the ends of a bridge piece; <see cref="Trails"/> is where a surface's trails rise out at its ends, and
+	/// <see cref="Blend"/> where another surface runs on into it; the other kinds ignore them.
 	/// </summary>
-	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature, LineRange Lines = default, SegmentBorderTapers Taper = default, RoadBridgeBuilder.BridgeSpan Bridge = default, RoadPropBuilder.PropSpan Props = default, RoadMarkingBuilder.DashPhase Dash = default, SegmentCrossings Crossings = default);
+	private readonly record struct ChunkPlan(int Index, int Count, float Start, float End, RoadChunkKind Kind, BorderCaps Caps, RoadBorderBuilder.SegmentBorderBlends Blends, long Signature, LineRange Lines = default, SegmentBorderTapers Taper = default, RoadBridgeBuilder.BridgeSpan Bridge = default, RoadPropBuilder.PropSpan Props = default, RoadMarkingBuilder.DashPhase Dash = default, SegmentCrossings Crossings = default, RoadTrailFade Trails = default, RoadSurfaceBlend Blend = default);
 
 	private readonly record struct PendingGroup(long Signature, int Remaining);
 
@@ -231,8 +232,10 @@ public sealed partial class RoadNetwork
 			var crossings = ComputeCrossings(segment, table, layouts, trimStart, trimEnd);
 			var lines = ComputeLineRange(table, profile, trimStart, trimEnd, crossings);
 			var dash = dashPhases.GetValueOrDefault(segment.Id);
+			var trails = ComputeTrailFade(segment, table, profile, layouts, trimStart, trimEnd);
+			var surfaceBlend = ComputeSurfaceBlend(segment, table, profile, layouts, trimStart, trimEnd);
 
-			var plans = PlanChunks(segment, table, trimStart, trimEnd, profile, caps, blends, taper, ComputeSurfaceSignature(segment, table.Curve, profile), lines, dash, crossings);
+			var plans = PlanChunks(segment, table, trimStart, trimEnd, profile, caps, blends, taper, ComputeSurfaceSignature(segment, table.Curve, profile), lines, dash, crossings, trails, surfaceBlend);
 			long groupSignature = CombineSignatures(plans);
 
 			segmentBlends[segment.Id] = blends;
@@ -393,6 +396,202 @@ public sealed partial class RoadNetwork
 			return null;
 
 		return GetSegmentsAt(_NodeId).FirstOrDefault(candidate => candidate.Id != _Segment.Id);
+	}
+
+
+
+	/// <summary>
+	/// Where a segment's trails rise out of it: flat at each end where its surface stops (a junction, a bend sharp
+	/// enough to be one, a parking lot, a rounded end, another road type, a bridge), at full depth the profile's fade
+	/// length in from there, never more than half the stretch between the two. A road of the same type and width
+	/// running on the same way through a plain pass-through node lays its trails exactly where these leave off, so
+	/// they carry straight on across it. A bridge's deck takes no trails.
+	/// </summary>
+	private RoadTrailFade ComputeTrailFade(RoadSegment _Segment, RoadCurveTable _Table, RoadProfile _Profile, Dictionary<int, RoadJunctionLayout> _Layouts, float _TrimStart, float _TrimEnd)
+	{
+		if (_Segment.Bridge is not null || !_Profile.IsShaped)
+			return default;
+
+		float start = _TrimStart;
+		float end = _Table.Length - _TrimEnd;
+
+		if (end - start <= 0.01f)
+			return default;
+
+		float length = MathF.Min(_Profile.TrailFade, (end - start) * 0.5f);
+		bool startCarries = TrailsCarryOn(_Segment, _Table, _Profile, _Segment.StartNodeId, true, _Layouts);
+		bool endCarries = TrailsCarryOn(_Segment, _Table, _Profile, _Segment.EndNodeId, false, _Layouts);
+
+		return new RoadTrailFade(startCarries, start, endCarries, end, length);
+	}
+
+
+
+	/// <summary>
+	/// Whether a segment's trails carry straight on across one of its ends: a plain pass-through node (no junction
+	/// there, no lot), into a road with the same trails, no deck, the same way round (a trail lies to one side of the
+	/// way the road runs, and wanders to that side) and the same width each side (trails are kept inside the road, so a
+	/// narrower one could hold them elsewhere).
+	/// </summary>
+	private bool TrailsCarryOn(RoadSegment _Segment, RoadCurveTable _Table, RoadProfile _Profile, int _NodeId, bool _AtStart, Dictionary<int, RoadJunctionLayout> _Layouts)
+	{
+		if (_Layouts is not null && _Layouts.GetValueOrDefault(_NodeId) is not null)
+			return false;
+
+		if (LotAtOpening(_NodeId) is not null)
+			return false;
+
+		var other = RunContinuation(_Segment, _NodeId);
+
+		if (other is null || other.Bridge is not null)
+			return false;
+
+		// Running the same way: into this segment's start comes the other's end, out of its end goes the other's start.
+		bool otherStarts = other.StartNodeId == _NodeId;
+
+		if (otherStarts == _AtStart)
+			return false;
+
+		if (ProfileOf(other).TrailsSignature != _Profile.TrailsSignature)
+			return false;
+
+		var otherTable = GetCurveTable(other);
+
+		if (otherTable is null)
+			return false;
+
+		var width = new RoadWidth(_Segment, _Table.Length);
+		var otherWidth = new RoadWidth(other, otherTable.Length);
+		float distance = _AtStart ? 0.0f : _Table.Length;
+		float otherDistance = otherStarts ? 0.0f : otherTable.Length;
+
+		return MathF.Abs(width.LeftAt(distance) - otherWidth.LeftAt(otherDistance)) < 0.5f && MathF.Abs(width.RightAt(distance) - otherWidth.RightAt(otherDistance)) < 0.5f;
+	}
+
+
+
+	/// <summary>
+	/// Where every segment's trails are cut into it, by segment id, exactly as its surface is built: for the tools that
+	/// shape the ground to the roads, which keep it below the trails only where they are.
+	/// </summary>
+	public Dictionary<int, RoadTrailFade> GetTrailFades()
+	{
+		var layouts = ComputeJunctionLayouts();
+		var fades = new Dictionary<int, RoadTrailFade>();
+
+		foreach (var segment in Segments)
+		{
+			var table = GetCurveTable(segment);
+
+			if (table is null)
+				continue;
+
+			float trimStart = MathF.Max(layouts.GetValueOrDefault(segment.StartNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f, LotTrimAt(segment.StartNodeId));
+			float trimEnd = MathF.Max(layouts.GetValueOrDefault(segment.EndNodeId)?.FindArm(segment.Id)?.Trim ?? 0.0f, LotTrimAt(segment.EndNodeId));
+			var profile = ProfileOf(segment);
+
+			fades[segment.Id] = profile.HasTrails ? ComputeTrailFade(segment, table, profile, layouts, trimStart, trimEnd) : default;
+		}
+
+		return fades;
+	}
+
+
+
+	/// <summary>
+	/// Where another surface runs on into a segment's own: from each end where its surface stops against another
+	/// material (a junction laid in another road type's surface, a parking lot's, or another road type carrying on
+	/// from a plain pass-through node), over the profile's blend length, never more than half the stretch between the
+	/// two ends. Nothing without a blend material, or on a bridge's deck.
+	/// </summary>
+	private RoadSurfaceBlend ComputeSurfaceBlend(RoadSegment _Segment, RoadCurveTable _Table, RoadProfile _Profile, Dictionary<int, RoadJunctionLayout> _Layouts, float _TrimStart, float _TrimEnd)
+	{
+		if (_Profile.RoadBlendMaterial is null || _Segment.Bridge is not null)
+			return default;
+
+		float start = _TrimStart;
+		float end = _Table.Length - _TrimEnd;
+
+		if (end - start <= 0.01f)
+			return default;
+
+		float length = MathF.Min(_Profile.RoadBlendLength, (end - start) * 0.5f);
+		var width = new RoadWidth(_Segment, _Table.Length);
+		var (scale, offset) = RoadProfile.TextureTransform(_Profile.ResolvedRoadMaterial);
+		Vector2 second = RoadProfile.SecondLayerScale(_Profile.RoadBlendMaterial);
+		float repeat = MathF.Max(1.0f, _Profile.RoadTextureRepeat);
+		var startSource = SourceAt(true, start);
+		var endSource = SourceAt(false, end);
+
+		return new RoadSurfaceBlend(startSource is not null, start, endSource is not null, end, length, startSource ?? default, endSource ?? default);
+
+		RoadBlendSource? SourceAt(bool _AtStart, float _Stop)
+		{
+			if (SurfaceMet(_Segment, _Table, _Profile, _AtStart, _Layouts) is not { } met)
+				return null;
+
+			// Taken round by whole repeats to start out as near as it can to where the road's own texture is at the
+			// stop, on its centreline (as the blend's second layer would take it), so the blend has as little to make
+			// up as it moves from one to the other.
+			float left = width.LeftAt(_Stop);
+			float right = width.RightAt(_Stop);
+			float centreU = _Profile.RoadTextureFitsWidth ? (left + right > 0.001f ? left / (left + right) : 0.5f) : 0.0f;
+			var own = new Vector2((centreU * scale.x + offset.x) * second.x, (_Stop / repeat * scale.y + offset.y) * second.y);
+			Vector2 theirs = met.SampleAt(_Stop, 0.0f, left, right, _Table.PositionAt(_Stop));
+
+			return met with { Shift = new Vector2(MathF.Round(own.x - theirs.x), MathF.Round(own.y - theirs.y)) };
+		}
+	}
+
+
+
+	/// <summary>
+	/// The surface a segment's own stops against at one of its ends, when it is another material, as it is laid there:
+	/// a junction's (laid in its widest road's surface, carried on into each arm along the arm's own curve), the
+	/// parking lot's it opens into (fitted to the road through its mouth, or flat from above), or the road's carrying
+	/// on from a plain pass-through node (its own mapping, run on past its end). Null for none.
+	/// </summary>
+	private RoadBlendSource? SurfaceMet(RoadSegment _Segment, RoadCurveTable _Table, RoadProfile _Profile, bool _AtStart, Dictionary<int, RoadJunctionLayout> _Layouts)
+	{
+		int nodeId = _AtStart ? _Segment.StartNodeId : _Segment.EndNodeId;
+		string own = _Profile.ResolvedRoadMaterial?.ResourcePath;
+
+		if (_Layouts is not null && _Layouts.GetValueOrDefault(nodeId) is { } layout)
+		{
+			var main = JunctionMainArm(layout);
+
+			if (main is null || main.Segment.Id == _Segment.Id)
+				return null;
+
+			var junction = ProfileOf(main.Segment);
+
+			return junction.ResolvedRoadMaterial?.ResourcePath == own ? null : RoadBlendSource.Along(junction, 0.0f, false);
+		}
+
+		if (LotAtOpening(nodeId) is { } lot)
+		{
+			var surface = ProfileOf(lot);
+
+			if (surface.ResolvedRoadMaterial?.ResourcePath == own)
+				return null;
+
+			return surface.RoadTextureFitsWidth ? RoadBlendSource.Along(surface, 0.0f, false) : RoadBlendSource.Flat(surface);
+		}
+
+		var other = RunContinuation(_Segment, nodeId);
+		var otherTable = other is null ? null : GetCurveTable(other);
+
+		if (otherTable is null || ProfileOf(other).ResolvedRoadMaterial?.ResourcePath == own)
+			return null;
+
+		// The other road's distance along its own curve, from this one's: the same way on from the node, or back the
+		// other way when the two run away from (or into) it together.
+		bool otherStarts = other.StartNodeId == nodeId;
+		bool reversed = otherStarts == _AtStart;
+		float at = _AtStart ? 0.0f : _Table.Length;
+		float otherAt = otherStarts ? 0.0f : otherTable.Length;
+
+		return RoadBlendSource.Along(ProfileOf(other), otherAt - (reversed ? -at : at), reversed);
 	}
 
 
@@ -665,13 +864,23 @@ public sealed partial class RoadNetwork
 	/// </summary>
 	public IEnumerable<(Vector3 Centre, IReadOnlyList<Vector3> Polygon, float PavementReach, float PavementTop, IReadOnlyList<RoadSegment> Roads)> GetJunctionPolygons()
 	{
+		return GetGroundAreas().Select(area => (area.Centre, area.Polygon, area.PavementReach, area.PavementTop, area.Roads));
+	}
+
+
+
+	/// <summary>
+	/// The same, with the banks the ground rises in round a banked road's rounded end (see <see cref="RoadGroundArea"/>).
+	/// </summary>
+	public IEnumerable<RoadGroundArea> GetGroundAreas()
+	{
 		// A parking lot is a junction as far as the ground under it is concerned.
 		foreach (var lot in Lots)
 		{
 			var profile = ProfileOf(lot);
 			bool pavement = profile.Border == RoadBorderStyle.Sidewalk;
 
-			yield return (lot.Centre, RoadLotOutline.Build(lot, OpeningsOf(lot)).Points, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f, s_NoSegments);
+			yield return new RoadGroundArea(lot.Centre, RoadLotOutline.Build(lot, OpeningsOf(lot)).Points, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f, 0.0f, 0.0f, s_NoSegments);
 		}
 
 		// A rounded dead end reaches past its node, where no road piece covers the ground.
@@ -696,7 +905,8 @@ public sealed partial class RoadNetwork
 				var outline = RoadCapBuilder.Outline(table, atStart ? 0.0f : table.Length, atStart, width, profile, SurfaceOffset, out Vector3 centre);
 
 				if (outline.Count >= 3)
-					yield return (centre, outline, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f, new[] { segment });
+					yield return new RoadGroundArea(centre, outline, pavement ? profile.BorderWidth : 0.0f, pavement ? profile.CurbHeight : 0.0f,
+						profile.HasBanks ? profile.BankHeight : 0.0f, profile.HasBanks ? profile.BankWidth : 0.0f, new[] { segment });
 			}
 		}
 
@@ -719,8 +929,65 @@ public sealed partial class RoadNetwork
 				top = MathF.Max(top, profile.CurbHeight);
 			}
 
-			yield return (layout.Centre, layout.Polygon, reach, top, layout.Arms.Select(arm => arm.Segment).ToList());
+			var banks = JunctionBanks(layout, out float bankHeight, out float bankWidth);
+
+			yield return new RoadGroundArea(layout.Centre, layout.Polygon, reach, top, bankHeight, bankWidth, layout.Arms.Select(arm => arm.Segment).ToList(), banks);
 		}
+	}
+
+
+
+	/// <summary>
+	/// The banks round a junction, for each point of its outline: a banked road's (see <see cref="RoadProfile.BankHeight"/>)
+	/// carry on along every stretch of the outline it owns (its row, and its half of the corner either side, which
+	/// its skirt runs under), so the ground comes over the junction's kerb there as it does over the road's, up to
+	/// where the corner hands over to the next road. A point between a banked stretch and another takes the bank, so
+	/// the banked stretch is banked all the way along. Null when no road at the junction has banks.
+	/// </summary>
+	private List<Vector2> JunctionBanks(RoadJunctionLayout _Layout, out float _Height, out float _Width)
+	{
+		_Height = 0.0f;
+		_Width = 0.0f;
+
+		var polygon = _Layout.Polygon;
+		var owners = _Layout.PolygonArms;
+
+		if (owners is null || owners.Count != polygon.Count)
+			return null;
+
+		var edges = new Vector2[polygon.Count];
+
+		for (int i = 0; i < polygon.Count; i++)
+		{
+			if (owners[i] < 0)
+				continue;
+
+			var arm = _Layout.Arms[owners[i]];
+			var profile = ProfileOf(arm.Segment);
+
+			if (arm.Segment.Bridge is not null || !profile.HasBanks)
+				continue;
+
+			edges[i] = new Vector2(profile.BankHeight, profile.BankWidth);
+			_Height = MathF.Max(_Height, profile.BankHeight);
+			_Width = MathF.Max(_Width, profile.BankWidth);
+		}
+
+		if (_Height <= 0.0f)
+			return null;
+
+		// Each point takes the edge leaving it or the one coming into it, whichever is banked more.
+		var banks = new List<Vector2>(polygon.Count);
+
+		for (int i = 0; i < polygon.Count; i++)
+		{
+			Vector2 leaving = edges[i];
+			Vector2 coming = edges[(i + polygon.Count - 1) % polygon.Count];
+
+			banks.Add(leaving.x >= coming.x ? leaving : coming);
+		}
+
+		return banks;
 	}
 
 
@@ -1150,7 +1417,7 @@ public sealed partial class RoadNetwork
 	/// segment rather than to the trimmed length means a junction change at one end only touches the chunk next
 	/// to it.
 	/// </summary>
-	private List<ChunkPlan> PlanChunks(RoadSegment _Segment, RoadCurveTable _Table, float _TrimStart, float _TrimEnd, RoadProfile _Profile, BorderCaps _Caps, in RoadBorderBuilder.SegmentBorderBlends _Blends, in SegmentBorderTapers _Taper, long _SurfaceSignature, in LineRange _Lines, in RoadMarkingBuilder.DashPhase _Dash, in SegmentCrossings _Crossings)
+	private List<ChunkPlan> PlanChunks(RoadSegment _Segment, RoadCurveTable _Table, float _TrimStart, float _TrimEnd, RoadProfile _Profile, BorderCaps _Caps, in RoadBorderBuilder.SegmentBorderBlends _Blends, in SegmentBorderTapers _Taper, long _SurfaceSignature, in LineRange _Lines, in RoadMarkingBuilder.DashPhase _Dash, in SegmentCrossings _Crossings, in RoadTrailFade _Trails, in RoadSurfaceBlend _SurfaceBlend)
 	{
 		float length = _Table.Length;
 		int count = Math.Max(1, (int)MathF.Ceiling(length / ChunkLength));
@@ -1235,8 +1502,12 @@ public sealed partial class RoadNetwork
 			hash.Add(end);
 			// Where the road climbs as it turns, its cells are cut into a column per lane (or more).
 			hash.Add(_Segment.LaneCount);
+			// Its trails rise out, and another surface blends into it, wherever the road stops, which moves with the
+			// junctions at its ends.
+			_Trails.AddToHash(ref hash);
+			_SurfaceBlend.AddToHash(ref hash);
 
-			plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Surface, BorderCaps.None, default, hash.Value));
+			plans.Add(new ChunkPlan(index, count, start, end, RoadChunkKind.Surface, BorderCaps.None, default, hash.Value, Trails: _Trails, Blend: _SurfaceBlend));
 
 			if (markings)
 			{
@@ -1752,7 +2023,7 @@ public sealed partial class RoadNetwork
 			if (segment is null)
 				return false;
 
-			mesh = RoadSurfaceBuilder.Build(_Job.Table, plan.Start, plan.End, _Job.Width, SampleSpacing, _Job.Profile.Simplification, segment.LaneCount, _Job.Profile.RoadTextureRepeat, _Job.Profile.RoadTextureFitsWidth, SurfaceOffset, _Job.Profile.ResolvedRoadMaterial);
+			mesh = RoadSurfaceBuilder.Build(_Job.Table, plan.Start, plan.End, _Job.Width, SampleSpacing, _Job.Profile.Simplification, segment.LaneCount, _Job.Profile.RoadTextureRepeat, _Job.Profile.RoadTextureFitsWidth, SurfaceOffset, _Job.Profile.ResolvedRoadMaterial, _Job.Profile, plan.Trails, plan.Blend);
 			name = $"Road {_Job.SegmentId} [{plan.Index + 1}/{plan.Count}]";
 		}
 
@@ -1835,7 +2106,7 @@ public sealed partial class RoadNetwork
 		{
 			var profile = JunctionSurfaceProfile(_Job.Junction);
 
-			mesh = RoadJunctionBuilder.Build(_Job.Junction, JunctionMainArm(_Job.Junction), arm => SameSurface(arm, profile), profile.RoadTextureRepeat, profile.RoadTextureFitsWidth, profile.ResolvedRoadMaterial);
+			mesh = RoadJunctionBuilder.Build(_Job.Junction, JunctionMainArm(_Job.Junction), arm => SameSurface(arm, profile), profile.RoadTextureRepeat, profile.RoadTextureFitsWidth, profile.ResolvedRoadMaterial, arm => ProfileOf(arm.Segment));
 			name = $"Junction {_Job.NodeId}";
 		}
 

@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Serialization;
+﻿using System;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using Sandbox;
 
 namespace RedSnail.RoadTool2;
@@ -181,6 +183,66 @@ public sealed class RoadProfile : GameResource
 	/// happens at an end another road carries on from.
 	/// </summary>
 	[Group("Road"), Title("Rounded Dead Ends")] public bool RoundedEnds { get; set; } = true;
+
+	/// <summary>
+	/// Where a road of this type meets another surface (a junction or parking lot laid in another road type's surface,
+	/// or another road type carrying on from a node), that surface runs on into this road and gives way to it over
+	/// <see cref="RoadBlendLength"/>, ragged where the material's mask says, instead of the two meeting on a straight
+	/// line. A "blendable" material whose first layer is this road's own surface and whose second is the other's (a
+	/// dirt road's would be dirt, then asphalt). Empty keeps the plain line.
+	/// </summary>
+	[Group("Road")] public Material RoadBlendMaterial { get; set; }
+
+	/// <summary>
+	/// How far into this road the other surface runs before it has given way to this road's own.
+	/// </summary>
+	[Group("Road"), Range(0.0f, 2000.0f)] public float RoadBlendLength { get; set { field = value.Clamp(0.0f, 100000.0f); } } = 300.0f;
+
+	/// <summary>
+	/// The most trails a road type can have; any more in the list are ignored.
+	/// </summary>
+	public const int MaxTrails = 3;
+
+	/// <summary>
+	/// Grooves worn into the road along its length, lower than the rest of its surface: the ruts of cart wheels, a
+	/// path trodden down the middle. Up to three, each with its own place across the road, width, depth and wander.
+	/// </summary>
+	[Group("Trails")] public List<RoadTrail> Trails { get; set; } = new();
+
+	/// <summary>
+	/// Where a road of this type stops (at a junction, a parking lot, a rounded end or another road type), its trails
+	/// rise out of it over this length, so the road meets whatever is there flat. Into the same road type at a plain
+	/// bend they carry straight on instead.
+	/// </summary>
+	[Group("Trails"), Range(0.0f, 2000.0f)] public float TrailFade { get; set { field = value.Clamp(0.0f, 100000.0f); } } = 400.0f;
+
+	/// <summary>
+	/// For a road with no border: how far the ground rises above the road beside it when the terrain is shaped to the
+	/// roads, so the road lies sunk into the land with the ground coming over its edges, as a dirt road worn into it
+	/// does. The banks run the road's whole length, wrap round a rounded dead end, and carry on along the road's half of
+	/// each junction corner up to where the next road's kerb takes over. 0 leaves the ground meeting the road's edge.
+	/// </summary>
+	[Group("Banks"), Range(0.0f, 100.0f)] public float BankHeight { get; set { field = value.Clamp(0.0f, 10000.0f); } } = 0.0f;
+
+	/// <summary>
+	/// How far out from the road's edge the bank rises to its height; past it, the ground goes back to its own over
+	/// the network's terrain falloff.
+	/// </summary>
+	[Group("Banks"), Range(10.0f, 1000.0f)] public float BankWidth { get; set { field = value.Clamp(1.0f, 100000.0f); } } = 150.0f;
+
+	/// <summary>
+	/// With banks, the road's surface carries on past its edges and down under them by this much, all the way along,
+	/// round a rounded dead end and past the road's half of each junction corner, so wherever the ground comes over the
+	/// road there is road under it rather than a gap. Widen it if you can see under the road's edge anywhere; keep it
+	/// narrower than the junctions' corner radius.
+	/// </summary>
+	[Group("Banks"), Range(0.0f, 200.0f)] public float SkirtWidth { get; set { field = value.Clamp(0.0f, 10000.0f); } } = 40.0f;
+
+	/// <summary>
+	/// How far below the road its skirt reaches at its outer edge. At least the network's terrain sink plus the deepest
+	/// trail keeps its edge buried however coarse the terrain is.
+	/// </summary>
+	[Group("Banks"), Range(0.0f, 100.0f)] public float SkirtDepth { get; set { field = value.Clamp(0.0f, 10000.0f); } } = 20.0f;
 
 	[Group("Border")] public RoadBorderStyle Border { get; set; } = RoadBorderStyle.None;
 
@@ -379,6 +441,142 @@ public sealed class RoadProfile : GameResource
 
 	[Hide, JsonIgnore] public Material ResolvedCrossingMaterial => CrossingMaterial ?? Material.Load("roadtool2/materials/crossingstrip.vmat");
 
+	/// <summary>
+	/// The trails that cut anything into the road, up to <see cref="MaxTrails"/> of them, in the order listed.
+	/// </summary>
+	[Hide, JsonIgnore]
+	public List<RoadTrail> ActiveTrails
+	{
+		get
+		{
+			var active = new List<RoadTrail>(MaxTrails);
+
+			if (Trails is null)
+				return active;
+
+			foreach (var trail in Trails)
+			{
+				if (active.Count >= MaxTrails)
+					break;
+
+				if (trail is not null && trail.IsVisible)
+					active.Add(trail);
+			}
+
+			return active;
+		}
+	}
+
+	[Hide, JsonIgnore] public bool HasTrails => ActiveTrails.Count > 0;
+
+	/// <summary>
+	/// Whether the ground is banked up over this road type's edges: only a road with no border has edges for it to
+	/// come over.
+	/// </summary>
+	[Hide, JsonIgnore] public bool HasBanks => Border == RoadBorderStyle.None && BankHeight > 0.0f;
+
+	[Hide, JsonIgnore] public bool HasSkirt => HasBanks && SkirtWidth > 0.0f;
+
+	/// <summary>
+	/// Whether this road type's surface has any shape across it beyond flat: trails cut into it, or a skirt under
+	/// banks. Such a road's surface comes out of its shape where it stops (see <see cref="TrailFade"/>).
+	/// </summary>
+	[Hide, JsonIgnore] public bool IsShaped => HasTrails || HasSkirt;
+
+	/// <summary>
+	/// How far below the road's top its surface reaches at the bottom of its deepest trail: how much further down the
+	/// ground under it has to be kept.
+	/// </summary>
+	[Hide, JsonIgnore]
+	public float TrailDepth
+	{
+		get
+		{
+			float depth = 0.0f;
+
+			foreach (var trail in ActiveTrails)
+				depth = MathF.Max(depth, trail.Depth);
+
+			return depth;
+		}
+	}
+
+	/// <summary>
+	/// One number for the trails a road of this type is cut with: two road types with the same number lay theirs the
+	/// same, so they can carry on from one into the other.
+	/// </summary>
+	[Hide, JsonIgnore]
+	public long TrailsSignature
+	{
+		get
+		{
+			var hash = StableHash.Create();
+
+			AddTrailsToHash(ref hash);
+
+			return hash.Value;
+		}
+	}
+
+
+
+	/// <summary>
+	/// Folds the surface's shape across (its trails, and its skirt under banks) into a hash.
+	/// </summary>
+	public void AddTrailsToHash(ref StableHash _Hash)
+	{
+		var trails = ActiveTrails;
+
+		_Hash.Add(trails.Count);
+
+		foreach (var trail in trails)
+			trail.AddToHash(ref _Hash);
+
+		_Hash.Add(HasSkirt ? 1 : 0);
+
+		if (HasSkirt)
+		{
+			_Hash.Add(SkirtWidth);
+			_Hash.Add(SkirtDepth);
+		}
+
+		if (IsShaped)
+			_Hash.Add(TrailFade);
+	}
+
+
+
+	/// <summary>
+	/// The texture scale and offset a material's shader applies to the coordinates a mesh carries (complex's own
+	/// "Texture Coordinates"), so geometry drawn with another material can carry them already applied. A material
+	/// without them changes nothing.
+	/// </summary>
+	public static (Vector2 Scale, Vector2 Offset) TextureTransform(Material _Material)
+	{
+		if (_Material is null)
+			return (Vector2.One, Vector2.Zero);
+
+		Vector4 scale = _Material.GetVector4("g_vTexCoordScale");
+		Vector4 offset = _Material.GetVector4("g_vTexCoordOffset");
+
+		return (new Vector2(scale.x == 0.0f ? 1.0f : scale.x, scale.y == 0.0f ? 1.0f : scale.y), new Vector2(offset.x, offset.y));
+	}
+
+
+
+	/// <summary>
+	/// How a blendable material scales the coordinates for its second layer (the first layer takes them as they are).
+	/// </summary>
+	public static Vector2 SecondLayerScale(Material _Material)
+	{
+		if (_Material is null)
+			return Vector2.One;
+
+		Vector4 scale = _Material.GetVector4("g_vTexCoordScale2");
+
+		return new Vector2(scale.x == 0.0f ? 1.0f : scale.x, scale.y == 0.0f ? 1.0f : scale.y);
+	}
+
 
 
 	/// <summary>
@@ -442,6 +640,26 @@ public sealed class RoadProfile : GameResource
 		// Where the rows sit is what the surface, the borders and the bridge are all built on, and every one of
 		// their signatures folds this one in.
 		Simplification.AddToHash(ref _Hash);
+		AddTrailsToHash(ref _Hash);
+
+		_Hash.Add(RoadBlendMaterial?.ResourcePath);
+
+		if (RoadBlendMaterial is null)
+			return;
+
+		_Hash.Add(RoadBlendLength);
+
+		// The blend's coordinates carry the road material's texture transform and the blend's second layer scale (as
+		// does the share of a junction or lot it blends from), so retuning either material rebuilds them.
+		var (scale, offset) = TextureTransform(ResolvedRoadMaterial);
+		Vector2 second = SecondLayerScale(RoadBlendMaterial);
+
+		_Hash.Add(scale.x);
+		_Hash.Add(scale.y);
+		_Hash.Add(offset.x);
+		_Hash.Add(offset.y);
+		_Hash.Add(second.x);
+		_Hash.Add(second.y);
 	}
 
 

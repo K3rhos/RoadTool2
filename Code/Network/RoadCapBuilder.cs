@@ -68,7 +68,7 @@ internal static class RoadCapBuilder
 
 		Arc(centre, forward, right, leftHalf, rightHalf, _Depth, steps, outline, outwards, null, null);
 
-		AddSurface(mesh, centre, outline, leftHalf, rightHalf, _Distance, _AtStart, _Profile);
+		AddSurface(mesh, centre, outline, outwards, leftHalf, rightHalf, _Distance, _AtStart, _Profile);
 		AddBorder(mesh, outline, outwards, _Profile);
 
 		return mesh;
@@ -146,9 +146,10 @@ internal static class RoadCapBuilder
 	/// road's lanes would in a U-turn: U is held at the road's edge all round the arc, so whatever runs along the edge
 	/// of the road in the texture (dark edges, a gutter) follows it round, and V is measured round the arc from the
 	/// end row, up each side to the tip, where the two sides meet. Carried straight on instead, the road's edge would
-	/// run off the arc, and its middle run on to the tip.
+	/// run off the arc, and its middle run on to the tip. Under banks the surface carries on past the arc as a skirt,
+	/// down under the ground, the way the road's own does past its edges (see <see cref="RoadProfile.SkirtWidth"/>).
 	/// </summary>
-	private static void AddSurface(PolygonMesh _Mesh, Vector3 _Centre, List<Vector3> _Outline, float _LeftHalf, float _RightHalf,
+	private static void AddSurface(PolygonMesh _Mesh, Vector3 _Centre, List<Vector3> _Outline, List<Vector3> _Outwards, float _LeftHalf, float _RightHalf,
 		float _Distance, bool _AtStart, RoadProfile _Profile)
 	{
 		float repeat = MathF.Max(1.0f, _Profile.RoadTextureRepeat);
@@ -206,6 +207,45 @@ internal static class RoadCapBuilder
 				MeshUtility.AddTexturedTriangle(_Mesh, material, centre, ring[i + 1], ring[i], centreUv, uvB, uvA);
 			else
 				MeshUtility.AddTexturedTriangle(_Mesh, material, centre, ring[i], ring[i + 1], centreUv, uvA, uvB);
+		}
+
+		if (!_Profile.HasSkirt)
+			return;
+
+		// The skirt: out level from the arc and down (whatever the road's grade, as the road's own goes out level from
+		// its edges), each side carrying on its own mapping (out across at the texture's size, or a texture fitted to
+		// the width turned back on itself at the edge). A strip of its own, so the mesh never has to join it to the
+		// fan's rim.
+		float width = _Profile.SkirtWidth;
+		float across = fit ? -width / MathF.Max(0.001f, _LeftHalf + _RightHalf) : width / repeat;
+		var top = new HalfEdgeMesh.VertexHandle[_Outline.Count];
+		var bottom = new HalfEdgeMesh.VertexHandle[_Outline.Count];
+
+		for (int i = 0; i < _Outline.Count; i++)
+		{
+			top[i] = _Mesh.AddVertices(_Outline[i])[0];
+			bottom[i] = _Mesh.AddVertices(_Outline[i] + _Outwards[i].WithZ(0.0f).Normal * width - Vector3.Up * _Profile.SkirtDepth)[0];
+		}
+
+		for (int i = 0; i < _Outline.Count - 1; i++)
+		{
+			bool leftSide = i < tip;
+			var uvs = leftSide ? leftUvs : rightUvs;
+			var outward = new Vector2(leftSide ? -across : across, 0.0f);
+			Vector2 uvA = uvs[i];
+			Vector2 uvB = uvs[i + 1];
+
+			// Wound like the fan, so it faces up and out.
+			if (flip)
+			{
+				MeshUtility.AddTexturedTriangle(_Mesh, material, top[i], top[i + 1], bottom[i + 1], uvA, uvB, uvB + outward);
+				MeshUtility.AddTexturedTriangle(_Mesh, material, top[i], bottom[i + 1], bottom[i], uvA, uvB + outward, uvA + outward);
+			}
+			else
+			{
+				MeshUtility.AddTexturedTriangle(_Mesh, material, top[i], bottom[i + 1], top[i + 1], uvA, uvB + outward, uvB);
+				MeshUtility.AddTexturedTriangle(_Mesh, material, top[i], bottom[i], bottom[i + 1], uvA, uvA + outward, uvB + outward);
+			}
 		}
 	}
 

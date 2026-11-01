@@ -439,9 +439,11 @@ internal static class RoadTerrainConformer
 
 	/// <summary>
 	/// One straight piece of a road, between two samples of its curve (world space), with each side as the road has
-	/// it at the piece's middle. On a bridge's deck, each side's edge is how far out the deck reaches.
+	/// it at the piece's middle, and how much further down than the road's top its surface reaches there (the bottom
+	/// of its trails, as deep as they are cut at the piece's middle). On a bridge's deck, each side's edge is how far
+	/// out the deck reaches.
 	/// </summary>
-	internal readonly record struct Piece(Vector3 From, Vector3 To, Side Left, Side Right)
+	internal readonly record struct Piece(Vector3 From, Vector3 To, Side Left, Side Right, float Sunk = 0.0f)
 	{
 		public void AddToHash(ref StableHash _Hash)
 		{
@@ -453,6 +455,7 @@ internal static class RoadTerrainConformer
 			_Hash.Add(Right.Edge);
 			_Hash.Add(Right.Border);
 			_Hash.Add(Right.Relief);
+			_Hash.Add(Sunk);
 		}
 	}
 
@@ -478,6 +481,14 @@ internal static class RoadTerrainConformer
 		public Vector3[] Outline { get; init; }
 		public float PavementReach { get; init; }
 		public float PavementTop { get; init; }
+
+		/// <summary>
+		/// How high and how wide the ground banks up round an area, at each point of its outline (x the height, y the
+		/// width), taken along the outline's edges between them: a banked road's rounded end, all round; a junction,
+		/// along the stretches its banked roads own.
+		/// </summary>
+		public Vector2[] Banks { get; init; }
+
 		public RoadTerrainFootprint Footprint { get; init; }
 	}
 
@@ -485,10 +496,14 @@ internal static class RoadTerrainConformer
 
 	/// <summary>
 	/// How far out from the road edge the terrain is shaped to the road before the falloff starts: the pavement
-	/// of a sidewalk, the shoulder of a country road (its verge is meant to run under the ground, not sit on it).
+	/// of a sidewalk, the shoulder of a country road (its verge is meant to run under the ground, not sit on it), the
+	/// bank beside a banked road.
 	/// </summary>
 	public static float BorderWidth(RoadProfile _Profile)
 	{
+		if (_Profile.HasBanks)
+			return _Profile.BankWidth;
+
 		return _Profile.Border switch
 		{
 			RoadBorderStyle.Sidewalk => _Profile.BorderWidth,
@@ -510,6 +525,7 @@ internal static class RoadTerrainConformer
 		float surfaceOffset = _Network.SurfaceOffset;
 		var transform = _Network.WorldTransform;
 		var shapers = new List<Shaper>();
+		var trails = _Network.GetTrailFades();
 
 		foreach (var segment in _Network.Segments)
 		{
@@ -522,6 +538,14 @@ internal static class RoadTerrainConformer
 			var taper = _Network.GetBorderTaper(segment);
 			var width = new RoadWidth(segment, table.Length);
 			float border = BorderWidth(profile);
+
+			// A bank runs the road's whole length, so its skirt is covered everywhere; it carries on round a rounded end
+			// and along the road's share of a junction's corners (see GetGroundAreas).
+			bool banked = profile.HasBanks;
+
+			// The ground is kept under the bottom of the road's trails only where they are cut: they rise out of the
+			// road towards a junction or a rounded end, and the ground there can come as close as under any road.
+			var fade = trails.GetValueOrDefault(segment.Id);
 
 			// A road set to leave the ground alone (one on a dam, a quay, a model of its own) shapes nothing, but it
 			// still guards its surface and its border: a road next to it shapes the ground out past its own end and
@@ -541,14 +565,18 @@ internal static class RoadTerrainConformer
 				Vector3 current = transform.PointToWorld(table.SamplePosition(i));
 
 				// Each side of the piece as it is at the piece's middle: how far out its edge sits, and its border
-				// as the segment's taper leaves it there.
+				// as the segment's taper leaves it there (a bank, as much of it as stands there).
 				float middle = (table.SampleDistance(i - 1) + table.SampleDistance(i)) * 0.5f;
+				float sunk = deck ? 0.0f : profile.TrailDepth * fade.StrengthAt(middle);
 
-				pieces[i - 1] = deck
-					? new Piece(previous, current, new Side(width.LeftAt(middle) + overhang, 0.0f, 0.0f), new Side(width.RightAt(middle) + overhang, 0.0f, 0.0f))
-					: new Piece(previous, current,
+				if (deck)
+					pieces[i - 1] = new Piece(previous, current, new Side(width.LeftAt(middle) + overhang, 0.0f, 0.0f), new Side(width.RightAt(middle) + overhang, 0.0f, 0.0f));
+				else if (banked)
+					pieces[i - 1] = new Piece(previous, current, new Side(width.LeftAt(middle), border, 1.0f), new Side(width.RightAt(middle), border, 1.0f), sunk);
+				else
+					pieces[i - 1] = new Piece(previous, current,
 						new Side(width.LeftAt(middle), border * taper.Left.WidthScaleAt(middle, table.Length, profile.FlatBorderWidth), taper.Left.ReliefAt(middle, table.Length, out _, out _, out _)),
-						new Side(width.RightAt(middle), border * taper.Right.WidthScaleAt(middle, table.Length, profile.FlatBorderWidth), taper.Right.ReliefAt(middle, table.Length, out _, out _, out _)));
+						new Side(width.RightAt(middle), border * taper.Right.WidthScaleAt(middle, table.Length, profile.FlatBorderWidth), taper.Right.ReliefAt(middle, table.Length, out _, out _, out _)), sunk);
 
 				previous = current;
 			}
@@ -560,6 +588,7 @@ internal static class RoadTerrainConformer
 			hash.Add((int)profile.Border);
 			hash.Add(profile.CurbHeight);
 			hash.Add(profile.Drop);
+			hash.Add(banked ? profile.BankHeight : 0.0f);
 			hash.Add(reach);
 			hash.Add(surfaceOffset);
 			hash.Add(falloff);
@@ -574,22 +603,28 @@ internal static class RoadTerrainConformer
 		}
 
 		// The junction and parking lot surfaces and the pavements round them, and the rounded ends of roads that
-		// stop: the ground is held under them and brought up to meet their kerbs, the same way a road holds it. One
-		// whose roads all leave the ground alone leaves it alone too, and only guards itself; a lot always shapes it.
-		foreach (var (centre, polygon, pavementReach, pavementTop, roads) in _Network.GetJunctionPolygons())
+		// stop: the ground is held under them and brought up to meet their kerbs, the same way a road holds it (and
+		// banked up round a banked road's end). One whose roads all leave the ground alone leaves it alone too, and
+		// only guards itself; a lot always shapes it.
+		foreach (var area in _Network.GetGroundAreas())
 		{
+			var polygon = area.Polygon;
+
 			if (polygon.Count < 3)
 				continue;
 
-			bool guard = roads.Count > 0 && roads.All(road => !road.ConformTerrain);
-			Vector3 world = transform.PointToWorld(centre);
+			bool guard = area.Roads.Count > 0 && area.Roads.All(road => !road.ConformTerrain);
+			Vector3 world = transform.PointToWorld(area.Centre);
 			var outline = new Vector3[polygon.Count];
+			float hold = MathF.Max(area.PavementReach, area.BankHeight > 0.0f ? area.BankWidth : 0.0f);
 			var hash = StableHash.Create();
 
 			hash.Add(guard ? 1 : 0);
 			hash.Add(world);
-			hash.Add(pavementReach);
-			hash.Add(pavementTop);
+			hash.Add(area.PavementReach);
+			hash.Add(area.PavementTop);
+			hash.Add(area.BankHeight);
+			hash.Add(area.BankWidth);
 			hash.Add(falloff);
 			hash.Add(sink);
 
@@ -599,7 +634,21 @@ internal static class RoadTerrainConformer
 				hash.Add(outline[i]);
 			}
 
-			shapers.Add(new Shaper { Guard = guard, Centre = world, Outline = outline, PavementReach = pavementReach, PavementTop = pavementTop, Footprint = FootprintOf(outline, pavementReach + (guard ? 0.0f : falloff), hash.Value) });
+			// The banks for each point of the outline, the same all round unless the area gives them point by point.
+			var banks = new Vector2[polygon.Count];
+
+			for (int i = 0; i < banks.Length; i++)
+			{
+				banks[i] = area.VertexBanks is { } given && i < given.Count ? given[i] : new Vector2(area.BankHeight, area.BankWidth);
+				hash.Add(banks[i].x);
+				hash.Add(banks[i].y);
+			}
+
+			shapers.Add(new Shaper
+			{
+				Guard = guard, Centre = world, Outline = outline, PavementReach = area.PavementReach, PavementTop = area.PavementTop, Banks = banks,
+				Footprint = FootprintOf(outline, hold + (guard ? 0.0f : falloff), hash.Value)
+			});
 		}
 
 		return shapers;
@@ -672,7 +721,7 @@ internal static class RoadTerrainConformer
 			{
 				if (shaper.Outline is not null)
 				{
-					RasteriseArea(road, guards, terrainTransform, resolution, cell, clip, shaper.Centre, shaper.Outline, shaper.PavementReach, shaper.PavementTop, 0.0f, sink);
+					RasteriseArea(road, guards, terrainTransform, resolution, cell, clip, shaper.Centre, shaper.Outline, shaper.PavementReach, shaper.PavementTop, null, 0.0f, sink);
 				}
 				else
 				{
@@ -690,7 +739,7 @@ internal static class RoadTerrainConformer
 
 			if (shaper.Outline is not null)
 			{
-				RasteriseArea(road, caps, terrainTransform, resolution, cell, clip, shaper.Centre, shaper.Outline, shaper.PavementReach, shaper.PavementTop, falloff, sink);
+				RasteriseArea(road, caps, terrainTransform, resolution, cell, clip, shaper.Centre, shaper.Outline, shaper.PavementReach, shaper.PavementTop, shaper.Banks, falloff, sink);
 			}
 			else
 			{
@@ -806,7 +855,7 @@ internal static class RoadTerrainConformer
 					var side = left ? _Piece.Left : _Piece.Right;
 					int index = x + y * _Resolution;
 					float surface = MathX.Lerp(from.z, to.z, t) + _SurfaceOffset;
-					float anchor = AnchorHeight(distance, surface, side.Edge, side.Border, side.Relief, _Profile, _Sink);
+					float anchor = AnchorHeight(distance, surface, side.Edge, side.Border, side.Relief, _Profile, _Sink, _Piece.Sunk);
 
 					// Under the road, and under a pavement, the ground can be no higher than this whatever another
 					// road nearby asks for.
@@ -885,7 +934,7 @@ internal static class RoadTerrainConformer
 
 					int index = x + y * _Resolution;
 					float surface = MathX.Lerp(from.z, to.z, t) + _SurfaceOffset;
-					float guard = AnchorHeight(distance, surface, side.Edge, side.Border, side.Relief, _Profile, _Sink);
+					float guard = AnchorHeight(distance, surface, side.Edge, side.Border, side.Relief, _Profile, _Sink, _Piece.Sunk);
 
 					if (!_Guards.TryGetValue(index, out float existing) || guard < existing)
 						_Guards[index] = guard;
@@ -960,12 +1009,30 @@ internal static class RoadTerrainConformer
 
 	/// <summary>
 	/// Keeps every height sample under a junction's surface (a fan from its centre to its outline), inside the clip,
-	/// below it, and every sample under the pavement round the outline just under the pavement's top.
+	/// below it, and every sample under the pavement round the outline just under the pavement's top. Beside a banked
+	/// stretch of the outline (<paramref name="_Banks"/>, height and width at each of its points: a banked road's
+	/// rounded end, its share of a junction) the ground rises to the bank's height over its width instead, the way it
+	/// does beside the road.
 	/// </summary>
 	private static void RasteriseArea(Dictionary<int, Entry> _Area, Dictionary<int, float> _Caps, in Transform _TerrainTransform, int _Resolution, float _Cell, IReadOnlyList<RectInt> _Clip,
-		Vector3 _Centre, Vector3[] _Vertices, float _PavementReach, float _PavementTop, float _Falloff, float _Sink)
+		Vector3 _Centre, Vector3[] _Vertices, float _PavementReach, float _PavementTop, Vector2[] _Banks, float _Falloff, float _Sink)
 	{
-		float localReach = (_PavementReach + _Falloff) / _TerrainTransform.Scale.x;
+		// A pavement round the area takes the place of any bank.
+		bool banks = _PavementReach <= 0.0f && _Banks is not null && _Banks.Length == _Vertices.Length;
+
+		// The furthest out from the outline the area holds the ground anywhere before letting it go over the falloff.
+		float widest = _PavementReach;
+
+		if (banks)
+		{
+			foreach (var bank in _Banks)
+			{
+				if (bank.x > 0.0f)
+					widest = MathF.Max(widest, bank.y);
+			}
+		}
+
+		float localReach = (widest + _Falloff) / _TerrainTransform.Scale.x;
 		float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
 
 		foreach (var vertex in _Vertices)
@@ -998,6 +1065,7 @@ internal static class RoadTerrainConformer
 					var point = new Vector2(world.x, world.y);
 					float distance;
 					float edge;
+					Vector2 bank = Vector2.Zero;
 
 					if (FanHeight(_Centre, _Vertices, point) is { } height)
 					{
@@ -1007,24 +1075,51 @@ internal static class RoadTerrainConformer
 					}
 					else
 					{
-						distance = OutlineDistance(_Vertices, point, out edge);
+						distance = OutlineDistance(_Vertices, point, out edge, out int nearest, out float along);
 
-						if (distance > _PavementReach + _Falloff)
+						if (distance > widest + _Falloff)
 							continue;
+
+						// The bank of the stretch of outline the sample is beside, as it is at the nearest point.
+						if (banks)
+							bank = Vector2.Lerp(_Banks[nearest], _Banks[(nearest + 1) % _Banks.Length], along);
 					}
 
+					bool banked = bank.x > 0.0f;
+
+					// How far out from the outline the ground is held here before it is let go over the falloff.
+					float hold = banked ? bank.y : _PavementReach;
+
 					// Under the surface the ground is kept below it; under the pavement it comes up to meet its outer
-					// edge; beyond that it is held there and let go over the falloff.
-					float anchor = _PavementReach > 0.0f
-						? MathX.Lerp(edge - _Sink, edge + _PavementTop - 0.5f, Math.Clamp(distance / _PavementReach, 0.0f, 1.0f))
-						: (distance <= 0.0f ? edge - _Sink : edge - 1.0f);
+					// edge; beside a bank it rises over the bank's width, quickly at first, to its height; beyond that
+					// it is held there and let go over the falloff.
+					float anchor;
+
+					if (_PavementReach > 0.0f)
+					{
+						anchor = MathX.Lerp(edge - _Sink, edge + _PavementTop - 0.5f, Math.Clamp(distance / _PavementReach, 0.0f, 1.0f));
+					}
+					else if (distance <= 0.0f)
+					{
+						anchor = edge - _Sink;
+					}
+					else if (banked)
+					{
+						float rise = 1.0f - Math.Clamp(distance / MathF.Max(bank.y, 0.001f), 0.0f, 1.0f);
+
+						anchor = edge + bank.x * (1.0f - rise * rise);
+					}
+					else
+					{
+						anchor = edge - 1.0f;
+					}
 
 					int index = x + y * _Resolution;
 
 					if (distance <= _PavementReach && (!_Caps.TryGetValue(index, out float existingCap) || anchor < existingCap))
 						_Caps[index] = anchor;
 
-					float beyond = MathF.Max(0.0f, distance - _PavementReach);
+					float beyond = MathF.Max(0.0f, distance - hold);
 					float release = _Falloff > 0.0f ? Math.Clamp(beyond / _Falloff, 0.0f, 1.0f) : (beyond > 0.0f ? 1.0f : 0.0f);
 					release = release * release * (3.0f - 2.0f * release);
 
@@ -1044,9 +1139,22 @@ internal static class RoadTerrainConformer
 	/// </summary>
 	internal static float OutlineDistance(Vector3[] _Vertices, Vector2 _Point, out float _Height)
 	{
+		return OutlineDistance(_Vertices, _Point, out _Height, out _, out _);
+	}
+
+
+
+	/// <summary>
+	/// The same, with which edge of the outline (from that vertex to the next) the nearest point is on, and how far
+	/// along it (0 at its start, 1 at its end).
+	/// </summary>
+	internal static float OutlineDistance(Vector3[] _Vertices, Vector2 _Point, out float _Height, out int _Edge, out float _Along)
+	{
 		float best = float.MaxValue;
 
 		_Height = 0.0f;
+		_Edge = 0;
+		_Along = 0.0f;
 
 		for (int i = 0; i < _Vertices.Length; i++)
 		{
@@ -1063,6 +1171,8 @@ internal static class RoadTerrainConformer
 
 			best = distance;
 			_Height = MathX.Lerp(v0.z, v1.z, t);
+			_Edge = i;
+			_Along = t;
 		}
 
 		return best;
@@ -1116,8 +1226,9 @@ internal static class RoadTerrainConformer
 	/// The height a road holds the ground at, at a distance from its centreline: under the surface across the
 	/// road, ramping under the border to meet the border's outer edge, and the edge's height from there on (how
 	/// far that hold reaches before the untouched terrain takes over is the falloff, applied by the caller).
+	/// <paramref name="_Sunk"/> is how far below its top the road's surface reaches there (its trails).
 	/// </summary>
-	private static float AnchorHeight(float _Distance, float _Surface, float _HalfWidth, float _Border, float _Relief, RoadProfile _Profile, float _Sink)
+	private static float AnchorHeight(float _Distance, float _Surface, float _HalfWidth, float _Border, float _Relief, RoadProfile _Profile, float _Sink, float _Sunk)
 	{
 		float outer = _HalfWidth + _Border;
 		float edge;
@@ -1142,8 +1253,24 @@ internal static class RoadTerrainConformer
 				break;
 		}
 
+		// Under the road the ground is kept the sink below its surface, and below the bottom of its trails too where
+		// they are cut.
 		if (_Distance <= _HalfWidth)
-			return _Surface - _Sink;
+			return _Surface - _Sink - _Sunk;
+
+		// Beside a banked road the ground comes up over its edge, quickly at first, and on up to the bank's height (as
+		// much of it as stands here); the road's skirt runs on under it, so wherever the two cross there is road below.
+		if (_Profile.HasBanks)
+		{
+			float bank = _Surface + _Profile.BankHeight * _Relief;
+
+			if (_Distance >= outer)
+				return bank;
+
+			float rise = 1.0f - (_Distance - _HalfWidth) / MathF.Max(_Border, 0.001f);
+
+			return MathX.Lerp(_Surface, bank, 1.0f - rise * rise);
+		}
 
 		if (_Distance <= outer)
 		{

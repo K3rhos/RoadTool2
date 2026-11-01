@@ -1,0 +1,94 @@
+{
+  "RoadMaterial": {
+    "Id": "c3113316-230e-4866-b6e1-40cd4046fa6a",
+    "Path": "roadtool2/materials/dirtroad.vmat"
+  },
+  "RoadTextureRepeat": 250,
+  "RoadTextureAcross": "WorldSize",
+  "Simplify": true,
+  "SimplifyAngle": 1,
+  "SimplifyDeviation": 2,
+  "RoundedEnds": true,
+  "RoadBlendMaterial": {
+    "Id": "60878e71-17b2-4a5e-a019-a995e6604b8a",
+    "Path": "roadtool2/materials/dirtroadasphaltblend.vmat"
+  },
+  "RoadBlendLength": 250,
+  "Trails": [
+    {
+      "Offset": -50,
+      "Width": 70,
+      "Depth": 4,
+      "Chaos": 12,
+      "ChaosScale": 0.003,
+      "Seed": 0
+    },
+    {
+      "Offset": 50,
+      "Width": 70,
+      "Depth": 4,
+      "Chaos": 12,
+      "ChaosScale": 0.003,
+      "Seed": 0
+    }
+  ],
+  "TrailFade": 400,
+  "BankHeight": 6,
+  "BankWidth": 25,
+  "SkirtWidth": 60,
+  "SkirtDepth": 6,
+  "Border": "None",
+  "BorderMaterial": {
+    "Id": "a589ee65-ee1d-4922-839c-522ff7190cc3",
+    "Path": "thirdparty/3djungle/dirt/materials/dirt.vmat"
+  },
+  "BorderTextureRepeat": 200,
+  "BorderTextureWidth": 150,
+  "BorderTextureFacing": "West",
+  "BorderWidth": 0,
+  "CurbHeight": 5,
+  "CurbBevel": 0,
+  "Drop": 0,
+  "VergeWidth": 120,
+  "VergeDepth": 15,
+  "SlopeSegments": 3,
+  "Chaos": 15,
+  "ChaosScale": 0.004,
+  "TransitionLength": 300,
+  "BlendMaterial": null,
+  "LaneLine": {
+    "Enabled": false,
+    "Material": null,
+    "Width": 14,
+    "DashLength": 200,
+    "GapLength": 300,
+    "DoubleSpacing": 0
+  },
+  "CentreLine": {
+    "Enabled": false,
+    "Material": null,
+    "Width": 14,
+    "DashLength": 0,
+    "GapLength": 0,
+    "DoubleSpacing": 0
+  },
+  "EdgeLine": {
+    "Enabled": false,
+    "Material": null,
+    "Width": 10,
+    "DashLength": 0,
+    "GapLength": 0,
+    "DoubleSpacing": 0
+  },
+  "EdgeLineMargin": 10,
+  "Crossings": false,
+  "CrossingStyle": "Stripes",
+  "CrossingMaterial": null,
+  "CrossingDepth": 120,
+  "CrossingStripeWidth": 40,
+  "CrossingStripeGap": 40,
+  "CrossingInset": 10,
+  "CrossingClearance": 40,
+  "__references": [],
+  "__version": 0
+}
