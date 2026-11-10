@@ -43,9 +43,31 @@ public class RoadSelectTool : EditorTool
 
 	private const float MinEndDistance = 25.0f;
 
-	public int SelectedNodeId { get; private set; } = -1;
+	private readonly List<int> m_NodeIds = [];
 
-	public int SelectedSegmentId { get; private set; } = -1;
+	/// <summary>
+	/// The selected node when exactly one is selected, otherwise -1. The move gizmo, the tangent handles and the
+	/// position fields only work on a single node.
+	/// </summary>
+	public int SelectedNodeId => m_NodeIds.Count == 1 ? m_NodeIds[0] : -1;
+
+	/// <summary>
+	/// Every selected node. Shift+click adds a node to the selection or takes it out again. Nodes and roads are
+	/// never selected together.
+	/// </summary>
+	public IReadOnlyList<int> SelectedNodeIds => m_NodeIds;
+
+	private readonly List<int> m_SegmentIds = [];
+
+	/// <summary>
+	/// Every selected road. Shift+click adds a road to the selection or takes it out again.
+	/// </summary>
+	public IReadOnlyList<int> SelectedSegmentIds => m_SegmentIds;
+
+	/// <summary>
+	/// The selected road when exactly one is selected, otherwise -1.
+	/// </summary>
+	public int SelectedSegmentId => m_SegmentIds.Count == 1 ? m_SegmentIds[0] : -1;
 
 	/// <summary>
 	/// Bumped whenever the selection changes, so the sidebar knows to rebuild itself.
@@ -54,9 +76,20 @@ public class RoadSelectTool : EditorTool
 
 	public RoadNetwork Network => Root?.Network;
 
+	public IEnumerable<RoadNode> SelectedNodes => Network.IsValid()
+		? m_NodeIds.Select(Network.FindNode).Where(node => node is not null)
+		: [];
+
 	public RoadNode SelectedNode => Network.IsValid() ? Network.FindNode(SelectedNodeId) : null;
 
 	public RoadSegment SelectedSegment => Network.IsValid() ? Network.FindSegment(SelectedSegmentId) : null;
+
+	/// <summary>
+	/// Every selected road that still exists.
+	/// </summary>
+	public IEnumerable<RoadSegment> SelectedSegments => Network.IsValid()
+		? m_SegmentIds.Select(Network.FindSegment).Where(segment => segment is not null)
+		: [];
 
 	/// <summary>
 	/// Which frame the selected node's position is shown and edited in, the same choice the move gizmo offers.
@@ -92,24 +125,58 @@ public class RoadSelectTool : EditorTool
 	}
 
 	/// <summary>
-	/// How the selected node's tangent handles are kept up. Set through the network rather than on the node, so the
-	/// handles follow at once and the network knows which mode the node is coming from (a node coming off Full gets
-	/// the straight handles of a sharp corner).
+	/// Snap the direction of a road to whole steps of <see cref="AngleStep"/> while a node or a tangent handle is
+	/// dragged: a node is placed so the road from each neighbour to it runs at a snap angle, a handle so it points at
+	/// one from its node. Round from the world axes in World space (the editor's Global/Local toggle), or round from
+	/// the roads already at the neighbour (the node) in Local space, the way the Draw tool does. Holding Shift flips
+	/// it for the drag.
 	/// </summary>
-	[Property, Title("Auto Tangents")]
-	public AutoTangentMode NodeTangents
-	{
-		get => SelectedNode?.TangentMode ?? AutoTangentMode.Full;
-		set
-		{
-			var network = Network;
+	[Property, Title("Angle Snap")] public bool AngleSnap { get => RoadSnapSettings.AngleSnap; set => RoadSnapSettings.AngleSnap = value; }
 
-			if (!network.IsValid() || SelectedNode is not { } node)
-				return;
+	[Property, Title("Snap Angle"), Range(1.0f, 90.0f)] public float AngleStep { get => RoadSnapSettings.AngleStep; set => RoadSnapSettings.AngleStep = value; }
 
-			network.SetTangentMode(node.Id, value);
-		}
-	}
+	/// <summary>
+	/// Snap the place of a dragged node (or tangent handle) to a grid of <see cref="GridSize"/> units, counted from
+	/// the world origin. With Angle Snap on as well the node stays on the snapped direction and takes the nearest
+	/// grid line along it.
+	/// </summary>
+	[Property, Title("Grid Snap")] public bool GridSnap { get => RoadSnapSettings.GridSnap; set => RoadSnapSettings.GridSnap = value; }
+
+	[Property, Title("Grid Size"), Range(1.0f, 1000.0f)] public float GridSize { get => RoadSnapSettings.GridSize; set => RoadSnapSettings.GridSize = value; }
+
+	/// <summary>
+	/// Line a dragged node up with the nodes around it: level with another node, on the line of a road leaving it,
+	/// or where the roads of two neighbours meet. Wins over the grid when the two disagree.
+	/// </summary>
+	[Property, Title("Align To Nodes")] public bool NodeSnap { get => RoadSnapSettings.NodeSnap; set => RoadSnapSettings.NodeSnap = value; }
+
+	/// <summary>
+	/// How far a snapped direction is drawn out as a guide.
+	/// </summary>
+	private const float GuideLength = 4000.0f;
+
+	// Shift flips each of the three for the drag.
+	private bool AngleActive => AngleSnap != Gizmo.IsShiftPressed;
+
+	private bool GridActive => GridSnap != Gizmo.IsShiftPressed;
+
+	private bool NodeActive => NodeSnap != Gizmo.IsShiftPressed;
+
+	private bool SnapActive => AngleActive || GridActive || NodeActive;
+
+	/// <summary>
+	/// The directions the current drag snapped to, for the guides; empty when not snapping.
+	/// </summary>
+	private readonly List<RoadDrawTool.SnapGuide> m_Guides = [];
+
+	private Vector3 m_GuidePoint;
+
+	private Vector3? m_AlignAnchor;
+
+	/// <summary>
+	/// The node a snapping drag is moving, whose lengths to its neighbours are drawn; -1 when not snapping.
+	/// </summary>
+	private int m_SnapNodeId = -1;
 
 	private RoadNetworkTool Root => Manager?.CurrentTool as RoadNetworkTool;
 
@@ -140,10 +207,36 @@ public class RoadSelectTool : EditorTool
 	private Vector3 m_MoveDelta;
 	private IDisposable m_UndoScope;
 
+	// Where each node of a group move was, in world space, when the drag began.
+	private readonly Dictionary<int, Vector3> m_GroupStart = new();
+
+	// Shift+click then drag with the button held: what was under the first click (a node or a road, added or taken out)
+	// is done to everything of that kind the cursor passes over.
+	private bool m_Painting;
+	private bool m_PaintNodes;
+	private bool m_PaintAdd;
+
+	/// <summary>
+	/// How long a second click on the same road may come after the first to count as a double click.
+	/// </summary>
+	private const float DoubleClickTime = 0.4f;
+
+	/// <summary>
+	/// How far, in pixels, the cursor may move between the two clicks of a double click.
+	/// </summary>
+	private const float DoubleClickDistance = 6.0f;
+
+	// The last click on a road, to tell a double click: which road, when, where, and whether a Shift+click added it.
+	private int m_LastClickSegmentId = -1;
+	private float m_LastClickTime;
+	private Vector2 m_LastClickPosition;
+	private bool m_LastClickAdded;
+
 
 
 	public override void OnDisabled()
 	{
+		m_Painting = false;
 		EndDrag();
 	}
 
@@ -168,17 +261,29 @@ public class RoadSelectTool : EditorTool
 		}
 
 		// Undo can remove whatever we had selected.
-		if (SelectedNodeId >= 0 && network.FindNode(SelectedNodeId) is null)
-			ClearSelection();
+		if (m_NodeIds.RemoveAll(id => network.FindNode(id) is null) > 0)
+			SelectionVersion++;
 
-		if (SelectedSegmentId >= 0 && network.FindSegment(SelectedSegmentId) is null)
-			ClearSelection();
+		if (m_SegmentIds.RemoveAll(id => network.FindSegment(id) is null) > 0)
+			SelectionVersion++;
 
 		if (m_Drag is DragKind.Node or DragKind.Handle)
 		{
 			UpdateDirectDrag(network);
 			DrawSelection(network);
 			return;
+		}
+
+		if (m_Painting)
+		{
+			if (Gizmo.IsLeftMouseDown)
+			{
+				PaintSelect(network);
+				DrawSelection(network);
+				return;
+			}
+
+			m_Painting = false;
 		}
 
 		bool canPick = Gizmo.HasMouseFocus && !Gizmo.HasHovered && !Gizmo.Pressed.Any;
@@ -208,6 +313,8 @@ public class RoadSelectTool : EditorTool
 
 		if (SelectedNode is { } node)
 			UpdateNodeGizmo(network, node);
+		else if (m_SegmentIds.Count > 0 || m_NodeIds.Count > 1)
+			UpdateGroupGizmo(network);
 	}
 
 
@@ -226,6 +333,123 @@ public class RoadSelectTool : EditorTool
 
 
 
+	/// <summary>
+	/// Adds the node to the selection, or takes it out if it is already in, and says which it did. Selected roads
+	/// are dropped first.
+	/// </summary>
+	public bool ToggleSelect(RoadNode _Node)
+	{
+		if (_Node is null)
+			return false;
+
+		m_SegmentIds.Clear();
+
+		bool added = !m_NodeIds.Remove(_Node.Id);
+
+		if (added)
+			m_NodeIds.Add(_Node.Id);
+
+		SelectionVersion++;
+
+		return added;
+	}
+
+
+
+	/// <summary>
+	/// Adds the road to the selection, or takes it out if it is already in, and says which it did. Selected nodes
+	/// are dropped first.
+	/// </summary>
+	public bool ToggleSelect(RoadSegment _Segment)
+	{
+		if (_Segment is null)
+			return false;
+
+		m_NodeIds.Clear();
+
+		bool added = !m_SegmentIds.Remove(_Segment.Id);
+
+		if (added)
+			m_SegmentIds.Add(_Segment.Id);
+
+		SelectionVersion++;
+
+		return added;
+	}
+
+
+
+	/// <summary>
+	/// Every road joined to this one through its nodes, junctions included, this one among them: the whole road
+	/// network the road is part of.
+	/// </summary>
+	public static List<RoadSegment> ConnectedSegments(RoadNetwork _Network, RoadSegment _Segment)
+	{
+		var found = new List<RoadSegment>();
+
+		if (!_Network.IsValid() || _Segment is null)
+			return found;
+
+		var seenSegments = new HashSet<int> { _Segment.Id };
+		var seenNodes = new HashSet<int>();
+		var open = new Queue<RoadSegment>();
+
+		open.Enqueue(_Segment);
+
+		while (open.Count > 0)
+		{
+			var segment = open.Dequeue();
+			found.Add(segment);
+
+			foreach (int nodeId in new[] { segment.StartNodeId, segment.EndNodeId })
+			{
+				if (!seenNodes.Add(nodeId))
+					continue;
+
+				foreach (var next in _Network.GetSegmentsAt(nodeId))
+				{
+					if (seenSegments.Add(next.Id))
+						open.Enqueue(next);
+				}
+			}
+		}
+
+		return found;
+	}
+
+
+
+	/// <summary>
+	/// Selects every road connected to this one, in place of the selection; with <paramref name="_Additive"/>, adds
+	/// them to the selected roads (true) or takes them out (false) instead. Selected nodes are dropped.
+	/// </summary>
+	public void SelectConnected(RoadSegment _Segment, bool? _Additive = null)
+	{
+		var network = Network;
+
+		if (!network.IsValid() || _Segment is null)
+			return;
+
+		var connected = ConnectedSegments(network, _Segment);
+
+		m_NodeIds.Clear();
+
+		if (_Additive is null)
+			m_SegmentIds.Clear();
+
+		foreach (var segment in connected)
+		{
+			m_SegmentIds.Remove(segment.Id);
+
+			if (_Additive != false)
+				m_SegmentIds.Add(segment.Id);
+		}
+
+		SelectionVersion++;
+	}
+
+
+
 	public void ClearSelection()
 	{
 		SetSelection(-1, -1);
@@ -235,11 +459,18 @@ public class RoadSelectTool : EditorTool
 
 	private void SetSelection(int _NodeId, int _SegmentId)
 	{
-		if (SelectedNodeId == _NodeId && SelectedSegmentId == _SegmentId)
+		if (m_NodeIds.SequenceEqual(_NodeId >= 0 ? [_NodeId] : []) && m_SegmentIds.SequenceEqual(_SegmentId >= 0 ? [_SegmentId] : []))
 			return;
 
-		SelectedNodeId = _NodeId;
-		SelectedSegmentId = _SegmentId;
+		m_NodeIds.Clear();
+		m_SegmentIds.Clear();
+
+		if (_NodeId >= 0)
+			m_NodeIds.Add(_NodeId);
+
+		if (_SegmentId >= 0)
+			m_SegmentIds.Add(_SegmentId);
+
 		SelectionVersion++;
 	}
 
@@ -252,22 +483,30 @@ public class RoadSelectTool : EditorTool
 		if (!network.IsValid())
 			return;
 
-		if (SelectedNode is { } node)
+		if (m_NodeIds.Count > 0)
 		{
-			// A node in the middle of a road is dissolved so the road carries on in one piece; anything else
-			// (a road end, a junction) takes its roads with it.
-			bool passThrough = network.GetDegree(node.Id) == 2;
-
-			using (SceneEditorSession.Active.UndoScope(passThrough ? "Dissolve Node" : "Delete Node").WithComponentChanges(network).Push())
+			using (SceneEditorSession.Active.UndoScope(m_NodeIds.Count > 1 ? "Delete Nodes" : "Delete Node").WithComponentChanges(network).Push())
 			{
-				if (!passThrough || network.DissolveNode(node.Id) is null)
-					network.RemoveNode(node.Id);
+				foreach (int id in m_NodeIds.ToArray())
+				{
+					// An earlier removal can have taken this node's roads and the node with them.
+					if (network.FindNode(id) is null)
+						continue;
+
+					// A node in the middle of a road is dissolved so the road carries on in one piece; anything else
+					// (a road end, a junction) takes its roads with it.
+					if (network.GetDegree(id) != 2 || network.DissolveNode(id) is null)
+						network.RemoveNode(id);
+				}
 			}
 		}
-		else if (SelectedSegment is { } segment)
+		else if (m_SegmentIds.Count > 0)
 		{
-			using (SceneEditorSession.Active.UndoScope("Delete Road").WithComponentChanges(network).Push())
-				network.RemoveSegment(segment.Id);
+			using (SceneEditorSession.Active.UndoScope(m_SegmentIds.Count > 1 ? "Delete Roads" : "Delete Road").WithComponentChanges(network).Push())
+			{
+				foreach (int id in m_SegmentIds.ToArray())
+					network.RemoveSegment(id);
+			}
 		}
 
 		ClearSelection();
@@ -303,13 +542,34 @@ public class RoadSelectTool : EditorTool
 			return;
 
 		// Turning a road into a ramp (or back) changes how the roads at its ends flow through their nodes.
-		if (SelectedSegment is { } segment)
+		foreach (var segment in SelectedSegments.ToArray())
 		{
 			network.RefreshTangentsAround(segment.StartNodeId);
 			network.RefreshTangentsAround(segment.EndNodeId);
 		}
 
 		network.MarkDirty();
+	}
+
+
+
+	/// <summary>
+	/// While a Shift+click is held and dragged: add what is under the cursor to the selection, or take it out, the way
+	/// the first click did.
+	/// </summary>
+	private void PaintSelect(RoadNetwork _Network)
+	{
+		var ray = Gizmo.CurrentRay;
+
+		if (m_PaintNodes)
+		{
+			if (RoadPicker.PickNode(_Network, ray) is { } node && m_NodeIds.Contains(node.Id) != m_PaintAdd)
+				ToggleSelect(node);
+		}
+		else if (RoadPicker.PickSegment(_Network, ray) is { } pick && m_SegmentIds.Contains(pick.Segment.Id) != m_PaintAdd)
+		{
+			ToggleSelect(pick.Segment);
+		}
 	}
 
 
@@ -323,6 +583,65 @@ public class RoadSelectTool : EditorTool
 
 			if (SelectedNode is { } handleNode && _Network.FindSegment(_HoverHandleSegment) is { } handleSegment)
 				m_DragStartWorld = _Network.WorldTransform.PointToWorld(handleNode.Position + RoadNetwork.GetHandle(handleSegment, handleNode.Id));
+
+			return;
+		}
+
+		// A double click on a road selects every road connected to it. With Shift it adds them to the selection, or
+		// takes them out when the first click took the road out, so several separate roads can be gathered.
+		if (_HoverNode is null && _HoverSegment is { } clickPick && !Gizmo.IsCtrlPressed)
+		{
+			bool doubleClick = clickPick.Segment.Id == m_LastClickSegmentId
+				&& RealTime.Now - m_LastClickTime <= DoubleClickTime
+				&& Vector2.Distance(Gizmo.CursorPosition, m_LastClickPosition) <= DoubleClickDistance;
+
+			if (doubleClick)
+			{
+				m_LastClickSegmentId = -1;
+
+				if (Gizmo.IsShiftPressed)
+				{
+					SelectConnected(clickPick.Segment, m_LastClickAdded);
+					m_PaintNodes = false;
+					m_PaintAdd = m_LastClickAdded;
+					m_Painting = true;
+				}
+				else
+				{
+					SelectConnected(clickPick.Segment);
+				}
+
+				return;
+			}
+
+			m_LastClickSegmentId = clickPick.Segment.Id;
+			m_LastClickTime = RealTime.Now;
+			m_LastClickPosition = Gizmo.CursorPosition;
+
+			// A plain click selects the road; a Shift+click below says for itself.
+			m_LastClickAdded = true;
+		}
+		else
+		{
+			m_LastClickSegmentId = -1;
+		}
+
+		// Shift+click on a road adds it to the selection or takes it out; a click elsewhere leaves the selection alone.
+		if (Gizmo.IsShiftPressed)
+		{
+			if (_HoverNode is not null)
+			{
+				m_PaintNodes = true;
+				m_PaintAdd = ToggleSelect(_HoverNode);
+				m_Painting = true;
+			}
+			else if (_HoverSegment is { } shiftPick)
+			{
+				m_PaintNodes = false;
+				m_PaintAdd = ToggleSelect(shiftPick.Segment);
+				m_LastClickAdded = m_PaintAdd;
+				m_Painting = true;
+			}
 
 			return;
 		}
@@ -385,7 +704,7 @@ public class RoadSelectTool : EditorTool
 				return;
 
 			m_UndoScope ??= SceneEditorSession.Active.UndoScope("Move Node").WithComponentChanges(_Network).Push();
-			_Network.MoveNode(node.Id, transform.PointToLocal(hit));
+			_Network.MoveNode(node.Id, transform.PointToLocal(SnapNodeTarget(_Network, node, hit)));
 		}
 		else if (m_Drag == DragKind.Handle && SelectedNode is { } handleNode && _Network.FindSegment(m_DragSegmentId) is { } segment)
 		{
@@ -397,7 +716,7 @@ public class RoadSelectTool : EditorTool
 			m_UndoScope ??= SceneEditorSession.Active.UndoScope("Move Tangent").WithComponentChanges(_Network).Push();
 
 			// Alt breaks the mirror so a pass-through node can be turned into a corner.
-			Vector3 handle = transform.PointToLocal(hit) - handleNode.Position;
+			Vector3 handle = transform.PointToLocal(SnapHandleTarget(_Network, handleNode, segment.Id, hit)) - handleNode.Position;
 			_Network.SetHandle(segment.Id, handleNode.Id, handle, !Gizmo.IsAltPressed);
 		}
 		else
@@ -448,10 +767,13 @@ public class RoadSelectTool : EditorTool
 
 				if (surfaceHit is Vector3 hit)
 				{
-					target = hit;
+					target = SnapNodeTarget(_Network, _Node, hit);
 				}
 				else
 				{
+					m_Guides.Clear();
+					m_AlignAnchor = null;
+					m_SnapNodeId = -1;
 					m_MoveDelta += delta;
 					target = Gizmo.Snap(m_DragStartWorld, m_MoveDelta, handleRotation);
 				}
@@ -462,6 +784,346 @@ public class RoadSelectTool : EditorTool
 
 		if (m_Drag == DragKind.Gizmo && !Gizmo.IsLeftMouseDown)
 			EndDrag();
+	}
+
+
+
+	/// <summary>
+	/// The nodes a group move carries: the ends of every selected road, or the selected nodes.
+	/// </summary>
+	private List<RoadNode> GroupNodes(RoadNetwork _Network)
+	{
+		if (m_SegmentIds.Count == 0)
+			return SelectedNodes.ToList();
+
+		var ids = new HashSet<int>();
+
+		foreach (var segment in SelectedSegments)
+		{
+			ids.Add(segment.StartNodeId);
+			ids.Add(segment.EndNodeId);
+		}
+
+		return ids.Select(_Network.FindNode).Where(node => node is not null).ToList();
+	}
+
+
+
+	/// <summary>
+	/// The move gizmo over several selected roads (or nodes), at the middle of their nodes. Every node is moved by
+	/// the same amount, so the selection keeps its shape; roads that are not selected but share a node stretch to
+	/// follow. The grid snaps the amount moved, in world axes.
+	/// </summary>
+	private void UpdateGroupGizmo(RoadNetwork _Network)
+	{
+		var nodes = GroupNodes(_Network);
+
+		if (nodes.Count == 0)
+			return;
+
+		var transform = _Network.WorldTransform;
+		Vector3 pivot = Vector3.Zero;
+
+		foreach (var groupNode in nodes)
+			pivot += transform.PointToWorld(groupNode.Position);
+
+		pivot /= nodes.Count;
+
+		using (Gizmo.Scope("roadtool2_group_gizmo", new Transform(pivot)))
+		{
+			Gizmo.Hitbox.DepthBias = 0.01f;
+
+			if (Gizmo.Control.Position("position", Vector3.Zero, out Vector3 delta, Rotation.Identity))
+			{
+				if (m_Drag != DragKind.Gizmo)
+				{
+					m_Drag = DragKind.Gizmo;
+					m_DragStartWorld = pivot;
+					m_MoveDelta = Vector3.Zero;
+					m_GroupStart.Clear();
+
+					foreach (var groupNode in nodes)
+						m_GroupStart[groupNode.Id] = transform.PointToWorld(groupNode.Position);
+
+					string name = m_SegmentIds.Count > 0 ? (m_SegmentIds.Count > 1 ? "Move Roads" : "Move Road") : "Move Nodes";
+					m_UndoScope ??= SceneEditorSession.Active.UndoScope(name).WithComponentChanges(_Network).Push();
+				}
+
+				m_MoveDelta += delta;
+				Vector3 offset = Gizmo.Snap(m_DragStartWorld, m_MoveDelta, Rotation.Identity) - m_DragStartWorld;
+
+				foreach (var (id, start) in m_GroupStart)
+					_Network.MoveNode(id, transform.PointToLocal(start + offset));
+			}
+		}
+
+		if (m_Drag == DragKind.Gizmo && !Gizmo.IsLeftMouseDown)
+			EndDrag();
+	}
+
+
+
+	/// <summary>
+	/// Puts a dragged node under the snaps that are on.
+	/// <para>
+	/// Grid Snap rounds the cursor to the grid. Angle Snap puts the node where the road from each of its neighbours
+	/// runs at a snap angle: the neighbour whose snap line is nearest the cursor decides, and when another neighbour's
+	/// line crosses it close by, the node goes to the crossing so both roads are at their angles (a grid corner). The
+	/// cursor's distance along the line is kept, or moved to the nearest grid line along it with the grid on, and the
+	/// point is dropped back onto the ground there.
+	/// </para>
+	/// <para>
+	/// Align To Nodes comes last and wins: with one line to go by, the node lines up with another node along it, and
+	/// the crossing of two neighbours' lines is taken whatever the grid says. Without Angle Snap the line is the
+	/// straight one from the nearest neighbour to the cursor.
+	/// </para>
+	/// </summary>
+	private Vector3 SnapNodeTarget(RoadNetwork _Network, RoadNode _Node, Vector3 _Target)
+	{
+		m_Guides.Clear();
+		m_AlignAnchor = null;
+		m_SnapNodeId = -1;
+
+		bool angle = AngleActive;
+		bool grid = GridActive;
+		bool align = NodeActive;
+
+		if (!angle && !grid && !align)
+			return _Target;
+
+		m_SnapNodeId = _Node.Id;
+
+		var transform = _Network.WorldTransform;
+		float step = MathF.Max(1.0f, AngleStep);
+		float gridSize = MathF.Max(1.0f, GridSize);
+		var cursor = new Vector2(_Target.x, _Target.y);
+		Vector2 gridded = grid ? RoadDrawTool.SnapToGrid(cursor, gridSize) : cursor;
+		var lines = new List<(RoadDrawTool.SnapGuide? Guide, Vector2 Start, Vector2 Direction, Vector2 Delta, float Off)>();
+
+		// With no angle or alignment to find, the grid is all there is.
+		if (angle || align)
+		{
+			foreach (var segment in _Network.GetSegmentsAt(_Node.Id))
+			{
+				int otherId = segment.StartNodeId == _Node.Id ? segment.EndNodeId : segment.StartNodeId;
+
+				if (otherId == _Node.Id || _Network.FindNode(otherId) is not { } other)
+					continue;
+
+				Vector3 startWorld = transform.PointToWorld(other.Position);
+				var start = new Vector2(startWorld.x, startWorld.y);
+				var delta = (angle ? cursor : gridded) - start;
+
+				if (delta.Length < 1.0f)
+					continue;
+
+				if (angle)
+				{
+					var guide = SnapDirection(startWorld, delta, RoadHeadings(_Network, other, segment.Id), step);
+					Vector3 along = RoadDrawTool.HeadingDirection(guide.Heading);
+					var direction = new Vector2(along.x, along.y);
+
+					lines.Add((guide, start, direction, delta, MathF.Abs(RoadDrawTool.Cross(direction, delta))));
+				}
+				else
+				{
+					// The nearest neighbour's straight line to the cursor.
+					lines.Add((null, start, delta.Normal, delta, delta.Length));
+				}
+			}
+		}
+
+		Vector2 snapped = gridded;
+
+		if (lines.Count > 0)
+		{
+			lines.Sort((a, b) => a.Off.CompareTo(b.Off));
+
+			var first = lines[0];
+			float length = MathF.Max(1.0f, Vector2.Dot(first.Delta, first.Direction));
+
+			if (angle && grid)
+				length = RoadDrawTool.GridAlong(first.Start, first.Direction, length, gridSize);
+
+			snapped = first.Start + first.Direction * length;
+
+			if (first.Guide is { } firstGuide)
+				m_Guides.Add(firstGuide);
+
+			bool crossed = false;
+
+			if (angle && align)
+			{
+				float tolerance = RoadDrawTool.AlignTolerance(_Target) * 4.0f;
+
+				foreach (var second in lines.Skip(1))
+				{
+					float cross = RoadDrawTool.Cross(first.Direction, second.Direction);
+
+					// Parallel lines never meet.
+					if (MathF.Abs(cross) < 0.05f)
+						continue;
+
+					Vector2 between = second.Start - first.Start;
+					float t = RoadDrawTool.Cross(between, second.Direction) / cross;
+					float s2 = RoadDrawTool.Cross(between, first.Direction) / cross;
+					Vector2 crossing = first.Start + first.Direction * t;
+
+					if (t <= 1.0f || s2 <= 1.0f || Vector2.Distance(crossing, cursor) > tolerance)
+						continue;
+
+					snapped = crossing;
+					m_Guides.Add(second.Guide.Value);
+					crossed = true;
+					break;
+				}
+			}
+
+			// One line to go by: the distance along it is still free, so line the node up with other nodes (level with
+			// them, or on the line of a road leaving them), as the Draw tool does.
+			if (align && !crossed && RoadDrawTool.TryAlign(_Network, _Node, first.Start, first.Direction, length, RoadDrawTool.AlignTolerance(_Target), out float aligned, out Vector3 anchor))
+			{
+				snapped = first.Start + first.Direction * aligned;
+				m_AlignAnchor = anchor;
+			}
+		}
+
+		var result = new Vector3(snapped.x, snapped.y, RoadDrawTool.GroundHeightAt(Scene, snapped, _Target.z));
+
+		m_GuidePoint = result;
+
+		return result;
+	}
+
+
+
+	/// <summary>
+	/// Puts a dragged tangent handle on the grid and/or points it at a snap angle from its node, keeping its height.
+	/// Angle Snap keeps its length (or, with the grid on, moves it to the nearest grid line along the direction).
+	/// </summary>
+	private Vector3 SnapHandleTarget(RoadNetwork _Network, RoadNode _Node, int _SegmentId, Vector3 _Target)
+	{
+		m_Guides.Clear();
+		m_AlignAnchor = null;
+		m_SnapNodeId = -1;
+
+		bool angle = AngleActive;
+		bool grid = GridActive;
+
+		if (!angle && !grid)
+			return _Target;
+
+		float gridSize = MathF.Max(1.0f, GridSize);
+		var cursor = new Vector2(_Target.x, _Target.y);
+
+		if (!angle)
+		{
+			Vector2 onGrid = RoadDrawTool.SnapToGrid(cursor, gridSize);
+
+			return new Vector3(onGrid.x, onGrid.y, _Target.z);
+		}
+
+		Vector3 startWorld = _Network.WorldTransform.PointToWorld(_Node.Position);
+		var origin = new Vector2(startWorld.x, startWorld.y);
+		var delta = cursor - origin;
+
+		if (delta.Length < 1.0f)
+			return _Target;
+
+		var guide = SnapDirection(startWorld, delta, RoadHeadings(_Network, _Node, _SegmentId), MathF.Max(1.0f, AngleStep));
+		Vector3 along = RoadDrawTool.HeadingDirection(guide.Heading);
+		var direction = new Vector2(along.x, along.y);
+		float length = MathF.Max(1.0f, Vector2.Dot(delta, direction));
+
+		if (grid)
+			length = RoadDrawTool.GridAlong(origin, direction, length, gridSize);
+
+		Vector3 result = startWorld + along * length;
+
+		result = result.WithZ(_Target.z);
+		m_Guides.Add(guide);
+		m_GuidePoint = result;
+
+		return result;
+	}
+
+
+
+	/// <summary>
+	/// The headings of the roads at a node (but one) that angles are measured from in Local space; none in World space,
+	/// where they are measured from the world X axis.
+	/// </summary>
+	private static List<float> RoadHeadings(RoadNetwork _Network, RoadNode _Node, int _ExcludeSegmentId)
+	{
+		var headings = new List<float>();
+
+		if (Gizmo.Settings.GlobalSpace)
+			return headings;
+
+		foreach (Vector2 road in RoadDrawTool.RoadDirections(_Network, _Node, _ExcludeSegmentId))
+			headings.Add(MathF.Atan2(road.y, road.x).RadianToDegree());
+
+		return headings;
+	}
+
+
+
+	private static RoadDrawTool.SnapGuide SnapDirection(Vector3 _Start, Vector2 _Delta, List<float> _Headings, float _Step)
+	{
+		float raw = MathF.Atan2(_Delta.y, _Delta.x).RadianToDegree();
+
+		return _Headings.Count > 0
+			? RoadDrawTool.SnapToRoads(_Start, raw, _Headings, _Step)
+			: new RoadDrawTool.SnapGuide(_Start, RoadDrawTool.NormalizeAngle(RoadDrawTool.SnapTo(raw, 0.0f, _Step)), null);
+	}
+
+
+
+	/// <summary>
+	/// The snapped directions, drawn out past the point, with the angle each landed on.
+	/// </summary>
+	private void DrawSnapGuides(RoadNetwork _Network)
+	{
+		foreach (var snap in m_Guides)
+		{
+			Gizmo.Draw.LineThickness = 1.0f;
+			Gizmo.Draw.Color = Color.Cyan.WithAlpha(0.5f);
+			Gizmo.Draw.Line(snap.Start, snap.Start + RoadDrawTool.HeadingDirection(snap.Heading) * GuideLength);
+
+			if (snap.Reference is { } reference)
+			{
+				float reach = new Vector2(m_GuidePoint.x - snap.Start.x, m_GuidePoint.y - snap.Start.y).Length;
+				float radius = MathF.Min(Gizmo.Camera.Position.Distance(snap.Start) * 0.06f, reach * 0.5f);
+
+				Gizmo.Draw.Line(snap.Start, snap.Start + RoadDrawTool.HeadingDirection(reference) * radius * 1.25f);
+				RoadDrawTool.DrawArc(snap.Start, radius, reference, snap.Heading);
+			}
+
+			Gizmo.Draw.Color = Color.Cyan;
+			Gizmo.Draw.ScreenText($"{snap.Shown:0.##}°", m_GuidePoint, new Vector2(12.0f, -12.0f), size: 12.0f);
+		}
+
+		if (m_AlignAnchor is { } anchor)
+		{
+			Gizmo.Draw.LineThickness = 2.0f;
+			Gizmo.Draw.Color = Color.Orange;
+			RoadDrawTool.DrawDashed(anchor, m_GuidePoint);
+			RoadGizmos.DrawNode(anchor, true);
+		}
+
+		// The length of each road to the node being moved, as the Draw tool shows them.
+		if (m_SnapNodeId >= 0 && _Network.FindNode(m_SnapNodeId) is { } moving)
+		{
+			var transform = _Network.WorldTransform;
+
+			foreach (var segment in _Network.GetSegmentsAt(moving.Id))
+			{
+				int otherId = segment.StartNodeId == moving.Id ? segment.EndNodeId : segment.StartNodeId;
+
+				if (otherId != moving.Id && _Network.FindNode(otherId) is { } other)
+					RoadDrawTool.DrawDistance(transform.PointToWorld(other.Position), transform.PointToWorld(moving.Position), segment.Id);
+			}
+		}
 	}
 
 
@@ -492,8 +1154,12 @@ public class RoadSelectTool : EditorTool
 
 	private void EndDrag()
 	{
+		m_Guides.Clear();
+		m_AlignAnchor = null;
+		m_SnapNodeId = -1;
 		m_Drag = DragKind.None;
 		m_DragSegmentId = -1;
+		m_GroupStart.Clear();
 		m_UndoScope?.Dispose();
 		m_UndoScope = null;
 	}
@@ -581,10 +1247,26 @@ public class RoadSelectTool : EditorTool
 			Gizmo.Draw.IgnoreDepth = true;
 			Gizmo.Draw.LineThickness = 2.0f;
 
-			if (SelectedSegment is { } segment && _Network.TryGetCurve(segment, out var curve))
+			DrawSnapGuides(_Network);
+			Gizmo.Draw.LineThickness = 2.0f;
+
+			foreach (var segment in SelectedSegments)
 			{
+				if (!_Network.TryGetCurve(segment, out var curve))
+					continue;
+
 				Gizmo.Draw.Color = Color.Yellow;
 				RoadGizmos.DrawRoadOutline(curve, _Network.WidthOf(segment), transform);
+			}
+
+			if (m_NodeIds.Count > 1)
+			{
+				Gizmo.Draw.Color = Color.Yellow;
+
+				foreach (var selected in SelectedNodes)
+					RoadGizmos.DrawNode(transform.PointToWorld(selected.Position), true);
+
+				return;
 			}
 
 			if (SelectedNode is not { } node)
@@ -611,6 +1293,115 @@ public class RoadSelectTool : EditorTool
 				Gizmo.Draw.Color = active ? Color.Cyan : (computed ? Color.White.WithAlpha(0.6f) : Color.White);
 				Gizmo.Draw.SolidSphere(handleWorld, RoadPicker.NodeRadius(handleWorld) * 0.45f);
 			}
+		}
+	}
+}
+
+
+
+/// <summary>
+/// A node's Auto Tangents setting, set through the network rather than on the node, so the handles follow at once and
+/// the network knows which mode the node is coming from (a node coming off Full gets the straight handles of a sharp
+/// corner). Wrapped in an object of its own so the sidebar can edit it for several nodes at once.
+/// </summary>
+public sealed class RoadNodeFlags
+{
+	private readonly RoadNetwork m_Network;
+	private readonly int m_NodeId;
+
+
+
+	public RoadNodeFlags(RoadNetwork _Network, int _NodeId)
+	{
+		m_Network = _Network;
+		m_NodeId = _NodeId;
+	}
+
+
+
+	/// <summary>
+	/// How the node's tangent handles are kept up.
+	/// </summary>
+	[Property, Title("Auto Tangents")]
+	public AutoTangentMode AutoTangents
+	{
+		get => m_Network.IsValid() ? m_Network.FindNode(m_NodeId)?.TangentMode ?? AutoTangentMode.Full : AutoTangentMode.Full;
+		set
+		{
+			if (m_Network.IsValid() && m_Network.FindNode(m_NodeId) is not null)
+				m_Network.SetTangentMode(m_NodeId, value);
+		}
+	}
+}
+
+
+
+/// <summary>
+/// A road's two settings that are not fields of the road: One Way is worked out from its lanes and Sharp Corners from
+/// its two end nodes. Wrapped in an object of their own so the sidebar can edit them like any other property, and for
+/// several roads at once through the same multi-object editing the inspector uses (which also shows where the roads
+/// differ).
+/// </summary>
+public sealed class RoadSegmentFlags
+{
+	private readonly RoadNetwork m_Network;
+	private readonly int m_SegmentId;
+
+
+
+	public RoadSegmentFlags(RoadNetwork _Network, int _SegmentId)
+	{
+		m_Network = _Network;
+		m_SegmentId = _SegmentId;
+	}
+
+
+
+	private RoadSegment Segment => m_Network.IsValid() ? m_Network.FindSegment(m_SegmentId) : null;
+
+
+
+	/// <summary>
+	/// The road runs one way: all its lanes go the same direction. Turning it on sends every lane from the road's
+	/// start to its end; turning it off splits the lanes between the two directions again. Only the painted lines
+	/// change. The Lanes tool sets the split lane by lane.
+	/// </summary>
+	[Property, Title("One Way")]
+	public bool OneWay
+	{
+		get => Segment?.IsOneWay ?? false;
+		set
+		{
+			if (Segment is not { } segment || segment.IsOneWay == value)
+				return;
+
+			int lanes = segment.LaneCount;
+			m_Network.SetLanes(segment.Id, lanes, value ? lanes : RoadSegment.DefaultForwardLanes(lanes));
+		}
+	}
+
+
+
+	/// <summary>
+	/// The road leaves both its ends in a straight line (a grid street corner) instead of flowing smoothly into the
+	/// roads beside it. It is the Auto Tangents mode of the road's two end nodes: on takes them off Full and
+	/// straightens their handles, off hands them back to the network. Every other road at those nodes follows.
+	/// </summary>
+	[Property, Title("Sharp Corners")]
+	public bool SharpCorners
+	{
+		get => Segment is { } segment
+			&& m_Network.FindNode(segment.StartNodeId)?.TangentMode != AutoTangentMode.Full
+			&& m_Network.FindNode(segment.EndNodeId)?.TangentMode != AutoTangentMode.Full;
+		set
+		{
+			if (Segment is not { } segment)
+				return;
+
+			var mode = value ? AutoTangentMode.Disabled : AutoTangentMode.Full;
+
+			m_Network.SetTangentMode(segment.StartNodeId, mode);
+			m_Network.SetTangentMode(segment.EndNodeId, mode);
 		}
 	}
 }
@@ -652,16 +1443,28 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 
 		var network = m_Tool.Network;
 
-		if (network.IsValid() && m_Tool.SelectedNode is { } node)
-			BuildNodeSection(network, node);
-		else if (network.IsValid() && m_Tool.SelectedSegment is { } segment)
-			BuildSegmentSection(network, segment);
+		if (network.IsValid() && m_Tool.SelectedNodes.ToList() is { Count: > 0 } nodes)
+			BuildNodeSection(network, nodes);
+		else if (network.IsValid() && m_Tool.SelectedSegments.ToList() is { Count: > 0 } segments)
+			BuildSegmentSection(network, segments);
 		else
-			AddGroup("Selection").Add(new Label("Click a node or a road to select it."));
+			AddGroup("Selection").Add(new WrappedLabel("Click a node or a road to select it. Shift+click adds more. Double-click a road to select every road connected to it."));
+
+		var snapping = AddGroup("Snapping", collapsible: true);
+		var snapTool = m_Tool.GetSerialized();
+
+		SidebarRows.Add(snapping, snapTool.GetProperty(nameof(RoadSelectTool.AngleSnap)));
+		SidebarRows.Add(snapping, snapTool.GetProperty(nameof(RoadSelectTool.AngleStep)));
+		SidebarRows.Add(snapping, snapTool.GetProperty(nameof(RoadSelectTool.GridSnap)));
+		SidebarRows.Add(snapping, snapTool.GetProperty(nameof(RoadSelectTool.GridSize)));
+		SidebarRows.Add(snapping, snapTool.GetProperty(nameof(RoadSelectTool.NodeSnap)));
 
 		AddShortcuts(
-			("Select", "LMB"),
+			("Select", "LMB or SHIFT + LMB"),
+			("Select Connected Roads", "Double LMB or SHIFT + Double LMB"),
 			("Drag Node / Tangent", "LMB Drag"),
+			("Move Selected Roads", "Gizmo"),
+			("Flip Snapping (Angle, Grid, Nodes)", "Hold SHIFT"),
 			("Straight Tangent (no mirror)", "ALT + Drag"),
 			("Insert Node On Road", "CTRL + LMB"),
 			("Delete Selection", "DEL"),
@@ -673,41 +1476,64 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 
 
 
-	private void BuildNodeSection(RoadNetwork _Network, RoadNode _Node)
+	private void BuildNodeSection(RoadNetwork _Network, List<RoadNode> _Nodes)
 	{
-		var group = AddGroup($"Node #{_Node.Id}");
-		var serialized = _Node.GetSerialized();
+		bool multiple = _Nodes.Count > 1;
+		var group = AddGroup(multiple ? $"{_Nodes.Count} Nodes" : $"Node #{_Nodes[0].Id}");
 
-		serialized.OnPropertyStartEdit += _ => BeginEdit("Edit Node");
+		// One object over every selected node, like the roads: a write goes to all of them and a value that differs is
+		// shown as such.
+		var serialized = Combine(_Nodes.Select(node => node.GetSerialized()));
+
+		serialized.OnPropertyStartEdit += _ => BeginEdit(multiple ? "Edit Nodes" : "Edit Node");
 		serialized.OnPropertyFinishEdit += _ => EndEdit();
-		serialized.OnPropertyChanged += property => m_Tool.OnNodeEdited(_Node, property?.Name);
+		serialized.OnPropertyChanged += property =>
+		{
+			foreach (var node in _Nodes)
+				m_Tool.OnNodeEdited(node, property?.Name);
+		};
 
-		// The position is read off the tool rather than the node, so it can be shown in the node's own frame as
-		// well as the network's; its setter moves the node either way.
-		var tool = m_Tool.GetSerialized();
+		// The position can only be set for one node. It is read off the tool rather than the node, so it can be shown
+		// in the node's own frame as well as the network's; its setter moves the node either way.
+		if (!multiple)
+		{
+			var tool = m_Tool.GetSerialized();
 
-		tool.OnPropertyStartEdit += property => BeginEdit(property?.Name == nameof(RoadSelectTool.NodeTangents) ? "Edit Node" : "Move Node");
-		tool.OnPropertyFinishEdit += _ => EndEdit();
+			tool.OnPropertyStartEdit += _ => BeginEdit("Move Node");
+			tool.OnPropertyFinishEdit += _ => EndEdit();
 
-		SidebarRows.Add(group, tool.GetProperty(nameof(RoadSelectTool.NodeSpace)));
-		SidebarRows.AddVector(group, tool.GetProperty(nameof(RoadSelectTool.NodePosition)));
-		SidebarRows.Add(group, tool.GetProperty(nameof(RoadSelectTool.NodeTangents)));
+			SidebarRows.Add(group, tool.GetProperty(nameof(RoadSelectTool.NodeSpace)));
+			SidebarRows.AddVector(group, tool.GetProperty(nameof(RoadSelectTool.NodePosition)));
+		}
+
+		var flags = Combine(_Nodes.Select(node => new RoadNodeFlags(_Network, node.Id).GetSerialized()));
+
+		flags.OnPropertyStartEdit += _ => BeginEdit(multiple ? "Edit Nodes" : "Edit Node");
+		flags.OnPropertyFinishEdit += _ => EndEdit();
+
+		SidebarRows.Add(group, flags.GetProperty(nameof(RoadNodeFlags.AutoTangents)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadNode.CornerRadius)));
-		group.Add(new Label($"Roads at this node: {_Network.GetDegree(_Node.Id)}"));
+
+		if (!multiple)
+			group.Add(new Label($"Roads at this node: {_Network.GetDegree(_Nodes[0].Id)}"));
 
 		var row = group.AddRow();
 		row.Spacing = 4;
-		row.Add(new Button("Delete Node", "delete") { Clicked = m_Tool.DeleteSelection });
+		row.Add(new Button(multiple ? "Delete Nodes" : "Delete Node", "delete") { Clicked = m_Tool.DeleteSelection });
 	}
 
 
 
-	private void BuildSegmentSection(RoadNetwork _Network, RoadSegment _Segment)
+	private void BuildSegmentSection(RoadNetwork _Network, List<RoadSegment> _Segments)
 	{
-		var group = AddGroup($"Road #{_Segment.Id}");
-		var serialized = _Segment.GetSerialized();
+		bool multiple = _Segments.Count > 1;
+		var group = AddGroup(multiple ? $"{_Segments.Count} Roads" : $"Road #{_Segments[0].Id}");
 
-		serialized.OnPropertyStartEdit += _ => BeginEdit("Edit Road");
+		// One object over every selected road: a write goes to all of them, and a property whose value differs between
+		// them is shown greyed out (or as "Multiple Values"), the way the inspector shows several objects.
+		var serialized = Combine(_Segments.Select(segment => segment.GetSerialized()));
+
+		serialized.OnPropertyStartEdit += _ => BeginEdit(multiple ? "Edit Roads" : "Edit Road");
 		serialized.OnPropertyFinishEdit += _ => EndEdit();
 		serialized.OnPropertyChanged += _ => m_Tool.OnSegmentEdited();
 
@@ -715,14 +1541,37 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadSegment.Bridge)));
 		SidebarRows.AddWide(group, serialized.GetProperty(nameof(RoadSegment.Props)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadSegment.Width)));
+
+		// One Way and Sharp Corners are not fields of the road, so they are edited through a small object per road.
+		var flags = Combine(_Segments.Select(segment => new RoadSegmentFlags(_Network, segment.Id).GetSerialized()));
+
+		flags.OnPropertyStartEdit += _ => BeginEdit(multiple ? "Edit Roads" : "Edit Road");
+		flags.OnPropertyFinishEdit += _ => EndEdit();
+		flags.OnPropertyChanged += _ => m_Tool.OnSegmentEdited();
+
+		var oneWay = SidebarRows.Add(group, flags.GetProperty(nameof(RoadSegmentFlags.OneWay)));
+
+		// A single lane has only one direction to go, so it is always one way: shown ticked, and not to be changed.
+		if (oneWay is not null && _Segments.All(segment => segment.LaneCount <= 1))
+		{
+			const string reason = "Roads with a single lane are always one way.";
+
+			oneWay.Enabled = false;
+			oneWay.ToolTip = reason;
+
+			foreach (var child in oneWay.Children)
+				child.ToolTip = reason;
+		}
+
+		SidebarRows.Add(group, flags.GetProperty(nameof(RoadSegmentFlags.SharpCorners)));
 		SidebarRows.Add(group, serialized.GetProperty(nameof(RoadSegment.ConformTerrain)));
 
-		float length = _Network.GetCurveTable(_Segment)?.Length ?? 0.0f;
-		group.Add(new Label($"Length: {length:0} units"));
+		float length = _Segments.Sum(segment => _Network.GetCurveTable(segment)?.Length ?? 0.0f);
+		group.Add(new Label(multiple ? $"Total length: {length:0} units" : $"Length: {length:0} units"));
 
 		var row = group.AddRow();
 		row.Spacing = 4;
-		row.Add(new Button("Delete Road", "delete") { Clicked = m_Tool.DeleteSelection });
+		row.Add(new Button(multiple ? "Delete Roads" : "Delete Road", "delete") { Clicked = m_Tool.DeleteSelection });
 
 		// How the edges run: extra width per side at each end (a lane appearing over a taper), and the ramp
 		// treatment for a road leaving another from its side.
@@ -733,6 +1582,28 @@ file class RoadSelectToolWidget : ToolSidebarWidget
 		SidebarRows.Add(shape, serialized.GetProperty(nameof(RoadSegment.RightExtraStart)));
 		SidebarRows.Add(shape, serialized.GetProperty(nameof(RoadSegment.RightExtraEnd)));
 		SidebarRows.Add(shape, serialized.GetProperty(nameof(RoadSegment.Ramp)));
+	}
+
+
+
+	/// <summary>
+	/// One object when there is one, otherwise a multi-object over all of them.
+	/// </summary>
+	private static SerializedObject Combine(IEnumerable<SerializedObject> _Objects)
+	{
+		var list = _Objects.ToList();
+
+		if (list.Count == 1)
+			return list[0];
+
+		var multi = new MultiSerializedObject();
+
+		foreach (var item in list)
+			multi.Add(item);
+
+		multi.Rebuild();
+
+		return multi;
 	}
 
 
